@@ -56,6 +56,6 @@ Still unresolved: we escalate to our TA, then to the instructor. We escalate ear
 - Grayson Whittingham, 9/4/2026
 - Tam Nguyen, 9/4/2026
 - Ethan Paredez, 9/4/2026
-- <Name, Date>
+- Iid Maxamuud, 9/4/2026
 - <Name, Date>
 - <Name, Date>

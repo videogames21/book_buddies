@@ -54,7 +54,7 @@ Still unresolved: we escalate to our TA, then to the instructor. We escalate ear
 ## Signatures
 
 - Grayson Whittingham, 9/4/2026
-- <Name, Date>
+- Tam Nguyen, 9/4/2026
 - <Name, Date>
 - <Name, Date>
 - <Name, Date>

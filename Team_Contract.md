@@ -7,7 +7,7 @@
 
 ## 1. Meeting time
 
-We meet every **Sunday** at **5pm** in **Tucker Technology**, for 4 Hours.
+We meet every **Thursday** at **7pm** in **Tucker Technology**, for 2 Hours, and **Sunday** at **5pm** in **Tucker Technology**, for 4 Hours.
 A member who cannot attend tells the team **at least 1 hour before** and reads the minutes.
 
 ## 2. Communication

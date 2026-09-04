@@ -53,7 +53,7 @@ Still unresolved: we escalate to our TA, then to the instructor. We escalate ear
 
 ## Signatures
 
-- <Name, Date>
+- Grayson Whittingham, 9/4/2026
 - <Name, Date>
 - <Name, Date>
 - <Name, Date>

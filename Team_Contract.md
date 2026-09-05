@@ -58,4 +58,4 @@ Still unresolved: we escalate to our TA, then to the instructor. We escalate ear
 - Ethan Paredez, 9/4/2026
 - Iid Maxamuud, 9/4/2026
 - McKenzie Mitchell-Richardson, 9/4/26
-- <Name, Date>
+- Jayapradeep Jayaraman Srinivas, 9/4/26>

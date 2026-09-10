@@ -1,0 +1,21 @@
+How do we get the books to recommend? Is it something like a dataset you give us or a library system?
+How do kids interests, moods, abilities, and opinions correlate to what boos they like.
+Is there a search option for manual searching? If so, how does it search for books?
+For finding a book, how do you recommend a book based on picture based questions?
+Does this app allow you to read books within it? (So is it an ebook reader app also?)
+How do stars effect a ranking of a book? Does a lower star count mean the book is recommended to kids less even if the book is the most recommended based on the questions?
+Do kids have to be a part of a group to use the app? Do they have to have a parent overseeing their account?
+Are parents allowed to use the app also?
+What kind of options do parent accounts have?
+What information can parents or teachers input about a kid that changes how recommendations work?
+Define what a more challenging book is.
+What kind of management do parent and/or teachers have over their groups?
+How does the app access how well a child can read?
+Does a kid recommending a book to others make it more likely to be picked over others that also fit a kids interests? If so how does it effect new books?
+How does the 'Stretch my reader' option work? Is it chosen by the kid? The parent? And how does not 'push' kids into older content?
+How does joining a school work? How is it different from teachers?
+What is the 'safe structure' the parents/teachers provide?
+Can a parent restrict what kind of books their kid is reading?
+
+Big questions:
+How does one recommend a book to a kid? (What are the terms, how do you match interests with topics, etc. Basically ask if you were to walk up to a kid and ask them questions, what book would you give them and why did you give them that book? What criteria did you look for? We don't know anything about recommendation, so we have to ask how)

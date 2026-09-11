@@ -1,5 +1,5 @@
 How do we get the books to recommend? Is it something like a dataset you give us or a library system?
-How do kids interests, moods, abilities, and opinions correlate to what boos they like.
+How do kids interests, moods, abilities, and opinions correlate to what books they like.
 Is there a search option for manual searching? If so, how does it search for books?
 For finding a book, how do you recommend a book based on picture based questions?
 Does this app allow you to read books within it? (So is it an ebook reader app also?)

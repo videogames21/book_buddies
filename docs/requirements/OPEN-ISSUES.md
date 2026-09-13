@@ -1,7 +1,7 @@
 # Open Issues
 
-**Project:** _[Your project name]_
-**Team:** _[Team NN]_
+**Project:** BookBuddies 
+**Team:** 5
 
 ---
 
@@ -29,7 +29,13 @@ _[Send the shortlist to your client the day before. A client who has seen the qu
 
 | ID | Question | Why it matters | Who can answer | Raised |
 |---|---|---|---|---|
-| OI-1 | _[The question, phrased so it has a definite answer. Not "tell us about reporting" but "who is allowed to see another student's evaluation scores?"]_ | _[What we get wrong if we guess. Name the artifact or decision it blocks.]_ | _[Client, instructor, a specific user, or the team itself]_ | _[YYYY-MM-DD]_ |
+| OI-0 | _[The question, phrased so it has a definite answer. Not "tell us about reporting" but "who is allowed to see another student's evaluation scores?"]_ | _[What we get wrong if we guess. Name the artifact or decision it blocks.]_ | _[Client, instructor, a specific user, or the team itself]_ | _[YYYY-MM-DD]_ |
+| OI-1 | _ | _ | __ | __ |
+| OI-2 | _ | _ | __ | __ |
+| OI-3 | _ | _ | __ | __ |
+| OI-4 | _ | _ | __ | __ |
+| OI-5 | _ | _ | __ | __ |
+
 
 ## Resolved
 

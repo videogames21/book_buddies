@@ -35,6 +35,11 @@ _[Send the shortlist to your client the day before. A client who has seen the qu
 | OI-3 | _ | _ | __ | __ |
 | OI-4 | _ | _ | __ | __ |
 | OI-5 | _ | _ | __ | __ |
+| OI-6 | _ | _ | __ | __ |
+| OI-7 | _ | _ | __ | __ |
+| OI-8 | _ | _ | __ | __ |
+| OI-9 | _ | _ | __ | __ |
+| OI-10 | _ | _ | __ | __ |
 
 
 ## Resolved
@@ -42,3 +47,13 @@ _[Send the shortlist to your client the day before. A client who has seen the qu
 | ID | Question | Answer | Answered by | Date | Filed in |
 |---|---|---|---|---|---|
 | OI-0 | _[Example row, delete it]_ | _[What we were told]_ | _[Name]_ | _[YYYY-MM-DD]_ | _[`BO-grading-time`, or the glossary term, or the section]_ |
+|OI-1|---|---|---|---|---|
+|OI-2|---|---|---|---|---|
+|OI-3|---|---|---|---|---|
+|OI-4|---|---|---|---|---|
+|OI-5|---|---|---|---|---|
+|OI-6|---|---|---|---|---|
+|OI-7|---|---|---|---|---|
+|OI-8|---|---|---|---|---|
+|OI-9|---|---|---|---|---|
+|OI-10|---|---|---|---|---|

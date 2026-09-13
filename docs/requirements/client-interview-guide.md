@@ -1,8 +1,8 @@
 # Client Interview Guide
 
-**Project:** _[Your project name]_
-**Team:** _[Team NN]_
-**Client:** _[Client name and organization]_
+**Project:** BookBuddies
+**Team:** BookBuddies
+**Client:** Dr. Yang Yang
 **Meeting:** _[Which one. This is meeting 1 of several.]_
 
 ---

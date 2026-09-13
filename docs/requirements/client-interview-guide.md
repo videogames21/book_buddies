@@ -32,7 +32,7 @@ This is about order, not silence. Some clients want to think out loud with you, 
 ## Meeting record
 
 | | |
-|---|---|
+| --- | --- |
 | **Date** | _[YYYY-MM-DD]_ |
 | **Time and location** | _[Where, and in person or remote]_ |
 | **Client participants** | _[Name, role. Everyone, including whoever only listened.]_ |
@@ -47,7 +47,7 @@ _Ask to record, and say why: so nobody is transcribing instead of listening. If 
 Most first meetings run 60 to 90 minutes. Budget for the short one.
 
 | Part | Sections | 60 min | 90 min |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Opening | 1 | 5 | 5 |
 | The business | 2, 3 | 10 | 15 |
 | The process | 4, 5, 6, 7, 8 | 25 | 40 |
@@ -60,9 +60,9 @@ Most first meetings run 60 to 90 minutes. Budget for the short one.
 
 ---
 
-# Opening
+## Opening
 
-## 1. Get to know your client
+### 1. Get to know your client
 
 _**Must ask. 5 min.** Not small talk. Whose problem is this, how much of the domain lives only in this person's head, and how much of their own time do they have for you? A client fitting this around a full job answers email slowly, and you want to know that in week 3 rather than week 9._
 
@@ -72,9 +72,9 @@ _Adapt: Tell me about being an HR manager. How did you choose that line of work?
 
 ---
 
-# The business
+## The business
 
-## 2. Context and domain
+### 2. Context and domain
 
 _**Must ask. 5 min.** You are here for vocabulary as much as facts. Every term you do not recognize goes in the glossary before you leave. When your client says "cycle" in one sentence and "sprint" in the next, ask which they mean while they are still in front of you; an agent reading the transcript afterward cannot ask._
 
@@ -84,7 +84,7 @@ _Adapt: Give us some background on recruiting here. Why does it matter to the co
 
 **Terms for the glossary, in their words:** _[Term: what they said it means. Flag any term two people used differently.]_
 
-## 3. Business drivers and objectives
+### 3. Business drivers and objectives
 
 _**Must ask. 5 min.** Why this, why now. These become your business objectives, so push for a number: when they name a benefit, ask the follow-up nobody asks, **what is that number today?**_
 
@@ -98,9 +98,9 @@ _Adapt: Why did you propose this project? What is the main problem, or the oppor
 
 ---
 
-# The process
+## The process
 
-## 4. How it works today
+### 4. How it works today
 
 _**Must ask. 10 min, the best ten in the meeting.** Ask them to show you rather than tell you. People describe the process they believe they follow; the spreadsheet shows the one they actually follow, and the gap is where the requirements hide. **"Show me" is the two most productive words in requirements engineering, and they cost nothing.**_
 
@@ -112,7 +112,7 @@ _Adapt: What are the steps in hiring a technical candidate? Could you show me yo
 
 **Artifacts they showed us:** _[Spreadsheets, forms, reports, current tools, screenshots taken. Ask for copies of everything.]_
 
-## 5. What is hard about it
+### 5. What is hard about it
 
 _**Must ask. 5 min.** The complaint is usually the requirement. Listen for "must", "unless", "only", and "except", which arrive unannounced in the middle of a story about something else. Those sentences are business rules, and they exist whether or not your software does._
 
@@ -122,7 +122,7 @@ _Adapt: What is the most frustrating part? Walk me through the last time it went
 
 **Rules heard (candidate `BR-*` for week 4):** _[Write each as their policy, not as software behavior.]_
 
-## 6. What already works
+### 6. What already works
 
 _**Must ask. 3 min.** Ask what is good before you propose replacing it. A team that removes something the client liked has lost trust it will not get back this semester, and nobody volunteers this unasked._
 
@@ -130,7 +130,7 @@ _Adapt: What would you keep exactly as it is? What would you miss if it disappea
 
 **What they said:** _[Explicitly: what must not change.]_
 
-## 7. Volumes and scale
+### 7. Volumes and scale
 
 _**Must ask. 3 min.** These numbers decide most of your architecture, and they are cheap to ask for and expensive to guess. Twenty records a semester and two hundred thousand a day are different systems._
 
@@ -138,7 +138,7 @@ _Adapt: How many of these in a week? A year? How many at the busiest moment, and
 
 **What they said:** _[Get a number, or record that you did not.]_
 
-## 8. Who the users are
+### 8. Who the users are
 
 _**Must ask. 4 min.** The person who commissions software is often not the person who uses it._
 
@@ -152,9 +152,9 @@ _Adapt: Who uses this day to day? How many? What do they use today? Can we talk 
 
 ---
 
-# The boundaries
+## The boundaries
 
-## 9. Constraints and rules
+### 9. Constraints and rules
 
 _**Must ask. 4 min.** Nobody asks these in meeting 1 and everybody regrets it in November. A constraint restricts how you may build, and it is a requirement even though it describes no behavior. Ask directly; clients do not volunteer these, they assume you know._
 
@@ -162,7 +162,7 @@ _Adapt: Is there anything we are required to use, or forbidden from using? Does 
 
 **What they said:**
 
-## 10. External dependencies
+### 10. External dependencies
 
 _**Must ask. 3 min.** What your system has to talk to. Access credentials take weeks to obtain, so the ask has to happen now._
 
@@ -170,7 +170,7 @@ _Adapt: What other systems does this exchange data with, in which direction, in 
 
 **What they said:**
 
-## 11. Lifetime and who maintains it
+### 11. Lifetime and who maintains it
 
 _**Must ask. 2 min.** The question students never ask and every client can answer. **Who runs this after we graduate, and what do they already know how to run?** It constrains your entire technology choice, so ask before you pick a stack rather than after._
 
@@ -178,7 +178,7 @@ _Adapt: How long should this keep running? Who supports it after we graduate fro
 
 **What they said:**
 
-## 12. Other stakeholders
+### 12. Other stakeholders
 
 _**If there is time. 1 min.** Cheap, and occasionally it turns out somebody with a veto has not been consulted._
 
@@ -188,9 +188,9 @@ _Adapt: Who else could influence this, or be affected by it? Whose approval do w
 
 ---
 
-# The close
+## The close
 
-## 13. Anything else
+### 13. Anything else
 
 _**Must ask. 1 min.** Ask it, then stop talking and wait through the silence. Highest-yield question in the guide, and it only works if you do not fill the pause._
 
@@ -198,7 +198,7 @@ _Adapt: Is there anything I should have asked and did not? What have we not talk
 
 **What they said:**
 
-## 14. The read-back
+### 14. The read-back
 
 _**Never skip. 5 min.** The part teams cut when they run late, and the highest-value five minutes of the hour. Say what you understood in your own words and watch for the correction. A client who is nodding may be being polite; a client correcting you is engaged, and that correction is usually the single most useful sentence of the meeting._
 
@@ -208,7 +208,7 @@ _Fill in the [vision-and-scope.md](vision-and-scope.md) vision statement table d
 
 **What we read back, and what they corrected:** _[Corrections first. They matter more than the agreements.]_
 
-## 15. Before you leave the room
+### 15. Before you leave the room
 
 _**Never skip. 4 min.** Unglamorous, and where teams lose two weeks._
 
@@ -222,12 +222,12 @@ _**Never skip. 4 min.** Unglamorous, and where teams lose two weeks._
 
 ---
 
-# After the meeting
+## After the meeting
 
 _File everything within 24 hours, while you still remember why each answer mattered. This file is a record, not a home._
 
 | Section | Feeds |
-|---|---|
+| --- | --- |
 | 1, 2 | [project-glossary.md](project-glossary.md), and Background in [vision-and-scope.md](vision-and-scope.md) |
 | 3 | Business Opportunity, Objectives, and Success Metrics in [vision-and-scope.md](vision-and-scope.md) |
 | 4, 6 | Background and the process flow in [vision-and-scope.md](vision-and-scope.md); use cases in week 4 |
@@ -238,15 +238,15 @@ _File everything within 24 hours, while you still remember why each answer matte
 | 14 | Scope and the vision statement in [vision-and-scope.md](vision-and-scope.md) |
 | Anything unanswered | [OPEN-ISSUES.md](OPEN-ISSUES.md) |
 
-## Initial ideas
+### Initial ideas
 
 _[Solutions anyone floated, yours or theirs. Record them here and nowhere else yet. A solution the client already picked ("then I select the state from a drop-down") is not a requirement, and writing it into the specification makes a design decision on their behalf. Ask why until you reach the need underneath, then write down the need.]_
 
-## Disagreements and hesitations
+### Disagreements and hesitations
 
 _[The observer's section, and the one that evaporates fastest. Two participants using the same word differently. A question answered by the wrong person. A topic they returned to three times. An answer that changed between the start and the end. A visible pause before "yes". None of it is evidence on its own; all of it tells you where to look next.]_
 
-## Open questions
+### Open questions
 
 _[Everything you could not answer, and everything they answered with "I would have to check". Copy each into [OPEN-ISSUES.md](OPEN-ISSUES.md) as an `OI-*` with the person who can answer it, then sort them before the next meeting by what it costs you to stay wrong.]_
 

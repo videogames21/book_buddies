@@ -1,8 +1,8 @@
 # Use Cases
 
-**Project:** _[Your project name]_
-**Team:** _[Team NN]_
-**Client:** _[Client name and organization]_
+**Project:** Book Buddies\
+**Team:** Team 5\
+**Client:** Yang Yang, Research Scientist IBR/Knight D Research\
 **Version:** 0.1
 
 ---
@@ -27,9 +27,9 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 
 ## Revision History
 
-| Date | Version | Description | Author |
-|---|---|---|---|
-| _[YYYY-MM-DD]_ | 0.1 | Initial use cases derived from the vision and scope feature list | _[Name]_ |
+| Date           | Version | Description                           | Author                |
+|----------------|---|---------------------------------------|-----------------------|
+| _[2026-09-13]_ | 0.1 | File setup and ready for feature list | _Grayson Whittingham_ |
 
 ---
 
@@ -37,7 +37,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 
 ### 1.1 Purpose
 
-_[One paragraph: this document specifies the goals users can accomplish with the system, in enough detail that a developer knows what to build and a tester knows what to check.]_
+Bookbuddies is an app that allows kids get easy recommendation based on criteria, adult input, and other kids input. Kids are added to groups by adults and can record and recommend books to other kids. Adults can check a child's reading profile, manage accounts and groups, bias the recommendation system slightly, wipe child data, and report books. System admins are still a work in progress.
 
 ### 1.2 Scope
 

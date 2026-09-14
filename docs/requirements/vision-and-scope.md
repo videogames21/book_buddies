@@ -123,8 +123,8 @@ _[List every document referenced elsewhere in this one: the client's project bri
 - Client interview notes, 2026-09-10 — `docs/requirements/client-interview-2026-09-10.md`
 - Team napkin assessment, undated — `docs/napkin-round-0.md`
 - Yang's follow-up design notes ("BookBuddies Profiles"), 2026-09-12 — seed catalog tagging domains, recommender staging, adult- and kid-facing profile scope, and gamification badge concepts. Not yet added to the repo — add alongside this revision.
-- Original concept slide deck — Yang Yang, not yet added to the repo (see `OI-3`)
-- Shiny app demo link — Yang Yang, not yet added to the repo (see `OI-3`)
+- Original concept slide deck — Yang Yang, not yet added to the repo
+- Shiny app demo link — Yang Yang, not yet added to the repo
 ---
  
 ## 2. Business Requirements
@@ -150,7 +150,7 @@ _**How to elicit these.** Clients rarely volunteer numbers. Ask: What business p
  
 _**Checklist:** A year from now, could someone tell whether each objective was met? Does each one contain a quantity?]_
  
-_The client has not yet given the team target numbers for these. The objectives below are the team's draft candidates, built from what the client described wanting, and are marked DRAFT until confirmed. Bring these to the client as-is and ask for the number — see `OI-4`._
+_The client has not yet given the team target numbers for these. The objectives below are draft candidates pending client confirmation. The criteria behind recommendation relevance also remain unresolved (see `OI-2`)._
  
 - `BO-book-engagement` (DRAFT): Increase the number of books a child finishes reading per month, relative to before using the app, by a target percentage TBD with the client.
 - `BO-recommendation-relevance` (DRAFT): Increase the share of quiz/AI-suggested books a child rates positively (e.g., 4+ stars or a "loved it" reaction) to a target percentage TBD with the client.
@@ -175,7 +175,7 @@ _**Choose your success metrics wisely. Make sure they measure what is important 
  
 _**Checklist:** Does each metric name its source, its baseline, and its deadline? Can this software actually move it? Can it be measured during testing or shortly after release, rather than a year later? Does every business objective have at least one metric behind it, and does every metric trace back to an objective?]_
  
-_Also draft, pending client numbers — see `OI-4`._
+_These metrics are also drafts pending client confirmation of their target values._
  
 - `SM-quiz-usage` (traces to `BO-recommendation-relevance`): Share of active child accounts that request a new recommendation quiz at least once a week. Baseline: N/A (new product). Target: TBD.
 - `SM-shelf-activity` (traces to `BO-book-engagement`): Share of active child accounts that add at least one book to their shelf within their first two weeks. Baseline: N/A. Target: TBD.
@@ -263,7 +263,7 @@ _Examples:_
 - _`AS-restaurant-integration`: If a restaurant has its own online ordering system, the Cafeteria Ordering System must be able to communicate with it bi-directionally._
 _**Checklist:** For each assumption, what happens to this project if it is false? If the answer is "nothing", it is not worth recording. If the answer is "we start over", raise it with your client this week._
  
-- `AS-google-books-source`: The initial 30–50 book seed catalog can be sourced and tagged (genre, mood, reading level) using Google Books or a similar public API. If false, the team needs a different content source before the recommendation quiz has anything to recommend from.
+- `AS-book-data-source`: The initial 30–50 book seed catalog can be sourced and tagged using a client-provided dataset or an external book-data source. The source is unresolved (see `OI-1`); if neither is available, the recommendation quiz has nothing to recommend from.
 - `AS-coppa-adjacent-only`: The client wants the system to align with COPPA-adjacent practices as a design discipline, not to pursue formal COPPA compliance or legal certification. If false, the project needs legal review the team is not positioned to provide.
 - `AS-email-linking`: Parent accounts are created and linked via email, not phone number, and this is acceptable for the client's expected user base.
 - `AS-teacher-role-deferred`: Teachers remain a stretch goal; the MVP does not need class-roster management or teacher-level content restriction.
@@ -298,7 +298,7 @@ _[Describe the working environment of the target users:_
 - _What other applications are in use, and does yours have to integrate with them?]_
 Children are expected to use the app largely at home (evenings and weekends), in short, touch-first sessions of roughly 5–15 minutes — the client's note that the discovery quiz is picture-based (not text-heavy) points to a UI built around large tap targets and minimal reliance on reading to navigate the app itself. Parents check in periodically, at minimum every 24 hours to satisfy the review-window rule, likely from a phone in short gaps between other tasks. There is no existing software this project integrates with today; the one external dependency is a book-metadata source (Google Books or similar) used once, up front, to build the seed catalog rather than as a live integration.
  
-_**Open issue:** whether BookBuddies needs to be a native mobile app, a mobile-responsive web app, or both has not been specified by the client — see `OI-5`._
+_**Open issue:** whether BookBuddies needs to be a native mobile app, a mobile-responsive web app, or both has not been specified by the client._
  
 ### 3.3 Alternatives and Competition
  
@@ -359,12 +359,12 @@ _Examples:_
 - _`FEAT-performance-tracking`: Submit and review weekly activity reports and peer evaluations._
 - _`FEAT-grade-generation`: Generate weekly activity report and peer evaluation grades for an entire section._
 - `FEAT-recommendation-quiz`: Give a child book recommendations via a picture-based quiz on genre and mood, run every time they want a new suggestion, not only at onboarding.
-- `FEAT-ai-recommendation`: Refine recommendations over time using kids' saving/rating/recommending behavior. Per Yang's 2026-09-12 notes, this rolls out in three stages: **(1)** a rules engine filters the tagged seed catalog by mood/length and returns the top matches; **(2)** the same rules engine narrows to a candidate set, and an ML model re-ranks it using what "similar" kids (by behavior only — never age, location, or other demographics) saved, loved, or recommended; **(3)** the model starts finding non-obvious matches the tags never captured, while still enforcing safety/age-appropriateness filtering. *(Stage 1 is the team's realistic MVP target; see `RI-scope-creep-ai` and `OI-8`.)*
+- `FEAT-ai-recommendation`: Refine recommendations over time using kids' saving/rating/recommending behavior. Per Yang's 2026-09-12 notes, this rolls out in three stages: **(1)** a rules engine filters the tagged seed catalog by mood/length and returns the top matches; **(2)** the same rules engine narrows to a candidate set, and an ML model re-ranks it using what "similar" kids (by behavior only — never age, location, or other demographics) saved, loved, or recommended; **(3)** the model starts finding non-obvious matches the tags never captured, while still enforcing safety/age-appropriateness filtering. *(Stage 1 is the team's realistic MVP target; see `RI-scope-creep-ai`.)*
 - `FEAT-book-tagging`: Tag every seed-catalog book across genre, mood, format, themes, length, age fit, and reading level (Lexile/AR), verified by kid readers before launch, so the recommender and search have consistent metadata to work from.
 - `FEAT-adult-influence-notes`: Let a parent or teacher add a private note about a child (e.g., a growth theme like "building confidence") that quietly biases which books surface for that child, without the underlying note or theme ever being shown to the child.
 - `FEAT-group-sharing-controls`: Require adult approval for every member added to a family or classroom reading group, and let a child (via their adult) toggle whether their shared picks show their name or stay anonymous within the group.
 - `FEAT-recap-adult`: Give a parent an optional weekly and monthly recap of a child's activity, written as a short qualitative snapshot (what caught their attention, a notable first) rather than a count, streak, or comparison to other kids.
-- `FEAT-reading-identity-badges`: Give a child identity-based badges (e.g., "Mystery Fan," "Great Recommender") that reflect their reading taste, exploration, and generosity in recommending to peers — never a count, level, or comparison to other kids. *(Badge design is explicitly still forming per Yang's notes — see `OI-9`.)*
+- `FEAT-reading-identity-badges`: Give a child identity-based badges (e.g., "Mystery Fan," "Great Recommender") that reflect their reading taste, exploration, and generosity in recommending to peers — never a count, level, or comparison to other kids. *(Badge design is explicitly still forming per Yang's notes)*
 - `FEAT-achievement-pages` **(WITHDRAWN)**: Originally, a Duolingo-style page showing a child's weekly/monthly books, genres, and reading-level progress. Yang's 2026-09-12 notes explicitly rule out showing a child their reading level, book/page counts, streaks, or peer comparisons — which conflicts with this feature as first described in the 2026-09-10 interview. Retired in favor of `FEAT-reading-identity-badges` (child-facing) and `FEAT-recap-adult` (parent-facing). *See `OI-8` — confirm this reading with the client before treating it as settled.*
 - `FEAT-shelf`: Let a child archive books as want-to-read, read, or recommend.
 - `FEAT-peer-feed`: Show a child what friends and classmates are reading.
@@ -390,11 +390,21 @@ _Ask your client the question directly: "If we can deliver only one of these in 
 **In scope for the MVP:** `FEAT-recommendation-quiz`, `FEAT-shelf`, `FEAT-ratings`, `FEAT-manual-search`, `FEAT-reading-level-baseline`, `FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`, `FEAT-admin-pii-segregation`, `FEAT-peer-feed`, `FEAT-groups`
  
 **Explicitly out of scope for the MVP:**
-- `FEAT-ai-recommendation` — Stage 1 (rules-only) only; Stages 2–3 (ML re-ranking and matching) are a stretch goal, per the napkin assessment and Yang's staged rollout
-- `FEAT-stretch-my-reader` (engagement layer, not the core loop — confirmed still in Yang's design as an adult-side toggle)
-- `FEAT-achievement-pages` (WITHDRAWN — superseded by `FEAT-reading-identity-badges` and `FEAT-recap-adult`, both of which are also new-and-unscoped, see below)
-- `FEAT-teacher-flagging` (client explicitly scoped the current phase to parents only)
-**Not yet scoped for MVP vs. stretch:** `FEAT-book-tagging` (required groundwork regardless of stage), `FEAT-adult-influence-notes`, `FEAT-group-sharing-controls`, `FEAT-recap-adult`, `FEAT-reading-identity-badges`. These arrived in Yang's 2026-09-12 notes, after the napkin assessment's MVP split was drafted — see `OI-10`.
+- `FEAT-ai-recommendation`: Refine recommendations over time using children's saving, rating, and recommending behavior. The exact matching criteria still require client confirmation (see `OI-2`).
+
+- `FEAT-book-tagging`: Tag books by genre, mood, format, themes, length, age fit, and reading level. The data source and recommendation criteria remain unresolved (see `OI-1` and `OI-2`).
+
+- `FEAT-ebook-reader` **(UNRESOLVED)**: Allow children to read complete ebooks inside BookBuddies. It is not yet known whether the app includes reading or only recommends books read elsewhere (see `OI-3`).
+
+- `FEAT-groups`: Let children form or join reading groups. Whether group membership requires a school or class remains unresolved (see `OI-4`).
+
+- `FEAT-parent-account-linking`: Link a parent account to one or more child accounts. The parent's exact authority remains unresolved (see `OI-5`).
+
+- `FEAT-parent-review-dashboard`: Let a parent review a child's activity. The available actions and visibility remain unresolved (see `OI-5`).
+
+- `FEAT-stretch-my-reader`: Offer optional prompts toward more challenging books. How reading level and challenge are defined remains unresolved (see `OI-6`).
+
+- `FEAT-reading-level-baseline`: Assess a child's reading level. The assessment method remains unresolved (see `OI-6`).
  
 
 ### 4.4 Deployment Considerations

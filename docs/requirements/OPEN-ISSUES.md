@@ -1,7 +1,7 @@
 # Open Issues
 
-**Project:** _[Your project name]_
-**Team:** _[Team NN]_
+**Project:** BookBuddies 
+**Team:** 5
 
 ---
 
@@ -29,10 +29,31 @@ _[Send the shortlist to your client the day before. A client who has seen the qu
 
 | ID | Question | Why it matters | Who can answer | Raised |
 |---|---|---|---|---|
-| OI-1 | _[The question, phrased so it has a definite answer. Not "tell us about reporting" but "who is allowed to see another student's evaluation scores?"]_ | _[What we get wrong if we guess. Name the artifact or decision it blocks.]_ | _[Client, instructor, a specific user, or the team itself]_ | _[YYYY-MM-DD]_ |
+| OI-0 | _[The question, phrased so it has a definite answer. Not "tell us about reporting" but "who is allowed to see another student's evaluation scores?"]_ | _[What we get wrong if we guess. Name the artifact or decision it blocks.]_ | _[Client, instructor, a specific user, or the team itself]_ | _[YYYY-MM-DD]_ |
+| OI-1 | What is the source of the book data — a client-provided dataset, or integration with an existing library system? | Blocks the technical scope and architecture of the recommendation feature entirely | Client | 2026-09-13 |
+| OI-2 | What criteria determine a book recommendation for a specific child (interests, mood, reading ability, topic, etc.)? | Blocks the core Business Objective and Vision Statement — this is the app's central feature and we have no defined logic | Client | 2026-09-13 |
+| OI-3 | Is the app also an ebook reader, or does it only recommend books read elsewhere? | Changes scope significantly — determines if in-app reading is a feature we must build | Client | 2026-09-13 |
+| OI-4 | Do children need to belong to a group (school/class) to use the app, or can they use it independently? | Blocks the user roles and account structure in the Glossary and Vision Statement | Client | 2026-09-13 |
+| OI-5 | What visibility and control do parent/teacher accounts have over a child's account (restricting books, viewing activity, etc.)? | Blocks defining parent/teacher as user roles and their permissions in the Glossary | Client | 2026-09-13 |
+| OI-6 | How does the app assess a child's reading level, and how is a "more challenging book" defined? | Blocks the "Stretch my reader" feature definition and any related Business Objective | Client | 2026-09-13 |
+| OI-7 | _ | _ | __ | __ |
+| OI-8 | _ | _ | __ | __ |
+| OI-9 | _ | _ | __ | __ |
+| OI-10 | _ | _ | __ | __ |
+
 
 ## Resolved
 
 | ID | Question | Answer | Answered by | Date | Filed in |
 |---|---|---|---|---|---|
 | OI-0 | _[Example row, delete it]_ | _[What we were told]_ | _[Name]_ | _[YYYY-MM-DD]_ | _[`BO-grading-time`, or the glossary term, or the section]_ |
+|OI-1|---|---|---|---|---|
+|OI-2|---|---|---|---|---|
+|OI-3|---|---|---|---|---|
+|OI-4|---|---|---|---|---|
+|OI-5|---|---|---|---|---|
+|OI-6|---|---|---|---|---|
+|OI-7|---|---|---|---|---|
+|OI-8|---|---|---|---|---|
+|OI-9|---|---|---|---|---|
+|OI-10|---|---|---|---|---|

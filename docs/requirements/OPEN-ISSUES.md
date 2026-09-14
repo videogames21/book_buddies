@@ -30,12 +30,12 @@ _[Send the shortlist to your client the day before. A client who has seen the qu
 | ID | Question | Why it matters | Who can answer | Raised |
 |---|---|---|---|---|
 | OI-0 | _[The question, phrased so it has a definite answer. Not "tell us about reporting" but "who is allowed to see another student's evaluation scores?"]_ | _[What we get wrong if we guess. Name the artifact or decision it blocks.]_ | _[Client, instructor, a specific user, or the team itself]_ | _[YYYY-MM-DD]_ |
-| OI-1 | _ | _ | __ | __ |
-| OI-2 | _ | _ | __ | __ |
-| OI-3 | _ | _ | __ | __ |
-| OI-4 | _ | _ | __ | __ |
-| OI-5 | _ | _ | __ | __ |
-| OI-6 | _ | _ | __ | __ |
+| OI-1 | What is the source of the book data — a client-provided dataset, or integration with an existing library system? | Blocks the technical scope and architecture of the recommendation feature entirely | Client | 2026-09-13 |
+| OI-2 | What criteria determine a book recommendation for a specific child (interests, mood, reading ability, topic, etc.)? | Blocks the core Business Objective and Vision Statement — this is the app's central feature and we have no defined logic | Client | 2026-09-13 |
+| OI-3 | Is the app also an ebook reader, or does it only recommend books read elsewhere? | Changes scope significantly — determines if in-app reading is a feature we must build | Client | 2026-09-13 |
+| OI-4 | Do children need to belong to a group (school/class) to use the app, or can they use it independently? | Blocks the user roles and account structure in the Glossary and Vision Statement | Client | 2026-09-13 |
+| OI-5 | What visibility and control do parent/teacher accounts have over a child's account (restricting books, viewing activity, etc.)? | Blocks defining parent/teacher as user roles and their permissions in the Glossary | Client | 2026-09-13 |
+| OI-6 | How does the app assess a child's reading level, and how is a "more challenging book" defined? | Blocks the "Stretch my reader" feature definition and any related Business Objective | Client | 2026-09-13 |
 | OI-7 | _ | _ | __ | __ |
 | OI-8 | _ | _ | __ | __ |
 | OI-9 | _ | _ | __ | __ |

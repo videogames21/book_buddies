@@ -52,9 +52,9 @@ _Rules:_
 
 | Date | Version | Description | Author |
 |---|---|---|---|
-| _[YYYY-MM-DD]_ | 0.1 | Initial template | _[Name]_ |
-| 2026-09-13 | 0.2 | Replaced worked examples with real BookBuddies terms from the team one-pager, the feature brief, and Dr. Yang's follow-up design notes (9/12). | _[Name]_ |
-| 2026-09-13 | 0.3 | Checked every term against the actual meeting-1 transcript (2026-09-10). Confirmed "Buddy Picks" as client vocabulary; added terms that surfaced live (Shiny App, 24-Hour Review, Achievement Page, Rating); flagged a direct conflict between what Dr. Yang said live and wrote afterward on Reading Level visibility. | _[Name]_ |
+| 2026-09-08 | 0.1 | Initial template | Iid Maxamuud |
+| 2026-09-13 | 0.2 | Replaced worked examples with real BookBuddies terms from the team one-pager, the feature brief, and Dr. Yang's follow-up design notes (9/12). | Iid Maxamuud |
+| 2026-09-13 | 0.3 | Checked every term against the actual meeting-1 transcript (2026-09-10). Confirmed "Buddy Picks" as client vocabulary; added terms that surfaced live (Shiny App, 24-Hour Review, Achievement Page, Rating); flagged a direct conflict between what Dr. Yang said live and wrote afterward on Reading Level visibility. | Iid Maxamuud |
 
 ---
 
@@ -92,7 +92,7 @@ _**Source:** BookBuddies_Profiles.docx (written follow-up; not discussed in the 
 
 The feed of books recommended by people within a child's adult-approved reading group.
 
-_**Synonyms:** an earlier feature document (`BookBuddies.pdf`) uses "peer feed" for what looks like the same concept. **This glossary now treats "Buddy Picks" as confirmed** — in the 9/10 meeting, Dr. Yang used the word "buddy" herself, unprompted, when discussing privacy ("protect the identity of a kid... also the peers, the buddy's identity"), and never said "peer feed." Still worth a quick explicit confirmation, but no longer a coin-flip._
+_**Synonyms:** an earlier feature document (`Initial_client_meeting.pdf`) uses "peer feed" for what looks like the same concept. **This glossary now treats "Buddy Picks" as confirmed** — in the 9/10 meeting, Dr. Yang used the word "buddy" herself, unprompted, when discussing privacy ("protect the identity of a kid... also the peers, the buddy's identity"), and never said "peer feed." Still worth a quick explicit confirmation, but no longer a coin-flip._
 
 ### COPPA
 

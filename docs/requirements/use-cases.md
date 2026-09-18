@@ -28,9 +28,9 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 ## Revision History
 
 | Date           | Version | Description                           | Author                |
-|----------------|---|---------------------------------------|-----------------------|
-| _[2026-09-13]_ | 0.1 | File setup and ready for feature list | _Grayson Whittingham_ |
-
+|----------------|--------|---------------------------------------|-----------------------|
+| _[2026-09-13]_ | 0.1    | File setup and ready for feature list | _Grayson Whittingham_ |
+| _[2026-09-17]_ | 0.2    | Added Area Codes                      | _Grayson Whittingham_ |
 ---
 
 ## 1. Introduction
@@ -98,10 +98,14 @@ _Data fields are specified as a table:_
 
 _[Your area codes, then a table of every use case by area. Write this list first, before specifying any single use case in detail. It is the cheapest thing to review with your client, and finding out you missed a whole area costs minutes here rather than a week later.]_
 
-| Area code | Feature area | Use cases |
-|---|---|---|
-| _[RUB]_ | _[Rubric, from `FEAT-...`]_ | _[`UC-RUB-...`]_ |
-
+| Area code | Feature area                                                                              | Use cases       |
+|-----------|-------------------------------------------------------------------------------------------|-----------------|
+| _[RUB]_   | _[Rubric, from `FEAT-...`]_                                                               | _[`UC-RUB-...`]_ |
+| [PAR]     | [Parent/Teacher (Need to ask for differences between parent and teacher), from `FEAT...`] | [`None`]        |
+| [SHLF]    | [Shelf, from `FEAT...`]                                                                   | [`None`]        |
+| [GRP]     | [Group, from `FEAT...`]                                                                   | [`None`]        |
+| [ADM]     | [Admin, from `FEAT...`]                                                                   | [`None`]        |
+| [REC]     | [Recommend, from `FEAT...`]                                                               | [`None`]        |
 ---
 
 ## 4. Use Cases

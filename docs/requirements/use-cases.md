@@ -37,18 +37,10 @@ The use cases below cover the MVP features confirmed in [vision-and-scope.md](vi
 
 Several use cases below still depend on an item in [OPEN-ISSUES.md](OPEN-ISSUES.md) that is not yet closed; each affected use case names the open issue it is written against rather than guessing at an answer. Deferred features (`FEAT-ai-recommendation` beyond Stage 1, `FEAT-book-tagging` beyond minimum tagging, `FEAT-ebook-reader`, `FEAT-teacher-flagging`, `FEAT-stretch-my-reader`, `FEAT-reading-identity-badges`) have no use case yet, since they sit outside the current MVP scope (see [vision-and-scope.md](vision-and-scope.md) section 4.3).
 
----
-
-## 2. Use Case List
-
-| Area code | Feature area | Use cases |
-|---|---|---|
-| REC | Recommendations — `FEAT-recommendation-quiz`, `FEAT-manual-search`, `FEAT-recommendation-feedback` | [UC-REC-take-recommendation-quiz](#uc-rec-take-recommendation-quiz), [UC-REC-search-catalog-by-keyword](#uc-rec-search-catalog-by-keyword), [UC-REC-react-to-recommendation](#uc-rec-react-to-recommendation) |
-| SHLF | Shelf — `FEAT-shelf`, `FEAT-ratings` | [UC-SHLF-add-book-to-shelf](#uc-shlf-add-book-to-shelf), [UC-SHLF-rate-and-comment-on-book](#uc-shlf-rate-and-comment-on-book) |
-| GRP | Groups — `FEAT-peer-feed`, `FEAT-groups` | [UC-GRP-view-buddy-picks](#uc-grp-view-buddy-picks), [UC-GRP-create-or-join-group](#uc-grp-create-or-join-group), [UC-GRP-approve-group-member](#uc-grp-approve-group-member) |
-| PAR | Parents — `FEAT-parent-account-linking`, `FEAT-reading-level-baseline`, `FEAT-parent-review-dashboard` | [UC-PAR-create-linked-accounts](#uc-par-create-linked-accounts), [UC-PAR-complete-baseline-reading-test](#uc-par-complete-baseline-reading-test), [UC-PAR-complete-24-hour-review](#uc-par-complete-24-hour-review), [UC-PAR-flag-or-report-content](#uc-par-flag-or-report-content) |
-| ADM | Admin — `FEAT-admin-role-segregation` | [UC-ADM-manage-account-without-pii](#uc-adm-manage-account-without-pii), [UC-ADM-manage-catalog-and-content](#uc-adm-manage-catalog-and-content) |
-
+`| Date           | Version | Description                           | Author                |
+|----------------|--------|---------------------------------------|-----------------------|
+| _[2026-09-13]_ | 0.1    | File setup and ready for feature list | _Grayson Whittingham_ |
+| _[2026-09-17]_ | 0.2    | Added Area Codes                      | _Grayson Whittingham_ |
 ---
 
 ## 3. Use Cases
@@ -169,26 +161,14 @@ Several use cases below still depend on an item in [OPEN-ISSUES.md](OPEN-ISSUES.
 
 **Name:** Rate and comment on a book
 
-**Actors:** Child (primary)
-
-**Trigger:** The child has read a book (shelved as "read") and wants to record a public reaction.
-
-**Preconditions:** The book is on the child's shelf.
-
-**Main flow:**
-1. The child opens a book they have shelved as "read."
-2. The child gives the book a star-and-emoji rating and, optionally, a short comment (`FEAT-ratings`).
-3. The app records the rating against the child's own account and updates the book's aggregate community rating (e.g., "five kids rated it five stars, six rated four stars" — see project-glossary.md, "Rating").
-4. The child's rating becomes one of the weighted behavioral signals available to the Recommender (`BR-similarity-signal-weights`): "loved it" and "rated highly" carry more weight than a plain save, and a low rating is one of the signals feeding "skipped/ignored."
-
-**Alternate flows:**
-- **2a. Child rates without commenting:** The comment field is optional; a rating alone is still recorded and aggregated.
-- **3a. Child gives a low rating:** Per project-glossary.md, "Rating," this never suppresses the book in another child's personal recommendations — ratings are computed independently per child even though they aggregate at the book level.
-
-**Postconditions:** The book's community aggregate rating reflects the new rating; the child's own rating history is visible only to that child, never compared to another child's ratings (`BR-kid-no-metrics`).
-
-**Related:** `FEAT-ratings`, `BR-similarity-signal-weights`, `BR-kid-no-metrics`. Distinct from the private reaction in UC-REC-react-to-recommendation — a rating is a public, book-level signal; a reaction is a private, per-child signal — see [vision-and-scope.md](vision-and-scope.md), `FEAT-ratings`.
-
+| Area code | Feature area                                                                              | Use cases       |
+|-----------|-------------------------------------------------------------------------------------------|-----------------|
+| _[RUB]_   | _[Rubric, from `FEAT-...`]_                                                               | _[`UC-RUB-...`]_ |
+| [PAR]     | [Parent/Teacher (Need to ask for differences between parent and teacher), from `FEAT...`] | [`None`]        |
+| [SHLF]    | [Shelf, from `FEAT...`]                                                                   | [`None`]        |
+| [GRP]     | [Group, from `FEAT...`]                                                                   | [`None`]        |
+| [ADM]     | [Admin, from `FEAT...`]                                                                   | [`None`]        |
+| [REC]     | [Recommend, from `FEAT...`]                                                               | [`None`]        |
 ---
 
 ### Groups (`GRP`)

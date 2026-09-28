@@ -1,59 +1,33 @@
 # Open Issues
 
-**Project:** BookBuddies 
+**Project:** BookBuddies
 **Team:** 5
 
 ---
 
-_**What this file is.** Every question about the project that you cannot answer yet, in one place, with the name of the person who can answer it. It is the shortest document in `docs/requirements/` and the one your client meetings run on._
-
-_**Why it exists.** A draft specification with confident guesses in the gaps is more dangerous than one with holes in it, because nobody can tell the guesses from the facts. Writing "we do not know" is not an admission of failure in week 3, it is the correct state. What fails is knowing and not writing it down._
-
-_**Where entries come from.** Three places, and all three are routine:_
-
-- _Drafting a section of [vision-and-scope.md](vision-and-scope.md) and hitting something the client brief does not say._
-- _Your agent's list. When you ask it to draft a section, ask it to list every question it could not answer from the material you gave it. Its list is longer than yours and it is not embarrassed to ask obvious things._
-- _The meeting itself. Your client says something that contradicts your notes, or answers a question with "I would have to check"._
-
-_**How they leave.** Answered in a client meeting, in Slack, or by reading a document. Record the answer and the date, mark it resolved, and put the substance where it belongs (an objective, a term in the [glossary](project-glossary.md), a business rule). This file is a queue, not a home: an answer that stays here has not been filed._
-
-_**Identifiers here are numbers**, `OI-1` upward, and that is deliberate. Numbers are fine for a list that only ever grows at the bottom and gets cited lightly. The slug convention in [vision-and-scope.md](vision-and-scope.md) exists for identifiers that get **reordered** or **cited often**, which is not this list._
-
-## Before a client meeting
-
-_[Sort the open list by what it costs you to stay wrong, not by what is easy to ask. You will get through fewer questions than you plan to. Take the ones where a wrong guess sends the whole team down the wrong path for a month, and leave the ones you can settle by reading a document or trying the client's current tool yourself.]_
-
-_[Send the shortlist to your client the day before. A client who has seen the questions arrives with answers instead of promises.]_
-
 ## Open
+
+_OI-3, OI-4, and OI-5 are not missing — they were answered and moved to the Resolved table below. Numbers are never reused._
 
 | ID | Question | Why it matters | Who can answer | Raised |
 |---|---|---|---|---|
-| OI-0 | _[The question, phrased so it has a definite answer. Not "tell us about reporting" but "who is allowed to see another student's evaluation scores?"]_ | _[What we get wrong if we guess. Name the artifact or decision it blocks.]_ | _[Client, instructor, a specific user, or the team itself]_ | _[YYYY-MM-DD]_ |
-| OI-1 | What is the source of the book data — a client-provided dataset, or integration with an existing library system? | Blocks the technical scope and architecture of the recommendation feature entirely | Client | 2026-09-13 |
-| OI-2 | What criteria determine a book recommendation for a specific child (interests, mood, reading ability, topic, etc.)? | Blocks the core Business Objective and Vision Statement — this is the app's central feature and we have no defined logic | Client | 2026-09-13 |
-| OI-3 | Is the app also an ebook reader, or does it only recommend books read elsewhere? | Changes scope significantly — determines if in-app reading is a feature we must build | Client | 2026-09-13 |
-| OI-4 | Do children need to belong to a group (school/class) to use the app, or can they use it independently? | Blocks the user roles and account structure in the Glossary and Vision Statement | Client | 2026-09-13 |
-| OI-5 | What visibility and control do parent/teacher accounts have over a child's account (restricting books, viewing activity, etc.)? | Blocks defining parent/teacher as user roles and their permissions in the Glossary | Client | 2026-09-13 |
-| OI-6 | How does the app assess a child's reading level, and how is a "more challenging book" defined? | Blocks the "Stretch my reader" feature definition and any related Business Objective | Client | 2026-09-13 |
-| OI-7 | _ | _ | __ | __ |
-| OI-8 | _ | _ | __ | __ |
-| OI-9 | _ | _ | __ | __ |
-| OI-10 | _ | _ | __ | __ |
-
+| OI-1 | What is the source of the book data for the seed catalog — a client-provided dataset, or an external source such as the Google Books API? | Blocks `FEAT-book-tagging` and the technical scope of the recommendation feature. Dr. Yang floated "Google" but was visibly unsure of the specifics (client-interview-2026-09-10.md, section 7); not yet a confirmed dependency. | Client | 2026-09-13 |
+| OI-2 | Does the MVP need AI-powered recommendations from day one, or is the team's rule-based Stage 1 (see `FEAT-ai-recommendation`) an acceptable first step of the client's own staged rules-then-ML plan? _(also cited as `OI-ai-recommender-scope`)_ | Dr. Yang corrected the team's opening assumption of "no AI recommendations" and wants AI "from the start," modeled on her Shiny app; her written follow-up instead describes a staged plan. The team's engineering guidance favors simple architecture absent a clear benefit — a real expectation gap that needs a direct scoping conversation, not a default in either direction. | Client | 2026-09-13 |
+| OI-6 | Does a child ever see their own reading level? _(Capture method is resolved — see Resolved table.)_ In the 2026-09-10 meeting Dr. Yang proposed showing a specific level (e.g., "reading level 3.2") on the Achievement Page; her written follow-up two days later says level "stays a private adult-side input" and is "never shown to the child." She flagged this herself as unresolved mid-meeting. _(also cited as `OI-reading-level-source-and-visibility`)_ | Blocks `FEAT-stretch-my-reader` and the kid-facing profile's final field list (see project-glossary.md, "Reading Level"). The single highest-priority conflict to close, since the two answers are mutually exclusive. | Client | 2026-09-13 |
+| OI-7 | Is it technically feasible or required that no system-admin role can see any personally identifying information, only the user themself? _(also cited as `OI-admin-blind-identifiers`)_ | Dr. Yang floated this herself as a question, not a settled requirement ("I don't know. Is that possible?"). Blocks whether `FEAT-admin-pii-segregation` (BR-admin-no-pii) is a hard architectural constraint or a stretch goal. | Client + team (technical feasibility) | 2026-09-10 |
+| OI-8 | Must a parent account exist before a child account can be created, or is a later "invite a parent" flow acceptable instead? _(also cited as `OI-account-hierarchy`)_ | Dr. Yang was not fully committed either way in the meeting; a teammate raised the risk of a kid with no linked parent. Blocks `FEAT-parent-account-linking` and the account-creation use case. | Client | 2026-09-10 |
+| OI-9 | Who maintains and hosts BookBuddies after the team graduates, and what is the hosting budget? _(also cited as `OI-post-graduation-ownership`)_ | Not addressed in the first meeting. Shapes the entire technology stack and the maintainability quality attribute — ask before picking a stack, not after. | Client | 2026-09-10 |
+| OI-10 | Whether BookBuddies must be a native mobile app, a mobile-responsive web app, or both. | Raised in vision-and-scope.md, section 3.2, but never filed here until now. Determines the platform and the operating-environment requirements (`OE-*`) in the specification. | Client | 2026-09-17 |
+| OI-11 | What number(s) define success for the draft business objectives (`BO-book-engagement`, `BO-recommendation-relevance`, `BO-parent-oversight-efficiency`), and what is the baseline today? _(also cited as `OI-baseline-metrics`)_ | Every success metric in vision-and-scope.md section 2.3 is currently marked "Target: TBD." Without a number, the team cannot say whether the MVP succeeded. | Client | 2026-09-10 |
+| OI-12 | What is the total expected number of users, families, or classrooms at launch and at scale? _(also cited as `OI-volume-scale`; catalog size 30–50 books and group size 2–20 members are already confirmed)_ | Decides the architecture's concurrency and data-volume assumptions. | Client | 2026-09-10 |
+| OI-13 | Can the team reach real child users for testing, and what consent process applies? _(also cited as `OI-real-user-testing`)_ | Testing with children under 13 typically needs parental/guardian consent. Building from a proxy's account (the client, or team members) rather than a real child user is a project risk if left unaddressed. | Client + team | 2026-09-10 |
+| OI-14 | What is the final badge list and award criteria for `FEAT-reading-identity-badges`? _(also cited as `OI-badge-taxonomy`)_ | Dr. Yang's 2026-09-12 written notes describe badge design as still "forming/underway." Blocks the kid-facing profile's reading-identity feature. | Client | 2026-09-12 |
 
 ## Resolved
 
 | ID | Question | Answer | Answered by | Date | Filed in |
 |---|---|---|---|---|---|
-| OI-0 | _[Example row, delete it]_ | _[What we were told]_ | _[Name]_ | _[YYYY-MM-DD]_ | _[`BO-grading-time`, or the glossary term, or the section]_ |
-|OI-1|---|---|---|---|---|
-|OI-2|---|---|---|---|---|
-|OI-3|---|---|---|---|---|
-|OI-4|---|---|---|---|---|
-|OI-5|---|---|---|---|---|
-|OI-6|---|---|---|---|---|
-|OI-7|---|---|---|---|---|
-|OI-8|---|---|---|---|---|
-|OI-9|---|---|---|---|---|
-|OI-10|---|---|---|---|---|
+| OI-3 | Is the app also an ebook reader, or does it only recommend books read elsewhere? | Not an ebook reader. BookBuddies is recommendation, tracking, and social sharing only; a child reads the physical or library-sourced book elsewhere. | Yang Yang (concept brief, "App Overview and Purpose") | 2026-09-11 | `FEAT-ebook-reader` in vision-and-scope.md, section 4.2 (confirmed out of scope, no longer marked unresolved) |
+| OI-4 | Do children need to belong to a group (school/class) to use the app, or can they use it independently? | Groups are user-initiated reading communities of roughly 2–20 kids, not teacher-imposed; they can be class-based or friend-based, but a child does not need one to use the app. | Yang Yang (concept brief; corroborated in client-interview-2026-09-10.md, section 7) | 2026-09-11 | project-glossary.md, "Reading Group"; `FEAT-groups` in vision-and-scope.md |
+| OI-5 | What visibility and control do parent/teacher accounts have over a child's account (restricting books, viewing activity, etc.)? | A parent has final say over a child's books but does not approve every choice, may remove flagged content, and must confirm a 24-hour activity review or the account is temporarily suspended. A teacher may flag content as age-inappropriate but may not restrict access outright. | Yang Yang (concept brief, "Parental Controls, Privacy, and Account Structure") | 2026-09-11 | `BR-parent-ultimate-say`, `BR-24hr-review-window`, `BR-parent-content-removal`, `BR-teacher-flag-only` in business-rules.md, section 2.2 |
+| OI-2 (mechanics only) | What criteria determine a book recommendation for a specific child (interests, mood, reading ability, topic, etc.)? | Stage 1 (the MVP) is a rules engine filtering the tagged seed catalog by mood and length. Later stages add ML re-ranking based on weighted, anonymous behavioral signals: saved (+), loved it (++), rated highly (++), recommended to a peer (+++), skipped/ignored (−) — never age, location, or other demographics. | Yang Yang (2026-09-12 written follow-up, "BookBuddies Profiles") | 2026-09-12 | `FEAT-ai-recommendation` in vision-and-scope.md, section 4.2; `BR-similarity-signal-weights` in business-rules.md, section 2.5. _Whether the MVP itself needs AI on day one is still open — see `OI-2` above._ |

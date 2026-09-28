@@ -3,50 +3,11 @@
 **Project:** BookBuddies
 **Team:** Team 05 — BookBuddies
 **Client:** Dr. Yang Yang
-**Version:** 0.3
+**Version:** 0.4
 
 ---
 
-_**How to use this template.** Instructions appear in italic square brackets. Fill in underneath them and leave them in the file until the document is stable._
-
-_**What this document is for.** Every project has words that mean something specific inside the client's organization and something else outside it, or nothing at all. This file fixes one word to one concept, and commits the team, the client, and the AI teammate to using it. That shared vocabulary is called a **ubiquitous language**: the same term in the client conversation, in the vision and scope, in the use cases, in the class names, and in the database columns._
-
-_**Why the glossary is the first artifact you write and the last one you finish.** It is the cheapest document to start, because your client hands you the terms in the first meeting whether you ask or not, and it is the one that keeps paying: every later document cites it instead of redefining things._
-
-## Why this matters when an agent writes your code
-
-_[Read this once, then delete this section when the document goes stable.]_
-
-_If two words in your project mean the same thing and nothing says so, your team will use both. So will your agent. You will end up with a `Team` class and a `Group` table, a `submitReport` endpoint and a `war_entry` record, and every one of those pairs is a bug waiting for the week you try to join them._
-
-_An agent cannot resolve this on its own. Asked to add a feature, it reads what is in the repository and imitates it. If the repository is inconsistent it will faithfully reproduce the inconsistency, and it will invent a plausible synonym for anything the repository never names. A glossary in the repository is the only thing that stops it, because the repository is the whole of the agent's memory of your project._
-
-_The other half is human. When your client says "cycle" in one sentence and "sprint" in the next, that is your signal to ask which one they mean, in the meeting, while they are in front of you. An agent reading the transcript later cannot ask._
-
 > **BookBuddies has two of these, now confirmed against the actual meeting transcript.** (1) The early feature brief calls the friends'-recommendations feature a "peer feed"; the one-pager and project brief call it "Buddy Picks." Dr. Yang herself used the word "buddy" unprompted in the meeting ("protect... the buddy's identity"), never "peer feed" — this glossary now treats **Buddy Picks** as confirmed client vocabulary. (2) Whether a child's reading level is ever shown to the child is **still an open conflict** — see **Reading Level** below — because Dr. Yang said one thing live in the meeting and wrote something different two days later.
-
-## The entries that earn their place
-
-_[The temptation is to define words your teammates already know. Skip those. The entries worth writing are:]_
-
-- _**Terms two stakeholders use differently.** The highest-value entry in any glossary._
-- _**Terms that sound generic but are not.** "Active", "submitted", "complete", "week"._
-- _**The client's acronyms**, spelled out._
-- _**Terms you invented** that the client does not use._
-
-_Ask the client directly: "Is there a word your team uses here that I would not guess the meaning of?"_
-
-## Conventions
-
-_[The **term itself is the identifier**. There is no separate numbering scheme, because a glossary entry already has a unique, meaningful name: the word. Cite a term by writing it, and keep the spelling identical everywhere it appears._
-
-_Rules:_
-
-- _One entry per concept. If two words mean the same thing, pick one, define it, and list the other as a synonym under it rather than giving it its own entry._
-- _Alphabetical order, so a reader can find a term without searching._
-- _Define the concept, not the implementation. "A weekly record of what a student did" is a definition; "a row in the `war` table" is not._
-- _Use the client's word when the client has one. You are joining their world, not renaming it._
-- _If a term has a meaning outside this project that differs from the one here, say so explicitly.]_
 
 ## Revision History
 
@@ -55,12 +16,11 @@ _Rules:_
 | 2026-09-08 | 0.1 | Initial template | Iid Maxamuud |
 | 2026-09-13 | 0.2 | Replaced worked examples with real BookBuddies terms from the team one-pager, the feature brief, and Dr. Yang's follow-up design notes (9/12). | Iid Maxamuud |
 | 2026-09-13 | 0.3 | Checked every term against the actual meeting-1 transcript (2026-09-10). Confirmed "Buddy Picks" as client vocabulary; added terms that surfaced live (Shiny App, 24-Hour Review, Achievement Page, Rating); flagged a direct conflict between what Dr. Yang said live and wrote afterward on Reading Level visibility. | Iid Maxamuud |
+| 2026-09-17 | 0.4 | Corrected the Recommender entry's citation to point at OPEN-ISSUES.md `OI-2` instead of the (template) interview guide file | Team 05 |
 
 ---
 
 ## Definitions
-
-_[One `###` heading per term, alphabetical. Follow the heading with a definition of one to three sentences. Add **Synonyms**, **Not to be confused with**, or **Source** lines where they help.]_
 
 ### 24-Hour Review
 
@@ -147,7 +107,7 @@ The system that turns the seed catalog and a child's profile into book suggestio
 
 _**Client's stated intent (9/10 meeting):** Dr. Yang wants **AI-powered recommendations from the start**, modeled on her own Shiny App pattern — log a book plus the kid's free-text comment about it, then run sentiment analysis on the comment to power future picks: "I hope to have a AI-powered kind of recommendation... I use that, a certain AI tool, to analyze and then kind of do some sentiment analysis." This directly corrected the team's opening assumption of "no AI recommendations."_
 
-_**Written follow-up (9/12):** describes a **staged** plan instead — rules only, then rules-narrow-ML-ranks, then ML-does-more — which reads as a way to phase in the AI she wants rather than drop it. The project's own engineering guidance favors simple architecture and avoiding ML absent a clear benefit. See `OI-ai-recommender-scope` in the interview guide: this needs a scoping conversation, not a default in either direction._
+_**Written follow-up (9/12):** describes a **staged** plan instead — rules only, then rules-narrow-ML-ranks, then ML-does-more — which reads as a way to phase in the AI she wants rather than drop it. The project's own engineering guidance favors simple architecture and avoiding ML absent a clear benefit. See `OI-2` in [OPEN-ISSUES.md](OPEN-ISSUES.md) (cross-referenced there as `OI-ai-recommender-scope`): this needs a scoping conversation, not a default in either direction._
 
 ### Report Function
 
@@ -178,7 +138,3 @@ _**Source:** BookBuddies_Profiles.docx (written follow-up; not discussed in the 
 ### Stretch My Reader
 
 An option that biases a child's recommendations toward more challenging but age-appropriate books. In the 9/10 meeting, Dr. Yang described it as tied to the Achievement Page: show the current level, then optionally ask "are you interested in the next level?" with recommendations to match — which is the same feature that creates the open Reading Level visibility conflict above.
-
----
-
-_[End of current terms. Add new entries alphabetically as they surface in future meetings, and keep this file's version and revision history in sync with each change.]_

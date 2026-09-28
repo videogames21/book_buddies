@@ -32,6 +32,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-09-13]_ | 0.1     | File setup and ready for feature list | _Grayson Whittingham_ |
 | _[2026-09-17]_ | 0.2     | Added Area Codes                      | _Grayson Whittingham_ |
 | _[2026-09-17]_ | 0.3     | Added Scope and First Use Case        | _Grayson Whittingham_ |
+| _[2026-09-27]_ | 0.4     | Added Feature List                    | _Grayson Whittingham_ |
 ---
 
 ## 1. Introduction
@@ -43,6 +44,37 @@ Bookbuddies is an app that allows kids get easy recommendation based on criteria
 ### 1.2 Scope
 
 After deliberation the client has cut any social aspects of the app. As such the only features being covered are the ones that fit into Parent, Shelf, Recommend, and Admin.
+
+
+### 1.3 Use Case Features (Temporary)
+This is a temporary list for the Use Case Features until they are written to actual use cases. This section will be removed once that happens.
+Features:
+UC-PAR-onboarding
+UC-PAR-create-second-parent-account
+UC-PAR-create-kid-account
+UC-PAR-suggest-book
+UC-PAR-view-growth-report
+UC-REC-kid-onboarding
+UC-REC-recommend-quiz-rules -> UC-REC-parent-review -> UC-REC-kid-review
+UC-REC-recommend-quiz-ai -> UC-REC-parent-review -> UC-REC-kid-review
+UC-SHLF-parent-view-shelf
+UC-SHLF-kid-view-shelf
+UC-SHLF-kid-move-book
+UC-SHLF-kid-remove-book
+UC-SHLF-kid-rate-book
+UC-SHLF-kid-add-note
+UC-SHLF-parent-remove-book
+UC-ADM-suspend-account
+UC-ADM-add-content
+UC-ADM-block-content
+UC-ADM-view-recommender-stats
+UC-ADM-view-usage-stats
+
+
+Future Use Cases:
+UC-SHLF-view-badges
+UC-ADM-add-admin
+
 
 ---
 
@@ -101,7 +133,6 @@ _[Your area codes, then a table of every use case by area. Write this list first
 
 | Area code | Feature area                | Use cases                                  |
 |-----------|-----------------------------|--------------------------------------------|
-| _[RUB]_   | _[Rubric, from `FEAT-...`]_ | _[`UC-RUB-...`]_                           |
 | [PAR]     | [Parent from `FEAT...`]     | [`UC-PAR-create-sub-parent-account`,`etc`] |
 | [SHLF]    | [Shelf, from `FEAT...`]     | [`None`]                                   |
 | [REC]     | [Recommend, from `FEAT...`] | [`None`]                                   |
@@ -132,7 +163,7 @@ _[One `###` heading per use case, grouped under a `##` heading per area. Worked 
 **Postconditions:**
 
 - POST-1. A Sub Parent account is created.
-- POST-2. The Sub Parent can log in to the Sub Parent Account.
+- POST-2. The Sub Parent can set up a Sub Parent Account.
 
 **Main Success Scenario:**
 
@@ -144,11 +175,11 @@ _[One `###` heading per use case, grouped under a `##` heading per area. Worked 
 **Extensions:**
 
 **Priority:** Medium\
-**Frequency of Use:** Occasional; mostly at account setup.\
-**Business Rules:** `Business Rules are outdated.
+**Frequency of Use:** Occasional; mostly when account is first created.\
+**Business Rules:** Business Rules are outdated. 
 
 **Associated Information:**
-n/a
+- Parent can cancel the use case anytime before the final confirmation.
 
 **Related Use Cases:** `UC-PAR-sub-parent-set-up`: A Sub Parent Sets Up A Sub Parent Account\
 **Assumptions:** none\

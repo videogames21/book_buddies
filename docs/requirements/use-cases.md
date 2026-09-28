@@ -28,9 +28,10 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 ## Revision History
 
 | Date           | Version | Description                           | Author                |
-|----------------|--------|---------------------------------------|-----------------------|
-| _[2026-09-13]_ | 0.1    | File setup and ready for feature list | _Grayson Whittingham_ |
-| _[2026-09-17]_ | 0.2    | Added Area Codes                      | _Grayson Whittingham_ |
+|----------------|---------|---------------------------------------|-----------------------|
+| _[2026-09-13]_ | 0.1     | File setup and ready for feature list | _Grayson Whittingham_ |
+| _[2026-09-17]_ | 0.2     | Added Area Codes                      | _Grayson Whittingham_ |
+| _[2026-09-17]_ | 0.3     | Added Scope and First Use Case        | _Grayson Whittingham_ |
 ---
 
 ## 1. Introduction
@@ -41,7 +42,7 @@ Bookbuddies is an app that allows kids get easy recommendation based on criteria
 
 ### 1.2 Scope
 
-_[Which feature areas from the vision and scope are covered here. Name the `FEAT-*` entries. If a feature has no use cases yet, say so rather than leaving the reader to notice.]_
+After deliberation the client has cut any social aspects of the app. As such the only features being covered are the ones that fit into Parent, Shelf, Recommend, and Admin.
 
 ---
 
@@ -98,71 +99,59 @@ _Data fields are specified as a table:_
 
 _[Your area codes, then a table of every use case by area. Write this list first, before specifying any single use case in detail. It is the cheapest thing to review with your client, and finding out you missed a whole area costs minutes here rather than a week later.]_
 
-| Area code | Feature area                                                                              | Use cases       |
-|-----------|-------------------------------------------------------------------------------------------|-----------------|
-| _[RUB]_   | _[Rubric, from `FEAT-...`]_                                                               | _[`UC-RUB-...`]_ |
-| [PAR]     | [Parent/Teacher (Need to ask for differences between parent and teacher), from `FEAT...`] | [`None`]        |
-| [SHLF]    | [Shelf, from `FEAT...`]                                                                   | [`None`]        |
-| [GRP]     | [Group, from `FEAT...`]                                                                   | [`None`]        |
-| [ADM]     | [Admin, from `FEAT...`]                                                                   | [`None`]        |
-| [REC]     | [Recommend, from `FEAT...`]                                                               | [`None`]        |
+| Area code | Feature area                | Use cases                                  |
+|-----------|-----------------------------|--------------------------------------------|
+| _[RUB]_   | _[Rubric, from `FEAT-...`]_ | _[`UC-RUB-...`]_                           |
+| [PAR]     | [Parent from `FEAT...`]     | [`UC-PAR-create-sub-parent-account`,`etc`] |
+| [SHLF]    | [Shelf, from `FEAT...`]     | [`None`]                                   |
+| [REC]     | [Recommend, from `FEAT...`] | [`None`]                                   |
+| [ADM]     | [Admin, from `FEAT...`]     | [`None`]                                   |
 ---
 
 ## 4. Use Cases
 
 _[One `###` heading per use case, grouped under a `##` heading per area. Worked example below, taken from Project Pulse. Delete it and write your own.]_
 
-### UC-RUB-find-criteria: The course admin finds criteria
+## [PAR] Parent Feature Area
 
-**UC ID and Name:** `UC-RUB-find-criteria`: Find criteria
-**Created By:** _[Name]_
-**Date Created:** _[YYYY-MM-DD]_
-**Primary Actor:** course admin
-**Secondary Actors:** none
-**Trigger:** The course admin indicates to find criteria.
-**Description:** The course admin wants to find the peer evaluation criteria defined in her course so that she can review, edit, delete, or add one to a rubric.
+### UC-PAR-create-sub-parent-account: A Parent Creates A Sub Parent Account
+
+**UC ID and Name:** `UC-PAR-create-sub-parent-account`: A Parent Creates A Sub Parent Account\
+**Created By:** _Grayson Whittingham_\
+**Date Created:** _[2026-09-25]_\
+**Primary Actor:** A Parent\
+**Secondary Actors:** none\
+**Trigger:** The parent taps add sub parent on account management \
+**Description:** A parent creates a sub parent account to allow the sub parent to manage the children's reading listed under the Main Parent Account.
 
 **Preconditions:**
 
-- PRE-1. The course admin is logged into the system.
+- PRE-1. The Parent is logged into system.
+- PRE-2. The Parent is the Main Parent.
 
 **Postconditions:**
 
-- POST-1. A list of matching criteria in the course admin's course is returned and displayed. The list may be empty.
+- POST-1. A Sub Parent account is created.
+- POST-2. The Sub Parent can log in to the Sub Parent Account.
 
 **Main Success Scenario:**
 
-1. The course admin indicates to find criteria.
-2. The system asks the course admin to enter search values according to the "Search criteria" defined in the Associated Information of this use case.
-3. The course admin enters one or more search values and confirms that she has finished entering.
-4. The system finds all criteria in the course admin's course that match the provided search criteria.
-5. The system displays the matching criteria according to the "Search results display strategy" and the "Sort criteria" defined in the Associated Information of this use case.
-6. Use case ends.
+1. The Parent taps 'Add Sub Parent Account'.
+2. The Parent enters name and email of the Sub Parent.
+3. The Parent taps confirm on a pop-up notifying that the Sub Parent will have the same access to the child as you except for creating and deleting accounts.
+4. Use case ends.
 
 **Extensions:**
 
-- **4a. No matching criteria are found:**
-    - 4a1. The system alerts the course admin that no matching criteria are found.
-    - 4a2. The course admin either chooses `UC-RUB-create-criterion`: Create a criterion, or terminates the use case, or returns to step 2 of the normal flow.
-
-**Priority:** High
-**Frequency of Use:** Occasional; mostly at course setup and rubric revision.
-**Business Rules:** `BR-role-based-access`
+**Priority:** Medium\
+**Frequency of Use:** Occasional; mostly at account setup.\
+**Business Rules:** `Business Rules are outdated.
 
 **Associated Information:**
+n/a
 
-Search criteria:
-
-| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
-|---|---|---|---|---|
-| criterion name | String | Optional | Course-scoped to the course admin's course | Criterion |
-
-Search results display strategy: criterion name, description, max score.
-
-Sort criteria: criterion name, ascending.
-
-**Related Use Cases:** `UC-RUB-create-criterion`: Create a criterion.
-**Assumptions:** none
+**Related Use Cases:** `UC-PAR-sub-parent-set-up`: A Sub Parent Sets Up A Sub Parent Account\
+**Assumptions:** none\
 **Open Issues:** none
 
 ---

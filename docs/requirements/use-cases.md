@@ -46,36 +46,6 @@ Bookbuddies is an app that allows kids get easy recommendation based on criteria
 After deliberation the client has cut any social aspects of the app. As such the only features being covered are the ones that fit into Parent, Shelf, Recommend, and Admin.
 
 
-### 1.3 Use Case Features (Temporary)
-This is a temporary list for the Use Case Features until they are written to actual use cases. This section will be removed once that happens.
-Features:
-UC-PAR-onboarding
-UC-PAR-create-second-parent-account
-UC-PAR-create-kid-account
-UC-PAR-suggest-book
-UC-PAR-view-growth-report
-UC-REC-kid-onboarding
-UC-REC-recommend-quiz-rules -> UC-REC-parent-review -> UC-REC-kid-review
-UC-REC-recommend-quiz-ai -> UC-REC-parent-review -> UC-REC-kid-review
-UC-SHLF-parent-view-shelf
-UC-SHLF-kid-view-shelf
-UC-SHLF-kid-move-book
-UC-SHLF-kid-remove-book
-UC-SHLF-kid-rate-book
-UC-SHLF-kid-add-note
-UC-SHLF-parent-remove-book
-UC-ADM-suspend-account
-UC-ADM-add-content
-UC-ADM-block-content
-UC-ADM-view-recommender-stats
-UC-ADM-view-usage-stats
-
-
-Future Use Cases:
-UC-SHLF-view-badges
-UC-ADM-add-admin
-
-
 ---
 
 ## 2. Use Case Template
@@ -137,6 +107,34 @@ _[Your area codes, then a table of every use case by area. Write this list first
 | [SHLF]    | [Shelf, from `FEAT...`]     | [`None`]                                   |
 | [REC]     | [Recommend, from `FEAT...`] | [`None`]                                   |
 | [ADM]     | [Admin, from `FEAT...`]     | [`None`]                                   |
+
+This is a temporary list for the Use Case Features until they are written to actual use cases. This section will be removed once that happens.
+Features:\
+UC-PAR-onboarding\
+UC-PAR-create-second-parent-account\
+UC-PAR-create-kid-account\
+UC-PAR-suggest-book\
+UC-PAR-view-growth-report\
+UC-REC-kid-onboarding\
+UC-REC-recommend-quiz-rules -> UC-REC-parent-review -> UC-REC-kid-review\
+UC-REC-recommend-quiz-ai -> UC-REC-parent-review -> UC-REC-kid-review\
+UC-SHLF-parent-view-shelf\
+UC-SHLF-kid-view-shelf\
+UC-SHLF-kid-move-book\
+UC-SHLF-kid-remove-book\
+UC-SHLF-kid-rate-book\
+UC-SHLF-kid-add-note\
+UC-SHLF-parent-remove-book\
+UC-ADM-suspend-account\
+UC-ADM-add-content\
+UC-ADM-block-content\
+UC-ADM-view-recommender-stats\
+UC-ADM-view-usage-stats\
+
+
+Future Use Cases:\
+UC-SHLF-view-badges\
+UC-ADM-add-admin\
 ---
 
 ## 4. Use Cases

@@ -132,7 +132,7 @@ UC-ADM-view-recommender-stats\
 UC-ADM-view-usage-stats\
 
 
-Future Use Cases:\
+Future Use Cases:\a
 UC-SHLF-view-badges\
 UC-ADM-add-admin\
 ---

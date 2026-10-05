@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang, Research Scientist, IBR/Knight D Research
-**Version:** 0.2
+**Version:** 0.3
 
 ---
 
@@ -36,6 +36,7 @@ _[These are slugs, like every other identifier in your project, so an inserted d
 |---|---|---|---|
 | 0.1 | | | Initial draft for Checkpoint 1 |
 | 0.2 | 2026-10-02 | Team 05 | Filled in sections 1–4 for Checkpoint 1 from SRS v0.2, use cases v0.5, vision and scope v0.4 and the 2026-09-25 flowchart; fixed relative links to `docs/` |
+| 0.3 | 2026-10-05 | Team 05 | Recorded the tech stack, auth and child-credential decisions; filled in sections 5, 8 and 9 and the links in 10.1 and 12; updated sections 2–4 against use cases v0.8 |
 
 ---
 
@@ -85,12 +86,12 @@ Constraints from section 2.4 of the specification:
 - `CO-rules-first-recommender`: the recommender is code inside the application over the stored catalog; no ML service, model store or vector database in the MVP.
 - `CO-no-reading-level-assessment`
 - `CO-coppa-adjacent`: read here as requiring PII separation and recorded parental consent from the first schema (quality goal 1).
-- `CO-technology-stack`: nothing external fixes the stack, so it is not a constraint in this section's sense. Language, framework, database and authentication approach are a human team decision, still open (`OI-9`), and will be recorded as a `KD-*` in section 9.2 once made.
+- `CO-technology-stack`: nothing external fixes the stack, so it is not a constraint in this section's sense. The team chose it on 2026-10-05, and it is recorded as `KD-tech-stack` and `KD-auth-sessions` in section 9.2. The specification still lists it as TBD and needs updating.
 
 Operating environment from section 2.3 of the specification:
 
 - `OE-web-first`: one responsive web front end serves children and parents on desktop and mobile browsers; no native app in the MVP.
-- `OE-hosting`: open (`OI-9`); this document names no host until it is answered.
+- `OE-hosting`: the application runs on Vercel and the database on MongoDB Atlas (`KD-tech-stack`). Who pays for and maintains them after the team graduates is still open (`OI-9`).
 
 ## 3. Context and Scope
 
@@ -137,8 +138,9 @@ What stands behind each external system:
 
 Deliberately not in the diagram:
 
-- **Child sign-in has no external system.** A child has no email. When a parent creates the child account (`UC-PAR-create-kid-account`), BookBuddies generates the child's credentials, and the child signs in with them (team decision, 2026-10-02). That use case and the specification do not yet say this; both need updating.
-- **Third-party authentication provider:** depends on the open stack decision (`CO-technology-stack`, `SEC-auth`). If one is chosen, it becomes a box here and an `SI-*` in the specification.
+- **Child sign-in has no external system.** A child has no email. When a parent creates the child account (`UC-PAR-create-kid-account`), BookBuddies generates a text password for the child, and the child signs in with it (team decision, 2026-10-02 and 2026-10-05). That use case and the specification do not yet say this; both need updating.
+- **No third-party authentication provider:** sign-in runs inside the application with Auth.js (`KD-auth-sessions`), so no credential leaves the system.
+- **Vercel and MongoDB Atlas:** they are where the containers run, not systems BookBuddies talks to. They appear in section 5.1 and, from Checkpoint 3, in section 7.
 - **Authorities:** whether safety flags are ever reported outside the system is unresolved (`OI-18`). It becomes a box only if the client confirms it.
 - **Teachers, schools and LMSs:** the teacher role was removed (`BR-user-roles`), and there is no school-system integration (`SI-no-lms`).
 
@@ -152,11 +154,11 @@ _Each bullet is one sentence, and it cites what explains it: the key decision in
 
 _BookBuddies' strategy:]_
 
-- **One deployable application with one database** (`KD-deployment-shape`, to be recorded in section 9.2), because `CO-single-application` requires it and an unknown future maintainer has to be able to run it (quality goal 3).
-- **Child-identifying data is stored apart from everything else from the first schema** (`DI-pii-segregation`; the Identity & Access component in section 5.2), so no admin screen, report or debug tool can reach it by accident (quality goal 1). Exactly what the admin may see waits on `OI-15`.
-- **Every request is authorized on the server and scoped to one family** (`SEC-role-authorization`; section 8.1): a child reaches only their own records, and a parent only their own family's children (quality goal 1).
-- **Recommendations are rules running inside the application over a locally stored catalog**, loaded from the dataset by an offline import (`CO-rules-first-recommender`; the Recommendation and Catalog components in section 5.2). No request depends on an external system being up, and a later ML stage can replace the rules behind the same component (quality goal 3).
-- **A safety flag is raised in the same step that saves the reflection, and is delivered as an in-app alert** (`SAF-flag-delivery`; the Safety Flagging and Notification components in section 5.2), so a reflection cannot be saved without its alert (quality goal 2).
+- **One Next.js application on Vercel with one MongoDB Atlas database** (`KD-deployment-shape`, `KD-tech-stack`): the user interface and every server rule ship together, because `CO-single-application` requires it and an unknown future maintainer has to be able to run it (quality goal 3).
+- **Child data sits behind two independent walls** (`KD-pii-segregation`, `KD-auth-sessions`): identifying details live only in the Child Identity Store, and every request is authorized on the server and scoped to one family through revocable database sessions (quality goal 1; section 8.1). Exactly what the admin may see waits on `OI-15`.
+- **Recommendations are rules running inside the application over a locally stored catalog**, loaded by an offline import (`CO-rules-first-recommender`, `KD-catalog-import-offline`). The recommender mode is one system-wide setting, so a later AI stage replaces the rules behind the same Recommendation component without touching the rest (quality goal 3).
+- **A safety flag is saved in the same transaction as the reflection and its alerts** (`SAF-flag-delivery`; Safety Flagging and Notification in section 5.2; section 8.2.8), so a reflection can never be stored without its alert (quality goal 2).
+- **Time-based rules are checked when data is read, not by a background job** (`KD-time-rules-on-read`), because Vercel runs no long-lived process; a scheduled cleanup only removes what has already expired (quality goals 2 and 3).
 
 ## 5. Building Block View
 
@@ -172,37 +174,37 @@ _Under the diagram, one or two sentences on **why the system is divided this way
 
 _Three containers is a normal answer. If you have more than five, check each one against section 9: which decision, driven by which quality attribute, requires it to run separately?_
 
-_Example:]_
+_BookBuddies' containers:]_
 
 ```mermaid
 C4Container
-    title Container Diagram: Cafeteria Ordering System
+    title Container Diagram: BookBuddies
 
-    Person(patron, "Patron", "Employee ordering a meal")
-    Person(staff, "Cafeteria Staff", "Prepares and delivers orders")
-    Person(menu, "Menu Manager", "Maintains the daily menu")
+    Person(child, "Child", "Signs in with a generated text password")
+    Person(parent, "Parent", "Primary or secondary parent")
+    Person(admin, "System Admin", "Manages the catalog; receives safety alerts")
 
-    System_Boundary(cos, "Cafeteria Ordering System") {
-        Container(web, "Web Front End", "Vue.js", "Ordering, menu, and fulfilment screens in the browser")
-        Container(app, "Application", "Java / Spring Boot", "Every business rule; serves the front end")
-        ContainerDb(db, "Database", "PostgreSQL", "Orders, menus, and delivery slots")
+    System_Boundary(bb, "BookBuddies") {
+        Container(ui, "Web UI", "Next.js / React, TypeScript", "Child, parent and admin screens, running in the browser")
+        Container(app, "Application", "Next.js on the Node.js runtime, TypeScript, Vercel Functions", "Server components, server actions and route handlers; every business rule and every authorization check")
+        ContainerDb(db, "Database", "MongoDB Atlas", "Accounts, sessions, child identities (own collection), catalog, shelves, recommendations, reflections, flags, notifications, audit log")
+        Container(importer, "Catalog Import", "Node.js script, TypeScript", "Run by a developer to load or refresh the seed catalog")
     }
 
-    System_Ext(payroll, "Payroll System", "Deducts meal payments from pay")
-    System_Ext(sso, "Corporate Sign-On", "Authenticates employees")
-    System_Ext(email, "Corporate Email", "Order confirmations")
+    System_Ext(dataset, "Children's Book Dataset", "Pre-tagged dataset; not yet chosen")
+    System_Ext(email, "Email Service", "Provider not yet chosen")
 
-    Rel(patron, web, "Orders meals", "HTTPS")
-    Rel(staff, web, "Fulfils orders", "HTTPS")
-    Rel(menu, web, "Edits menu", "HTTPS")
-    Rel(web, app, "Calls", "JSON/HTTPS")
-    Rel(app, db, "Reads and writes", "JDBC")
-    Rel(app, payroll, "Submits payment requests", "not yet known: RISK-payroll-api-unavailable")
-    Rel(app, sso, "Verifies identity", "OpenID Connect")
-    Rel(app, email, "Sends confirmations", "SMTP")
+    Rel(child, ui, "Uses", "HTTPS")
+    Rel(parent, ui, "Uses", "HTTPS")
+    Rel(admin, ui, "Uses", "HTTPS")
+    Rel(ui, app, "Calls server actions and route handlers", "JSON/HTTPS")
+    Rel(app, db, "Reads and writes", "MongoDB driver over TLS")
+    Rel(app, email, "Sends account and invitation emails", "HTTPS API")
+    Rel(importer, dataset, "Reads the dataset file", "file download")
+    Rel(importer, db, "Upserts catalog books", "MongoDB driver over TLS")
 ```
 
-_The system is one application and one database because nobody on the cafeteria side can operate more (`KD-deployment-shape`). The front end is a separate container only because it runs in the browser; it ships inside the application's package._
+The system is one application and one database (`KD-deployment-shape`). The Web UI is a separate container only because it runs in the browser; it is built and deployed with the Application as one Vercel project. The Catalog Import is the one other running piece, a script run by hand, because the catalog is loaded offline, never during a user request (`KD-catalog-import-offline`). A Vercel Cron job calls a protected route on the Application to purge expired records (`KD-time-rules-on-read`); it is a trigger, not a container, and is described in section 7.
 
 ### 5.2 Use case areas and components
 
@@ -212,16 +214,22 @@ _**Responsibility** is one sentence, what the component owns, not how it works. 
 
 _Project Pulse's component tables also name each component's package. They can because its code exists; yours does not yet, so a row here is a name and a responsibility, and packages come with the design-of-record in week 7._
 
-_Example:]_
+_BookBuddies' components:]_
 
 | Use case area | Component | Responsibility | Depends on | Status |
 |---|---|---|---|---|
-| _`ORD`_ | _Ordering_ | _Owns an order from placement to cancellation, and the cut-off rules_ | _Menu, Payment, Identity_ | _provisional_ |
-| _`MNU`_ | _Menu_ | _Owns daily menus and item availability_ | _Identity_ | _provisional_ |
-| _`DEL`_ | _Delivery_ | _Owns delivery slots and the staff's fulfilment queue_ | _Ordering, Notification_ | _provisional_ |
-| _(cross-cutting)_ | _Payment_ | _The only component that talks to the Payroll System_ | _Payroll System_ | _provisional_ |
-| _(cross-cutting)_ | _Identity_ | _Maps a signed-on employee to a role_ | _Corporate Sign-On_ | _provisional_ |
-| _(cross-cutting)_ | _Notification_ | _Sends every email the system sends_ | _Corporate Email_ | _provisional_ |
+| `PAR` | Accounts & Family | Owns parent accounts (primary and secondary), sub-parent invitations, child accounts and their generated passwords, consent records, parent book suggestions and the growth recap | Identity & Access, Child Identity Store, Recommendation, Notification | provisional |
+| `REC` | Recommendation | Owns reading profiles, the system-wide recommender mode, rules-based batch generation, parent review and release of batches, and the child's reactions | Catalog, Child Identity Store, Shelf, Notification | provisional |
+| `SHLF` | Shelf | Owns each child's shelf and categories, ratings, reflections and their 24-hour pending deletion, keyword search, shelf requests and their parent approval, and parent removal with its notice | Catalog, Safety Flagging, Notification, Identity & Access | provisional |
+| `ADM` | Administration | Owns catalog management (add, block), account suspension and aggregate statistics; never reads the Child Identity Store | Catalog, Identity & Access, Notification | provisional |
+| (cross-cutting) | Identity & Access | Signs users in, issues and revokes database sessions, and decides what each role and family may reach; every server action and route handler goes through it | Notification | provisional |
+| (cross-cutting) | Child Identity Store | The only component that reads or writes a child's identifying details (`DI-child-stored`); everything else holds an opaque child ID, nickname and avatar | Identity & Access | provisional |
+| (cross-cutting) | Catalog | Owns books, tags and block status; every catalog read leaves out blocked books; filled in bulk by the Catalog Import | Children's Book Dataset (through the Catalog Import) | provisional |
+| (cross-cutting) | Safety Flagging | Screens a reflection when it is saved and, on a match, records the flag and its alerts in the same transaction; the detection method is not yet specified | Notification | provisional |
+| (cross-cutting) | Notification | Stores every in-app notice and alert until it is seen, and sends every email the system sends | Email Service | provisional |
+| (cross-cutting) | Scheduled Cleanup | Purges records whose time has passed, such as reflections past pending deletion; never the only thing enforcing a time rule | Vercel Cron | provisional |
+
+Recommendation reads only age, grade and reading level from the Child Identity Store, through a function that returns no name.
 
 _[Check before Checkpoint 1: every area in your use case file appears in the first column, and every external system in section 3 appears in some Depends on cell.]_
 
@@ -258,6 +266,17 @@ _[Four short paragraphs. The last three each cite the `SEC-*` requirement they a
 
 _Secrets (passwords, API keys, connection strings) never appear in this document or in the repository. Say where they will live, not what they are.]_
 
+**Trust boundary.** The Application container is the boundary. Everything outside it is untrusted: the browser, including every client component and anything it sends; the Catalog Import's input file; the Email Service; and calls from Vercel Cron. Every server action and route handler is a public endpoint, including actions no page shows, so each one checks the session and role itself through Identity & Access before doing anything. Next.js middleware may redirect for convenience but is never the check. The cleanup route accepts only requests carrying the cron secret (`SEC-role-authorization`).
+
+**Authentication** (`SEC-auth`, `KD-auth-sessions`). Parents sign in with email and password. Children sign in with a text password the system generates when a parent creates the account (`UC-PAR-create-kid-account`); the parent sees it once and is the only one who can reset it. Whether the child's sign-in name is also generated is not yet decided. Auth.js handles sign-in and sessions: the Credentials provider checks passwords, which are stored only as salted hashes, and sessions use Auth.js's database strategy through its MongoDB adapter. The cookie (httpOnly, Secure, SameSite=Lax) carries only a random session token, and deleting the session document signs the user out everywhere, as suspension needs (`UC-ADM-suspend-account`). Failed sign-ins are counted per account and slowed down. Admin accounts are created by hand, never through sign-up.
+
+**Authorization** (`SEC-role-authorization`). The roles are child, parent (primary and secondary) and admin. Beyond the role, every read and write is scoped: a child reaches only their own records; a parent reaches only children linked to their family; a secondary parent can do what a primary parent can except create and delete accounts (`UC-PAR-create-sub-parent-account`); an admin reaches the catalog, aggregate statistics and parent account references, never a child's details (`BR-admin-limited-view`, `OI-15`). The scope is applied in each component's data-access functions, not in pages, so a query cannot be written without it.
+
+**Sensitive data** (`SEC-pii-boundary`, `DI-pii-segregation`). A child's real name, age, grade and reading level (`DI-child-stored`) live only in the Child Identity Store's collection (`KD-pii-segregation`). Reflections, ratings and safety flags are also sensitive: always visible to the parent (`SEC-no-private-notes`) and to the admin only as `OI-15` decides. All of it is in MongoDB Atlas, encrypted in transit and at rest. The only external system that receives personal data is the Email Service, which gets parent names and email addresses and never child data. Reflection text is never sent to an outside service, including content-moderation services. Retention and disposal are `DI-disposal` in section 7.4 of the specification, still TBD pending the COPPA rules.
+
+**Secrets.** The database connection string, the Auth.js secret, the cron secret and the email API key live in Vercel environment variables, separately for each environment, and in an untracked `.env.local` for development. They never appear in the repository or in this document.
+
+
 ### 8.2 Other concepts
 
 _Due: Checkpoint 1, a subsection for every concept in the table below; then kept current, adding the file that shows each rule once code exists and a new concept whenever one appears. [Anything every component must do the same way. Your agent starts every session with no memory of the last, so a convention that is not written here gets reinvented each time. Write every concept now, while each is still cheap to choose; the last column says when a missing one would start to hurt._
@@ -277,9 +296,27 @@ _One short subsection each: the rule in one sentence, why, and the file that sho
 | _Auditing_ | _Who changed what, and when?_ | _The first "who did this?"_ |
 | _Testing_ | _Which kinds of test, at which layer, with what data?_ | _The first pull request_ |
 
-_Example, from the Cafeteria Ordering System:_
+**8.2.1 Error handling.** Every server action and route handler returns `{ ok: true, data }` or `{ ok: false, error: { code, message } }`, built by one shared helper; an unexpected error is caught at that boundary, logged with an error ID, and returned as a generic message. No response carries an exception's own message or stack, and each route segment has an `error.tsx` with a child-friendly message. Why: children need one calm, consistent error screen, and a database error can reveal what sits behind it. Shown in: not yet.
 
-**8.2.1 Error handling.** _Every endpoint returns `{ "ok": false, "error": { "code", "message" } }` on failure, produced by one exception handler; no controller builds its own error body, and no response carries an exception's own message. Why: the ordering screen and the menu screen share one error display, and an exception's message can reveal the database behind it. Shown in: `ApiExceptionHandler`._
+**8.2.2 Time and time zones.** Times are stored as UTC dates, and every "has this expired?" check compares against `now()` from one clock module that tests can set. A time-limited state stores its own deadline and is treated as expired the moment that passes, whether or not cleanup has run (`KD-time-rules-on-read`). Why: reflection pending deletion, batch release and a possible 24-hour review rule (`OI-16`) all depend on time, and Vercel runs no background process. Shown in: not yet.
+
+**8.2.3 API conventions.** Our own pages change data through server actions, named verb-first (`moveBook`, `removeBookFromShelf`). Route handlers under `/api/` exist only for callers that are not our pages: Auth.js and the cron cleanup. Every action does the same three things in order: check the session (8.1), validate the input (8.2.5), then call the owning component. Why: one shape makes a missing authorization check easy to spot in review. Shown in: not yet.
+
+**8.2.4 Code conventions.** TypeScript in strict mode everywhere, including the Catalog Import, with no `any` in domain code. Only a component's own data-access functions touch its collections; no page, action or other component imports the MongoDB client. Server-only modules are marked with the `server-only` package so they can never be bundled into the browser. Whether data access uses Mongoose or the native driver is a team decision to make before the first line of data code. Why: an agent writing a new file needs to know where database code is allowed to live. Shown in: not yet.
+
+**8.2.5 Validation.** Every server action and route handler validates its input with a zod schema before doing anything else, and that is the check that counts. Validation in the browser is only for friendliness. Free text from children (reflections, decline reasons) has length limits, and key collections also carry MongoDB schema validation as a backstop. Why: anything from the browser is untrusted (8.1). Shown in: not yet.
+
+**8.2.6 Configuration and secrets.** All configuration comes from environment variables, read and validated once at startup by one config module; the recommender mode (`UC-REC-recommend-quiz-rules`) is one of them. Development uses a local or development database; Vercel preview deployments use their own database and never production data; production has its own. Secrets follow 8.1. Why: a preview deployment pointed at production data would expose real children's data to anyone with the preview link. Shown in: not yet.
+
+**8.2.7 Logging.** Server errors and security events (failed sign-ins, refused requests, cleanup runs) are logged with an error or request ID. Passwords, session IDs, email addresses, child names, ages, grades, reflection text and decline reasons are never logged. Why: Vercel's logs sit outside the data controls in 8.1, so nothing personal may reach them. Shown in: not yet.
+
+**8.2.8 Persistence and concurrency.** Any change that must never happen without another is one MongoDB transaction: a shelf removal and its notice (`UC-SHLF-parent-remove-book`), a reflection and its flag and alerts (`UC-SHLF-kid-add-note`), a parent account and its consent record. State changes that only one person may make (a batch released, a shelf request approved) use a conditional update so the first one wins and the second sees the new state. One MongoDB client is created per server instance and reused, because serverless functions otherwise exhaust connections. Development and tests run MongoDB as a replica set, since transactions need one. Why: `ROB-no-data-loss`, `SAF-flag-delivery`. Shown in: not yet.
+
+**8.2.9 Auditing.** An append-only audit collection records who (account ID and role), what, which record, and when, for parent shelf removals, shelf-request decisions, safety flags and their delivery, admin catalog changes, suspensions, password resets and data deletions. It holds IDs only, never child-identifying fields or reflection text. Why: the first "who removed this?" or "was the parent alerted?" question needs an answer that does not depend on logs. Shown in: not yet.
+
+**8.2.10 Testing.** Unit tests (Vitest) cover the rules engine, flag screening and time rules, using a fixed clock. Integration tests run against an in-memory MongoDB replica set and cover data access, transactions and authorization, with at least one "another family is refused" test per component. End-to-end tests (Playwright) cover the core loop: onboarding, recommendation, review, shelf. Test data is invented, never real children's data (`OI-13`). Why: the rules that protect children are the ones a refactor breaks silently. Shown in: not yet.
+
+**8.2.11 Child-facing views.** Anything sent to a child's screen carries book data, the child's own nickname and avatar, and nothing else: no counts, streaks, reading level or comparisons (`UI-kid-no-metrics`, `BR-kid-anonymous-profile`). `UC-PAR-create-kid-account` currently displays the child's real name, which conflicts with `BR-kid-anonymous-profile`; it needs a decision. Why: a child-facing response is the easiest place to leak a field by accident. Shown in: not yet.
 
 ## 9. Architecture Decisions
 
@@ -295,7 +332,11 @@ _List three to six, ranked by importance to your client times difficulty to achi
 
 | Rank | Requirement | Specification handles | Importance × difficulty | Drives |
 |---|---|---|---|---|
-| 1 | _Payroll data confidential_ | _`SEC-payroll-auth`_ | _High × Medium_ | _`KD-payment-isolated`_ |
+| 1 | A child's details never reach the admin or another family | `SEC-pii-boundary`, `DI-pii-segregation` | High × High | `KD-pii-segregation` |
+| 2 | Every request is authorized on the server, scoped to one family | `SEC-role-authorization`, `SEC-auth` | High × Medium | `KD-auth-sessions` |
+| 3 | A safety flag is delivered as an alert, not only logged | `SAF-flag-delivery` | High × Medium | `KD-tech-stack` (transactions), section 8.2.8 |
+| 4 | One application someone else can maintain | `CO-single-application`, `MNT-handover` | High × Low | `KD-deployment-shape`, `KD-tech-stack` |
+| 5 | Recommendations come from rules over a vetted catalog | `CO-rules-first-recommender`, `SAF-child-content` | Medium × Low | `KD-catalog-import-offline` |
 
 ### 9.2 Key decisions
 
@@ -305,21 +346,63 @@ _A decision without a **rejected alternative** is not a decision, it is a descri
 
 _A decision that turns out wrong is not deleted or rewritten. Mark it **Superseded by `KD-<new-slug>`** and write the new decision as its own entry, so the reasoning behind both stays readable._
 
-_Example:]_
+_BookBuddies' decisions. Accepted ones were made by the team; Proposed ones were drafted and need team review.]_
 
-**`KD-deployment-shape`: one deployable.** _Accepted._
+**`KD-deployment-shape`: one Next.js application.** _Accepted, 2026-10-05._
 
-- **Driving requirements:** _`CO-no-dedicated-ops`; `AVL-lunch-window`._
-- **Context:** _About 400 patrons, one lunch peak a day, and nobody on the client side who can operate infrastructure._
-- **Decision:** _The front end is built into the back end's package and ships as one container to one host, with one managed database._
-- **Rejected:** _Separate services for ordering, menu, and delivery. They would add network calls, three deployments, and failure modes between them, to solve a scaling problem 400 users do not have._
-- **Trade-off:** _The system scales only as a whole, and a bad deploy takes all of it down._
+- **Driving requirements:** `CO-single-application`, `MNT-handover`, `OE-hosting`.
+- **Context:** A small launch cohort (catalog of about 30–50 books, `AS-seed-catalog-size`; volume TBD, `OI-12`), a student team, and an unknown maintainer after graduation (`OI-9`).
+- **Decision:** The user interface and all server code are one Next.js project in one repository, deployed as one Vercel project, with one MongoDB Atlas database. The catalog import is a script, not a service.
+- **Rejected:** A separate backend API (for example Express) beside the front end, or a separate recommender service. Either adds a second deployment, cross-origin authentication and failure modes between the parts, to solve a scaling problem this cohort does not have.
+- **Trade-off:** A bad deploy affects the whole system; Vercel's instant rollback to the previous deployment is the mitigation.
+
+**`KD-tech-stack`: TypeScript, Next.js, MongoDB Atlas, Vercel.** _Accepted, 2026-10-05._
+
+- **Driving requirements:** `OE-web-first`, `CO-single-application`, `MNT-handover`.
+- **Context:** The stack was a team decision (`CO-technology-stack`); nothing external fixes it.
+- **Decision:** TypeScript throughout. Next.js for the user interface and, through route handlers and server actions on the Node.js runtime, the backend. MongoDB on MongoDB Atlas. Vercel for hosting.
+- **Rejected:** A separate Node.js/Express server on another host (see `KD-deployment-shape`). A relational database such as PostgreSQL was the other serious option, since families, children and shelves are naturally relational.
+- **Trade-off:** MongoDB has no foreign keys, so "no child without a parent" (`DI-integrity`) and every paired write are enforced in code and transactions (section 8.2.8), not by the database. Vercel runs no long-lived process and limits function run time, which forces `KD-time-rules-on-read`. Free tiers of both services suit a small cohort, but Vercel's free plan is for non-commercial use, so hosting after graduation needs an answer (`OI-9`).
+
+**`KD-auth-sessions`: Auth.js with database sessions.** _Accepted, 2026-10-05._
+
+- **Driving requirements:** `SEC-auth`, `SEC-role-authorization`; `UC-ADM-suspend-account`, `UC-PAR-create-kid-account`.
+- **Context:** Both parents and children sign in with a password; children use a text password generated when the parent creates their account. Suspending an account must end its sessions at once.
+- **Decision:** Auth.js with its MongoDB adapter and the `database` session strategy. The Credentials provider checks passwords, which are stored only as salted hashes, and the cookie holds only a random session token. Out of the box, Auth.js allows the Credentials provider only with JWT sessions, so sign-in needs one small piece of glue: after the password check succeeds, it creates the session through the Auth.js adapter and sets the session cookie. Everything after that (looking up, expiring and deleting sessions) is Auth.js's own. Confirm the exact glue against the Auth.js version installed.
+- **Rejected:** Auth.js's default JWT sessions, which cannot be revoked before they expire, so a suspended child would stay signed in. A hosted service such as Clerk or Auth0, which would hold children's sign-in data outside the system and add an external system to section 3.
+- **Trade-off:** The sign-in glue goes around an Auth.js default, so an Auth.js upgrade can break it. It is security-critical, so it needs its own tests (section 8.2.10), and it is a candidate risk for section 11 at Checkpoint 2.
+
+**`KD-pii-segregation`: child details in their own collection.** _Proposed._
+
+- **Driving requirements:** `SEC-pii-boundary`, `DI-pii-segregation`, `CO-coppa-adjacent`.
+- **Context:** The system stores children's real names (`DI-child-stored`), and what the admin may see is still disputed (`OI-15`).
+- **Decision:** A child's identifying details are stored in one collection, reached only through the Child Identity Store. Every other collection refers to the child by an opaque ID plus nickname and avatar. Admin code never imports the Child Identity Store.
+- **Rejected:** One child document holding everything, with fields hidden per role. One forgotten projection in one query would leak a child's details.
+- **Trade-off:** Showing a child's name to a parent, or giving the recommender age and grade, needs an extra lookup through a narrow interface.
+
+**`KD-time-rules-on-read`: deadlines are checked when data is read.** _Proposed._
+
+- **Driving requirements:** `UC-SHLF-kid-add-note` (24-hour pending deletion), `UC-REC-parent-review` (batch release), `BR-24hr-review-window` if confirmed (`OI-16`).
+- **Context:** Vercel has no background process, and Vercel Cron jobs may run only daily on the free plan.
+- **Decision:** Each time-limited record stores its deadline, and every read treats a passed deadline as expired. A Vercel Cron job only purges what has already expired.
+- **Rejected:** A scheduled job that changes states on time. A missed or delayed run would break the rule, and a background worker would be a second deployable.
+- **Trade-off:** Every query on these records must include the deadline condition (section 8.2.2).
+
+**`KD-catalog-import-offline`: the catalog is loaded by a script.** _Proposed._
+
+- **Driving requirements:** `SI-book-dataset`, `CO-rules-first-recommender`, `SAF-child-content`.
+- **Context:** The seed catalog comes from a pre-tagged dataset not yet chosen (`OI-1`).
+- **Decision:** A TypeScript script, run by a developer, reads the approved dataset, maps its tags, and upserts books into the catalog. The application never calls the dataset or any book API while a user waits.
+- **Rejected:** Calling a live book API (such as Google Books) per request. It adds latency and an outage path, and it would show children books nobody has vetted.
+- **Trade-off:** Refreshing the catalog is a manual step.
 
 ## 10. Quality Requirements
 
 ### 10.1 Quality requirements overview
 
 _[Section 9 of your [specification](../docs/requirements/software-requirements-specification.md) is the overview. Link it here; do not copy it.]_
+
+The quality requirements overview is section 9 of the [specification](../docs/requirements/software-requirements-specification.md).
 
 ### 10.2 Quality scenarios
 
@@ -350,6 +433,19 @@ _A risk written as a category ("security", "performance") is not a risk. Write t
 ## 12. Glossary
 
 _[Domain terms live in your [project glossary](../docs/requirements/project-glossary.md). Link it and add nothing here unless you need an architecture term your team uses in a special sense.]_
+
+Domain terms are in the [project glossary](../docs/requirements/project-glossary.md).
+
+---
+
+## Changes needed in other documents
+
+_Found while writing this version. Each belongs to the document named, not here._
+
+- **Specification:** replace `CO-technology-stack` "TBD" with a pointer to `KD-tech-stack`; add a `DE-*` for the email provider; state that children sign in with a generated text password.
+- **Use cases:** `UC-PAR-create-kid-account` should generate and show the child's password, and resolve the real-name display conflict (8.2.11). Missing use cases: parent approval of a shelf request (`UC-SHLF-manual-search`), sub-parent account setup, and admin review of flagged reflections.
+- **Open issues:** `OI-15` to `OI-18` are cited but not defined; add a new issue for how violent or self-harm content is detected; close `OI-10` (web-first).
+- **Vision and scope:** replace the diagram in section 4.1 with a link to section 3 of this document.
 
 ---
 

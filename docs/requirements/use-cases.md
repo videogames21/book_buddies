@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.7
+**Version:** 0.8
 
 ---
 
@@ -36,6 +36,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-01]_ | 0.5     | Replaced temporary feature dump with the Use Case List table, cross-referenced to `FEAT-*` | _Grayson Whittingham_, _Claude_ |
 | _[2026-10-04]_ | 0.6     | Wrote the `REC` area use cases: kid-onboarding, recommend-quiz-rules, recommend-quiz-ai (post-MVP), parent-review, kid-review; recommender mode is mutually exclusive between the rules and AI flows | _Claude_ |
 | _[2026-10-04]_ | 0.7     | Wrote the `SHLF` area use cases: parent-view-shelf, kid-view-shelf, kid-move-book, kid-remove-book, kid-rate-book, kid-add-note, parent-remove-book. Rating scale and reflection-visibility conflicts are left as open issues, not decided | _Claude_ |
+| _[2026-10-04]_ | 0.8     | Reflection deletion (24-hour pending window, restore, unflagged only) and kept ratings and reflections on shelf removal; wrote the `ADM` area use cases (add-content with custom tags, block-content, suspend-account, view-recommender-stats, view-usage-stats); wrote `UC-SHLF-manual-search` (keyword search, parent approval before a shelf add) | _Claude_ |
 ---
 
 ## 1. Introduction
@@ -107,7 +108,7 @@ _[Your area codes, then a table of every use case by area. Write this list first
 | Area code | Feature area                                                                                                             | Use cases                                                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `PAR`     | Parent — account linking and oversight (`FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`)                   | `UC-PAR-onboarding`, `UC-PAR-create-sub-parent-account`, `UC-PAR-create-kid-account`, `UC-PAR-suggest-book`, `UC-PAR-view-growth-report`                           |
-| `SHLF`    | Shelf — tracking and rating what a child has read (`FEAT-shelf`, `FEAT-ratings`, `FEAT-manual-search`)                    | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-add-note`, `UC-SHLF-parent-remove-book` |
+| `SHLF`    | Shelf — tracking and rating what a child has read (`FEAT-shelf`, `FEAT-ratings`, `FEAT-manual-search`)                    | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-add-note`, `UC-SHLF-parent-remove-book`, `UC-SHLF-manual-search` |
 | `REC`     | Recommend — picture-quiz and (later) AI-assisted recommendations (`FEAT-recommendation-quiz`, `FEAT-reading-level-baseline`, `FEAT-ai-recommendation`) | `UC-REC-kid-onboarding`, `UC-REC-recommend-quiz-rules`, `UC-REC-recommend-quiz-ai`, `UC-REC-parent-review`, `UC-REC-kid-review`                                    |
 | `ADM`     | Admin — PII-segregated content and system oversight (`FEAT-admin-pii-segregation`)                                        | `UC-ADM-suspend-account`, `UC-ADM-add-content`, `UC-ADM-block-content`, `UC-ADM-view-recommender-stats`, `UC-ADM-view-usage-stats`                                 |
 
@@ -116,7 +117,7 @@ Notes on the table above:
 - `UC-PAR-create-sub-parent-account` is the identifier already specified in section 4 below; it replaces an earlier, inconsistent name for the same use case (`UC-PAR-create-second-parent-account`) that appeared in a draft version of this list. Per the identifier rule in this document, the already-specified name wins and is never renamed.
 - `UC-PAR-suggest-book` and `UC-PAR-view-growth-report` correspond to `FEAT-adult-influence-notes` and `FEAT-recap-adult` respectively. Both features are defined in `vision-and-scope.md` §4.2 but are not yet placed in either the in-scope or out-of-scope list in §4.3 — flag this gap with the client rather than assuming MVP inclusion.
 - The `REC` use cases form two alternative flows that converge on the same downstream steps: `UC-REC-recommend-quiz-rules` → `UC-REC-parent-review` → `UC-REC-kid-review`, and `UC-REC-recommend-quiz-ai` → `UC-REC-parent-review` → `UC-REC-kid-review`. `FEAT-ai-recommendation` (and therefore `UC-REC-recommend-quiz-ai`) is explicitly out of scope for the MVP per §4.3 — carry that priority into the detailed use case.
-- `UC-ADM-add-content` and `UC-ADM-block-content` depend on `FEAT-book-tagging`, which `vision-and-scope.md` §4.3 lists as out of scope for the MVP pending `OI-1`/`OI-2`. Scope these as low priority until the seed-catalog source and tagging scheme are settled.
+- `UC-ADM-add-content` and `UC-ADM-block-content` depend on `FEAT-book-tagging`, which `vision-and-scope.md` §4.3 lists as out of scope for the MVP pending `OI-1`/`OI-2`. `vision-and-scope.md` v0.4 moves `FEAT-book-tagging` into MVP scope, so these are Medium priority; building them is still blocked until the seed-catalog source and tag lists are settled (`OI-1`).
 
 **Future / stretch use cases** (not targeted for the MVP; kept here so the identifiers exist before they're needed):
 
@@ -845,7 +846,7 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 The child interface shows no counts, streaks, reading level, or comparisons (`BR-kid-no-metrics`; `UI-kid-no-metrics` in the SRS). Quality attributes: `USE-child-first-run` (a child finds the shelf without adult help).
 
 **Related Use Cases:** `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-add-note` (all invoked from step 5); `UC-REC-kid-review` (the flow that places accepted books here); `UC-SHLF-parent-view-shelf` (the parent's view of the same data)\
-**Assumptions:** Books reach the shelf only through `UC-REC-kid-review`, and `UC-SHLF-kid-move-book` only changes a book already on the shelf. Adding a book from keyword search (`FEAT-manual-search`) is not described in any source and is not covered here.\
+**Assumptions:** Books reach the shelf through `UC-REC-kid-review` or, with parent approval, through `UC-SHLF-manual-search`. `UC-SHLF-kid-move-book` only changes a book already on the shelf.\
 **Open Issues:**
 - Whether a shelf entry for a blocked book should stay hidden from the child or be shown as unavailable is undecided (extension 3b is a team proposal).
 - `FR-SHLF-categories` is marked for client confirmation.
@@ -1169,8 +1170,394 @@ Quality attributes: `ROB-no-data-loss` (a failed removal leaves the book on the 
 
 ---
 
+### UC-SHLF-manual-search: Search the Catalog and Request a Shelf Addition
+
+**UC ID and Name:** `UC-SHLF-manual-search`: Search the Catalog and Request a Shelf Addition\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-04_\
+**Primary Actor:** A Child\
+**Secondary Actors:** A Parent (approves or declines the child's shelf request)\
+**Trigger:** The child taps the search field on their home screen and types a keyword.\
+**Description:** A child searches the active catalog by keyword, without using the recommender. The child may ask to put a book they find on their shelf. The book is added only after a linked parent approves the request. This corresponds to `FEAT-manual-search` and to `FEAT-shelf` ("archive books they're interested in"). The approval requirement comes from the client's direction for this feature and does not yet appear in `business-rules.md` (see Open Issues).
+
+**Preconditions:**
+
+- PRE-1. The child is logged in to their child session.
+- PRE-2. The catalog contains at least one active book.
+
+**Postconditions:**
+
+- POST-1. The child has seen the search results.
+- POST-2. No shelf entry exists for the book unless a parent has approved it.
+- POST-3. If approved, the book is on the child's shelf in the category the child requested.
+- POST-4. The request and its outcome (pending, approved, declined, or cancelled) are recorded.
+
+**Main Success Scenario:**
+
+1. The child taps the search field and types a keyword.
+2. The system matches the keyword against the titles and authors of active books.
+3. The system displays the matching books with covers and titles.
+4. The child taps a result.
+5. The system displays the book's detail page with an "Add to my shelf" action.
+6. The child taps "Add to my shelf" and chooses a shelf category (Reading Now, Want to Read, Maybe Later, or Finished).
+7. The system records a pending shelf request for the child's linked parents and tells the child it is waiting for a grown-up to approve.
+8. A linked parent approves the request.
+9. The system adds the book to the child's shelf in the requested category and tells the child in-app. Use case ends.
+
+**Extensions:**
+
+- 1a. The keyword is empty. The system does not search and shows a short prompt to type a word.
+- 1b. The keyword is longer than 100 characters. The system shows an inline message and does not search.
+- 2a. No active book matches. The system shows a "no books found" message and does not show unrelated books.
+- 2b. The search cannot run. The system shows a retry message and no partial results.
+- 2c. A blocked book matches. The system omits it (`UC-ADM-block-content`).
+- 5a. The book is already on the child's shelf. The system shows its current category and does not create a request.
+- 6a. The child already has a pending request for this book. The system shows that it is pending and does not create a duplicate.
+- 6b. The child closes the category choice without choosing. No request is created.
+- 7a. Recording the request fails. The system shows an error and creates no request; the child may retry.
+- 8a. The parent declines. No shelf entry is created. The child is told, in neutral wording (TBD), that the book was not added this time. The request is closed.
+- 8b. No parent responds. The request stays pending, and the child sees that it is still waiting. No expiry is defined (see Open Issues).
+- 8c. The book is blocked after the request was made but before approval. The system does not add it, and the child is told the book is no longer available.
+- 9a. Adding the book to the shelf fails. The approval is not committed, the parent sees an error, and the parent may retry.
+- 9b. The book was added to the shelf by another route (for example, a recommendation the child accepted) before approval. The system does not create a duplicate and records the request as already satisfied.
+
+**Priority:** Medium — `FEAT-manual-search` is in the MVP per `vision-and-scope.md` §4.3.\
+**Frequency of Use:** A few times per week per active child (estimate).\
+**Business Rules:** `BR-parent-ultimate-say` (parent authority over which books a child may access), `BR-parent-account-linked`
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Keyword | string | required; trimmed; 1–100 characters | Child-entered; used only for this search | — |
+| Shelf request | record: book reference, requested category, status, requested at, decided by | status is one of pending, approved, declined, cancelled, already satisfied | Visible to the child and linked parents; never visible to the admin (`BR-admin-limited-view`) | Shelf (`FEAT-shelf`) |
+| Requested category | enum: Reading Now, Want to Read, Maybe Later, Finished | required when requesting | Child-set; the parent may see it | — |
+
+Search matches standard catalog fields only. Whether custom tags (`UC-ADM-add-content`) are searchable is open.
+
+**Related Use Cases:** `UC-SHLF-kid-view-shelf` (where an approved book appears); `UC-SHLF-kid-move-book` (after the book is added); `UC-REC-kid-review` (the other route onto the shelf); `UC-ADM-block-content` (removes books from results); `UC-SHLF-parent-remove-book` (a parent may remove the book again later)\
+**Assumptions:** Approval applies to one request for one book. It does not approve later requests or other books. A child's approved request is not a standing permission.\
+**Open Issues:**
+- **Parent-side approval has no use case.** Step 8 needs a parent screen to see and approve or decline pending requests. Whether that is a separate `PAR` use case is undecided.
+- **No business rule yet.** The approval requirement is not in `business-rules.md`. It should be added there, with its source, before this use case is built.
+- **Expiry.** Whether a pending request expires, and after how long, is not defined (8b).
+- **Decline.** The wording the child sees, whether a decline reason is given, and whether the child may ask again after a decline are not defined (8a).
+- **Category choice.** Whether a parent can change the requested category when approving is not defined.
+- **Recommendations.** Whether accepted recommendations also need parent approval is not specified. Step 9b assumes they do not.
+- **Still planned?** The 2026-09-25 flowchart does not show `FEAT-manual-search`. Confirm it is still in the MVP.
+
+---
+
 ## [ADM] Admin Feature Area
 
+_The system admin operates the catalog and the system and receives safety alerts. The admin never sees a child's details: the admin may see parent credentials and the number of child accounts under each parent (`BR-admin-limited-view`). Two admin-visibility questions are open and affect several use cases below: `FEAT-admin-pii-segregation` is in the MVP but its scope is in conflict (`OI-15`, cited in `vision-and-scope.md`, not yet filed in `OPEN-ISSUES.md`), and what the admin sees of a flagged reflection is undecided. Admin account creation (`UC-ADM-add-admin`) is post-MVP and not written here._
+
+### UC-ADM-add-content: Add a Book to the Seed Catalog
+
+**UC ID and Name:** `UC-ADM-add-content`: Add a Book to the Seed Catalog\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-04_\
+**Primary Actor:** A System Admin\
+**Secondary Actors:** none\
+**Trigger:** The admin taps "Add Book" in catalog management.\
+**Description:** An admin adds one book, with its tags, to the seed catalog so the recommender can offer it. Bulk loading from the approved dataset is a separate import (`SI-book-dataset`) and is not covered here. This corresponds to `FEAT-book-tagging` and `FR-ADM-catalog`.
+
+**Preconditions:**
+
+- PRE-1. The admin is logged in with the admin role.
+- PRE-2. No catalog book has the same ISBN, or the same title and author, as the book being added.
+
+**Postconditions:**
+
+- POST-1. The book is in the catalog with all its tags saved.
+- POST-2. The book is eligible for recommendation only once it has its required tags (see 6b).
+
+**Main Success Scenario:**
+
+1. The admin taps "Add Book."
+2. The system displays the book form: title, author, ISBN, tag fields for genre, mood, format, themes, length, age fit, and reading level, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
+3. The admin enters the book's details, chooses standard tags, and adds custom tags by choosing an existing custom tag or typing a new one.
+4. The system validates the required fields, checks each standard tag value against its approved list, and normalizes each custom tag (trims spaces and ignores letter case).
+5. The system checks that the book is not already in the catalog.
+6. The system saves the book.
+7. The system shows the book in the catalog list. Use case ends.
+
+**Extensions:**
+
+- 3a. The admin cancels. No book is saved.
+- 4a. A required field is empty. The system shows an inline error and returns to step 3.
+- 4b. A standard tag value is not on its approved list. The system rejects the value, names the list, and returns to step 3. Custom tags are not checked against the approved list.
+- 4d. A new custom tag matches an existing custom tag after normalization (for example, "Friend" and "friends" if the normalization treats them as one). The system offers the existing tag instead of creating a new one.
+- 4e. A custom tag is empty or longer than the length limit (team proposal: 30 characters). The system shows an inline error and returns to step 3.
+- 4c. The reading level is not on an accepted scale (Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range). The system shows an inline error and returns to step 3.
+- 5a. A matching book already exists. The system shows the existing entry and offers to open it instead. No new record is created.
+- 6a. Saving fails. The system shows an error and saves nothing; no partial book is left behind.
+- 6b. The book is saved without all required tags. The system saves it as not yet recommendable, so no child is offered a book that lacks the tags the rules engine needs (team proposal; the required tag set is TBD).
+
+**Priority:** Medium — `FEAT-book-tagging` is in the MVP per `vision-and-scope.md` v0.4. Building it is blocked until the seed-catalog source and tag lists are settled (`OI-1`).\
+**Frequency of Use:** Heavy during the initial catalog load of about 30–50 books, then occasional.\
+**Business Rules:** None in `business-rules.md` governs catalog content directly. Age-appropriate catalog content is required by `SAF-child-content` in the SRS.
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Title | string | required | Admin-set; visible to children and parents | Seed Catalog |
+| Author | string | required | Admin-set; visible to children and parents | Seed Catalog |
+| ISBN | string | optional; must be a valid ISBN-10 or ISBN-13 when given (team proposal) | Admin-set | — |
+| Standard tags (genre, mood, format, themes, length, age fit, reading level) | enum each | each value must come from its approved list; lists TBD (`OI-1`) | Admin-set; used by the recommender | — |
+| Custom tags | list of strings | optional; each entry trimmed and case-normalized; 1–30 characters; must not duplicate an existing custom tag (team proposal) | Admin-created; shared across the catalog; whether children see them is TBD | — |
+| Catalog status | enum: draft, active, blocked | system-set; new books are draft until tagged, then active | Admin-visible; see `UC-ADM-block-content` | — |
+
+Only the admin role may write catalog data (`SEC-role-authorization`). A failed save leaves the catalog unchanged.
+
+**Related Use Cases:** `UC-ADM-block-content` (the reverse action); `UC-PAR-suggest-book` (requires the book to exist in the catalog); `UC-REC-recommend-quiz-rules` (draws only from active, tagged books)\
+**Assumptions:** The seed catalog is loaded in bulk from the approved dataset, and this use case handles single additions and corrections of new entries only. Custom tags are free-form labels for the admin's own use. They are shared across the catalog, they do not replace standard tags, and the rules engine does not use them unless the client says so.\
+**Open Issues:**
+- The catalog's source dataset is not chosen (`OI-1`), so there is no approved tag list to validate against.
+- Whether custom tags such as "Cute," "Scary but Warming," and "Friends" are shown to children, used by the rules-based recommender, or used only for admin browsing is not specified.
+- Who may create custom tags, rename them, or delete them is not specified. This use case allows any admin to create one.
+- The normalization rule (case, spacing, and whether plurals such as "Friend" and "Friends" are merged) and the 30-character limit are team proposals that need client input.
+- Whether an admin may edit tags on an existing book is not covered. It would need its own use case.
+- Whether ISBN is required for de-duplication is a team proposal.
+
+---
+
+### UC-ADM-block-content: Block a Catalog Book
+
+**UC ID and Name:** `UC-ADM-block-content`: Block a Catalog Book\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-04_\
+**Primary Actor:** A System Admin\
+**Secondary Actors:** none\
+**Trigger:** The admin taps "Block book" on a catalog book.\
+**Description:** An admin removes a catalog book from every child's view and from every recommendation list without deleting it. This is the admin's content-safety control under `SAF-child-content`. Existing shelf entries are kept on record, so nothing a child or parent has done is lost.
+
+**Preconditions:**
+
+- PRE-1. The admin is logged in with the admin role.
+- PRE-2. The book exists in the catalog and is not already blocked.
+
+**Postconditions:**
+
+- POST-1. The book's status is blocked, with the reason, the admin, and the time recorded.
+- POST-2. The book does not appear in any recommendation, quiz result, or keyword search result (`FEAT-manual-search`).
+- POST-3. The book is removed from every child's recommendation list.
+- POST-4. Existing shelf entries for the book are kept on record: hidden from the child, and shown to the parent as no longer available (`UC-SHLF-kid-view-shelf` 3b, `UC-SHLF-parent-view-shelf` 5b).
+
+**Main Success Scenario:**
+
+1. The admin opens a catalog book.
+2. The admin taps "Block book."
+3. The system asks the admin to choose a reason and to confirm.
+4. The admin chooses a reason and confirms.
+5. The system sets the book to blocked and removes it from recommendation lists and search results, in one save.
+6. The system records the block and shows the book as blocked in the catalog. Use case ends.
+
+**Extensions:**
+
+- 2a. The book is already blocked. The system shows its status and the recorded reason; no change.
+- 3a. The admin cancels. No change.
+- 4a. No reason is chosen. The system does not allow confirmation.
+- 5a. Removing the book from recommendation lists fails part way. The system does not commit the block, shows an error, and the admin may retry. The book is never left half-blocked.
+- 5b. A child has the book open when it is blocked. The book is hidden the next time the child's screen loads; the system does not force-close the child's session.
+
+**Priority:** High — this is the admin's safety control over what children see.\
+**Frequency of Use:** Rare; only when content is found to be unsuitable or an error is found.\
+**Business Rules:** None in `business-rules.md` governs blocking directly. Required by `SAF-child-content` in the SRS.
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Catalog status | enum: active, blocked | required; changed only by this use case or its reverse | Admin-visible only | — |
+| Block reason | enum: age-inappropriate, content concern, data error, other (team proposal) | required when blocking | Admin-visible only; never shown to children | — |
+| Blocked by | reference to the admin account | system-set | Admin-visible only | — |
+| Blocked at | timestamp | system-set | Admin-visible only | — |
+
+**Related Use Cases:** `UC-ADM-add-content` (the book was added there); `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` (how existing shelf entries appear after a block); `UC-REC-recommend-quiz-rules` (no longer offers blocked books)\
+**Assumptions:** Blocking is reversible in principle, but unblocking is not in scope here, and no source describes it.\
+**Open Issues:**
+- The reason list is a team proposal and needs client input.
+- Whether a parent is told when a block removes a book from their child's shelf or recommendations is not specified.
+- Whether a block should also remove the book from existing shelves, rather than hiding it, is undecided. This use case keeps shelf records.
+- There is no unblock use case. Whether one is needed is not specified.
+
+---
+
+### UC-ADM-suspend-account: Suspend a Child Account
+
+**UC ID and Name:** `UC-ADM-suspend-account`: Suspend a Child Account\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-04_\
+**Primary Actor:** A System Admin\
+**Secondary Actors:** A Parent (is notified of the suspension)\
+**Trigger:** The admin taps "Suspend account" on a child account. This is a proposed trigger; see Assumptions and Open Issues.\
+**Description:** An admin suspends a child's account so the child can no longer sign in or request recommendations, while keeping the account's data. The sources do not give the admin this power. The only suspension described is the 24-hour review rule (`BR-24hr-review-window`), which is unconfirmed (`OI-16`). **Do not build this use case until the client confirms who may suspend an account and on what grounds.**
+
+**Preconditions:**
+
+- PRE-1. The admin is logged in with the admin role.
+- PRE-2. The child account exists and is active.
+
+**Postconditions:**
+
+- POST-1. The child account's status is suspended, with the reason, the admin, and the time recorded.
+- POST-2. The child cannot start a child session or request recommendations while suspended.
+- POST-3. The child's data is kept; suspension does not delete anything.
+- POST-4. The parent has been notified that the account is suspended.
+
+**Main Success Scenario:**
+
+1. The admin finds the account by its account reference and the parent's credentials. The admin does not see the child's name, age, or grade (`BR-admin-limited-view`).
+2. The admin taps "Suspend account."
+3. The system asks the admin to choose a reason and to confirm.
+4. The admin chooses a reason and confirms.
+5. The system sets the account to suspended and ends the child's active sessions.
+6. The system notifies the parent in-app that the account is suspended.
+7. The system shows the account as suspended to the admin. Use case ends.
+
+**Extensions:**
+
+- 1a. No account matches the reference. The system shows a not-found message.
+- 2a. The account is already suspended. The system shows its status; no change.
+- 4a. The admin cancels. No change.
+- 5a. Ending active sessions fails. The suspension is kept, because blocking new sign-ins is the control that matters. The system retries ending the sessions and shows the admin that retry is pending.
+- 6a. The parent notification cannot be sent. The system retries it and keeps the suspension in place.
+
+**Priority:** Medium — blocked until the client confirms the authority and grounds for suspension (`OI-16`).\
+**Frequency of Use:** Rare.\
+**Business Rules:** `BR-24hr-review-window` (flagged for reconfirmation; applies only if it stands), `BR-admin-limited-view`
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Account status | enum: active, suspended | required; changed only by this use case or its reverse | Admin-visible; parent-visible | — |
+| Suspension reason | enum: safety flag, review non-compliance, other (team proposal) | required when suspending | Admin-visible; parent-visible | — |
+| Account reference | opaque identifier | required; never derived from the child's name | Admin-visible; the only child identifier the admin sees | — |
+
+**Related Use Cases:** `UC-ADM-block-content` (the other admin control); `UC-SHLF-kid-add-note` (a safety-flagged reflection is one possible trigger, if the client confirms it); `UC-REC-parent-review` (a suspended child receives no recommendations)\
+**Assumptions:** Suspension is not deletion; the child's data stays on record. Reinstatement is not covered here and would need its own use case.\
+**Open Issues:**
+- **Authority:** No source says an admin may suspend an account. `OI-16` covers only the automatic 24-hour rule, and it is unconfirmed.
+- **Grounds:** Whether a safety flag, an unreviewed 24-hour window, or both can suspend an account is undecided.
+- **Reinstatement:** How and by whom a suspended account is restored is not specified.
+- **Notification channel:** Whether the parent is notified in-app only or also by email is not specified (`CI-in-app-alerts`).
+
+---
+
+### UC-ADM-view-recommender-stats: View Recommender Statistics
+
+**UC ID and Name:** `UC-ADM-view-recommender-stats`: View Recommender Statistics\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-04_\
+**Primary Actor:** A System Admin\
+**Secondary Actors:** none\
+**Trigger:** The admin opens the recommender statistics page.\
+**Description:** An admin sees aggregate figures on how the recommender is performing, such as how many quiz requests were made and how often recommendations were accepted, deferred, or declined. The admin sees totals only, never a per-child row. The contents are not yet decided (SRS §7.3).
+
+**Preconditions:**
+
+- PRE-1. The admin is logged in with the admin role.
+
+**Postconditions:**
+
+- POST-1. The aggregate figures for the chosen date range have been displayed.
+- POST-2. No data has been changed.
+
+**Main Success Scenario:**
+
+1. The admin opens recommender statistics.
+2. The system selects the last 30 days as the default date range (team proposal).
+3. The system computes the aggregate figures from stored requests and reactions.
+4. The system displays each figure with its date range.
+5. The admin changes the date range, and the system recomputes the figures. Use case ends when the admin leaves the page.
+
+**Extensions:**
+
+- 3a. There is no data in the date range. The system shows an empty-state message, not zeros presented as results.
+- 3b. A figure would describe fewer than 5 children (team proposal for a small-cell threshold). The system shows "not enough data" for that figure, so a single child cannot be identified from it.
+- 3c. The computation fails. The system shows an error and no partial figures.
+- 5a. The admin enters an invalid range, such as an end date before the start date. The system rejects it and keeps the previous range.
+
+**Priority:** Low — useful for the team and client, not needed for a child or parent to use the product.\
+**Frequency of Use:** Occasional; about once a week per admin (estimate).\
+**Business Rules:** `BR-admin-limited-view`
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Date range | start and end dates | required; end not before start | Admin-only | — |
+| Aggregate figures | counts and rates | each figure must meet the small-cell threshold in 3b | Admin-only; no child identifiers, names, ages, or grades | Recommender |
+| Small-cell threshold | integer | 5 (team proposal; client to confirm) | Not shown to the admin | — |
+
+The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
+
+**Related Use Cases:** `UC-ADM-view-usage-stats` (sister page); `UC-REC-recommend-quiz-rules` and `UC-REC-kid-review` (the source of the figures)\
+**Assumptions:** The figures are computed from stored data on demand and do not need a live feed.\
+**Open Issues:**
+- The figure list and the small-cell threshold need client input.
+- Whether book-level figures (for example, how often a book is declined across all children) are acceptable under `BR-admin-limited-view` is undecided.
+
+---
+
+### UC-ADM-view-usage-stats: View Usage Statistics
+
+**UC ID and Name:** `UC-ADM-view-usage-stats`: View Usage Statistics\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-04_\
+**Primary Actor:** A System Admin\
+**Secondary Actors:** none\
+**Trigger:** The admin opens the usage statistics page.\
+**Description:** An admin sees aggregate usage figures for the system, such as the number of parent accounts, the number of child accounts per parent, and how many accounts were active in a period. The admin sees totals only. Contents are not yet decided (SRS §7.3).
+
+**Preconditions:**
+
+- PRE-1. The admin is logged in with the admin role.
+
+**Postconditions:**
+
+- POST-1. The aggregate figures for the chosen date range have been displayed.
+- POST-2. No data has been changed.
+
+**Main Success Scenario:**
+
+1. The admin opens usage statistics.
+2. The system selects the last 30 days as the default date range (team proposal).
+3. The system computes the figures from stored account and activity records.
+4. The system displays each figure with its date range.
+5. The admin changes the date range, and the system recomputes the figures. Use case ends when the admin leaves the page.
+
+**Extensions:**
+
+- 3a. There is no data in the date range. The system shows an empty-state message.
+- 3b. A figure would describe fewer than 5 accounts (team proposal). The system shows "not enough data" for that figure.
+- 3c. The computation fails. The system shows an error and no partial figures.
+- 5a. The admin enters an invalid range. The system rejects it and keeps the previous range.
+
+**Priority:** Low — needed for operating the system, not for the child or parent experience.\
+**Frequency of Use:** Occasional; about once a week per admin (estimate).\
+**Business Rules:** `BR-admin-limited-view` (the admin may see the number of child accounts under each parent, and nothing else about a child)
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Date range | start and end dates | required; end not before start | Admin-only | — |
+| Account counts | integers | parent accounts overall; child accounts per parent | Admin-only; parent credentials are not shown here | — |
+| Active account counts | integers | a figure below 5 is shown as "not enough data" (team proposal) | Admin-only | — |
+
+**Related Use Cases:** `UC-ADM-view-recommender-stats` (sister page); `UC-PAR-onboarding` and `UC-PAR-create-kid-account` (the source of account records)\
+**Assumptions:** "Active" means a session in the date range; the definition is a team proposal.\
+**Open Issues:**
+- The figure list, and the definition of "active," need client input.
+- The success metrics in `vision-and-scope.md` §2.3 have no targets yet, so this page has no thresholds to report against.
+
+---
+
+_**Gap:** admin review of flagged reflections and of reflections pending deletion (`UC-SHLF-kid-add-note`) has no use case yet. It may belong in this area, and the admin must not see reflection content until `OI-15` is settled._
 
 ---
 

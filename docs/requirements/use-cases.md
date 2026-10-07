@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.8
+**Version:** 0.9
 
 ---
 
@@ -37,6 +37,8 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-04]_ | 0.6     | Wrote the `REC` area use cases: kid-onboarding, recommend-quiz-rules, recommend-quiz-ai (post-MVP), parent-review, kid-review; recommender mode is mutually exclusive between the rules and AI flows | _Claude_ |
 | _[2026-10-04]_ | 0.7     | Wrote the `SHLF` area use cases: parent-view-shelf, kid-view-shelf, kid-move-book, kid-remove-book, kid-rate-book, kid-add-note, parent-remove-book. Rating scale and reflection-visibility conflicts are left as open issues, not decided | _Claude_ |
 | _[2026-10-04]_ | 0.8     | Reflection deletion (24-hour pending window, restore, unflagged only) and kept ratings and reflections on shelf removal; wrote the `ADM` area use cases (add-content with custom tags, block-content, suspend-account, view-recommender-stats, view-usage-stats); wrote `UC-SHLF-manual-search` (keyword search, parent approval before a shelf add) | _Claude_ |
+| _[2026-10-06]_ | 0.9     | Parent confirm-or-deny step in `UC-SHLF-manual-search`; folded the Sub Parent's account setup (username and password) into `UC-PAR-create-sub-parent-account` instead of a separate use case; added a Parent-entered username and a system-generated password, shown with a note, to `UC-PAR-create-kid-account`; wrote `UC-ADM-flag-review` (admin reviews flagged reviews and notes, the one exception to `BR-admin-limited-view`) | _Grayson Whittingham_, _Claude_ |
+
 ---
 
 ## 1. Introduction
@@ -110,7 +112,7 @@ _[Your area codes, then a table of every use case by area. Write this list first
 | `PAR`     | Parent — account linking and oversight (`FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`)                   | `UC-PAR-onboarding`, `UC-PAR-create-sub-parent-account`, `UC-PAR-create-kid-account`, `UC-PAR-suggest-book`, `UC-PAR-view-growth-report`                           |
 | `SHLF`    | Shelf — tracking and rating what a child has read (`FEAT-shelf`, `FEAT-ratings`, `FEAT-manual-search`)                    | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-add-note`, `UC-SHLF-parent-remove-book`, `UC-SHLF-manual-search` |
 | `REC`     | Recommend — picture-quiz and (later) AI-assisted recommendations (`FEAT-recommendation-quiz`, `FEAT-reading-level-baseline`, `FEAT-ai-recommendation`) | `UC-REC-kid-onboarding`, `UC-REC-recommend-quiz-rules`, `UC-REC-recommend-quiz-ai`, `UC-REC-parent-review`, `UC-REC-kid-review`                                    |
-| `ADM`     | Admin — PII-segregated content and system oversight (`FEAT-admin-pii-segregation`)                                        | `UC-ADM-suspend-account`, `UC-ADM-add-content`, `UC-ADM-block-content`, `UC-ADM-view-recommender-stats`, `UC-ADM-view-usage-stats`                                 |
+| `ADM`     | Admin — PII-segregated content and system oversight (`FEAT-admin-pii-segregation`)                                        | `UC-ADM-suspend-account`, `UC-ADM-add-content`, `UC-ADM-block-content`, `UC-ADM-view-recommender-stats`, `UC-ADM-view-usage-stats`, `UC-ADM-flag-review`                                 |
 
 Notes on the table above:
 
@@ -205,9 +207,9 @@ If account creation fails partway (step 5a), the operation rolls back completely
 **Created By:** _Grayson Whittingham_; extensions, business rules, and associated information added by _Claude_\
 **Date Created:** _2026-09-25_\
 **Primary Actor:** A Parent (the Main Parent)\
-**Secondary Actors:** A Sub Parent (invited, does not act until a later, separate setup step)\
+**Secondary Actors:** A Sub Parent (invited; completes their own account by choosing a username and password)\
 **Trigger:** The parent taps "Add Sub Parent" on account management.\
-**Description:** A parent creates a sub parent account to allow a second adult to manage the children's reading listed under the Main Parent Account.
+**Description:** A parent invites a second adult as a sub parent, and the sub parent finishes creating their account by choosing a username and password, so they can help manage the children's reading listed under the Main Parent Account.
 
 **Preconditions:**
 
@@ -217,7 +219,8 @@ If account creation fails partway (step 5a), the operation rolls back completely
 **Postconditions:**
 
 - POST-1. A Sub Parent account record is created and linked to the Main Parent's family.
-- POST-2. An invitation has been sent to the Sub Parent so they can set up their own login (a separate, not-yet-defined use case — see Related Use Cases).
+- POST-2. An invitation has been sent to the Sub Parent's email.
+- POST-3. If the Sub Parent completes setup, their account is active with their chosen username and password, and they can log in.
 
 **Main Success Scenario:**
 
@@ -225,7 +228,10 @@ If account creation fails partway (step 5a), the operation rolls back completely
 2. The Parent enters the name and email of the Sub Parent.
 3. The Parent taps confirm on a pop-up notifying them that the Sub Parent will have the same access to the child as they do, except for creating and deleting accounts.
 4. The system creates the Sub Parent account record and sends an invitation to the supplied email.
-5. Use case ends.
+5. The Sub Parent opens the invitation link.
+6. The Sub Parent enters a username and a password, and confirms the password.
+7. The Sub Parent submits the form.
+8. The system saves the username and password, marks the account active, and tells the Sub Parent they can log in. Use case ends.
 
 **Extensions:**
 
@@ -234,6 +240,13 @@ If account creation fails partway (step 5a), the operation rolls back completely
 - 2b. The email entered is not a valid email format. The system displays an inline validation error; returns to step 2.
 - 2c. The email is already associated with an existing Main Parent account on a different family. The system displays an error and does not proceed — a person cannot be a Main Parent on one family and a Sub Parent on another (assumption; not yet confirmed with the client).
 - 4a. The invitation email fails to send. The system notifies the Parent that the account was created but the invite needs to be resent, and offers a retry.
+- 5a. The invitation link is expired or already used. The system tells the Sub Parent the link is no longer valid and does not show the form; the Main Parent may resend the invitation (expiry period TBD).
+- 6a. The username is already taken. The system displays an inline error; returns to step 6.
+- 6b. The username does not meet the format rules (TBD). The system displays an inline error; returns to step 6.
+- 6c. The password does not meet the strength rules (TBD). The system displays an inline error; returns to step 6.
+- 6d. The password and its confirmation do not match. The system displays an inline error; returns to step 6.
+- 6e. The Sub Parent leaves before submitting. No username or password is saved, and the account stays in the "invited, not yet set up" state; the invitation link remains usable until it expires.
+- 8a. Saving the credentials fails. The system shows an error, the account stays "invited, not yet set up", and the Sub Parent may retry.
 
 **Priority:** Medium\
 **Frequency of Use:** Occasional; mostly when an account is first created.\
@@ -245,10 +258,12 @@ If account creation fails partway (step 5a), the operation rolls back completely
 |---|---|---|---|---|
 | Sub Parent name | string | required | Visible to the Main Parent, the Sub Parent, and any linked children's parent view; never visible to the system admin (`BR-admin-no-pii`) | — |
 | Sub Parent email | string | required; valid email format; not already a Main Parent elsewhere | Used only to deliver the setup invitation | — |
+| Sub Parent username | string | required; unique; format rules TBD | Chosen by the Sub Parent; visible to the Main Parent; never visible to the system admin (`BR-admin-no-pii`) | — |
+| Sub Parent password | string | required; strength rules TBD; must match confirmation | Never displayed or logged; stored only as a salted hash | — |
 
 If the account record is created but the invite email fails (4a), the account record is not rolled back — it persists in an "invited, not yet set up" state so the Parent can resend rather than starting over.
 
-**Related Use Cases:** The Sub Parent's own account setup (accepting the invite, setting a password) is implied by POST-2 but is not yet a separate entry in the Use Case List in section 3 — recommend adding one (e.g., a future `UC-PAR-sub-parent-set-up`) before this is built, so the setup flow has its own preconditions and extensions.\
+**Related Use Cases:** None.\
 **Assumptions:** Assumes one email can be a Sub Parent on only one family at a time (see 2c); not yet confirmed with the client.\
 **Open Issues:** No `BR-*` rule in `business-rules.md` currently scopes what a Sub Parent can and cannot do, or whether there is a limit on the number of Sub Parents per family — worth raising with the client and filing as a new entry in `OPEN-ISSUES.md`.
 
@@ -262,7 +277,7 @@ If the account record is created but the invite email fails (4a), the account re
 **Primary Actor:** A Parent (Main or Sub Parent)\
 **Secondary Actors:** none\
 **Trigger:** Either (a) immediately and automatically, as a mandatory continuation of `UC-PAR-onboarding` for the family's first child, since a parent account cannot exist without at least one linked child; or (b) the Parent taps "Add a Child" from the account dashboard, for any additional child.\
-**Description:** A parent creates a linked child profile, entering the child's name, age, grade, and an optional reading level so the recommender has what it needs from the first use. This corresponds to `FEAT-onboarding-profile` in `vision-and-scope.md` §4.2.
+**Description:** A parent creates a linked child profile, entering the child's name, age, grade, a username, and an optional reading level so the recommender has what it needs from the first use. The system generates the child's password and shows it to the parent to pass on to the child. This corresponds to `FEAT-onboarding-profile` in `vision-and-scope.md` §4.2.
 
 **Preconditions:**
 
@@ -273,14 +288,19 @@ If the account record is created but the invite email fails (4a), the account re
 
 - POST-1. A child profile exists, linked to the Parent's account.
 - POST-2. The child profile includes the child's name, age, grade, and avatar; it includes a reading level only if the Parent chose to enter one.
+- POST-3. The child has login credentials: the username the Parent entered and a system-generated password.
+- POST-4. The Parent has been shown the credentials with a note to tell the child to log in with them.
 
 **Main Success Scenario:**
 
 1. The Parent arrives at this use case either straight from `UC-PAR-onboarding` (first child) or by tapping "Add a Child" from the account dashboard (additional child).
-2. The system displays a form requesting the child's name, age, grade, an optional reading level, and an avatar/character selection.
-3. The Parent enters the child's name, age, and grade; optionally enters the child's reading level using a scale they already know (e.g., Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range), or skips it; and selects an avatar.
+2. The system displays a form requesting the child's name, age, grade, a username, an optional reading level, and an avatar/character selection.
+3. The Parent enters the child's name, age, grade, and the username the child will log in with; optionally enters the child's reading level using a scale they already know (e.g., Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range), or skips it; and selects an avatar.
 4. The system validates the entered values.
-5. The system creates the child profile, linked to the Parent's account, with the entered name, age, grade, and (if given) reading level available to the recommender.
+5. The system creates the child profile, linked to the Parent's account, with the entered name, age, grade, username, and (if given) reading level available to the recommender.
+6. The system generates a password for the child's account.
+7. The system displays the username and generated password to the Parent with a note: "Tell your child to log in with these credentials."
+8. The Parent acknowledges the note. Use case ends.
 
 **Extensions:**
 
@@ -288,9 +308,14 @@ If the account record is created but the invite email fails (4a), the account re
 - 4a. The child's name is empty. The system displays an inline validation error; returns to step 3.
 - 4b. The age entered is outside the product's target age band (roughly 6–11, per `vision-and-scope.md` §2.4). The system warns the Parent but does not necessarily block the entry (see Open Issues — whether a sibling outside the target band should be allowed is unconfirmed).
 - 4c. The grade entered is not a recognized school grade. The system displays an inline validation error; returns to step 3.
+- 4f. The username is empty. The system displays an inline validation error; returns to step 3.
+- 4g. The username is already taken. The system displays an inline error; returns to step 3.
+- 4h. The username does not meet the format rules (TBD). The system displays an inline error; returns to step 3.
 - 4d. The Parent enters a reading level that does not match one of the accepted scales. The system displays an inline validation error and shows the accepted scales/formats; returns to step 3. Skipping the field entirely is not an error, per `BR-reading-level-parent-entered`.
 - 4e. The Parent is unsure of the child's reading level. The system may offer referral links to an external resource (e.g., AR Bookfinder, Scholastic Book Wizard) for the Parent's own reference; the system itself never assesses or estimates the level, per `BR-no-reading-level-assessment`.
 - 5a. The system fails to persist the child profile (e.g., database timeout). The system displays an error; no partial child record is left behind.
+- 6a. The system fails to generate or save the password. The system displays an error; no child profile or credentials are left behind, and the Parent may retry from step 5.
+- 7a. The Parent leaves the credentials screen before acknowledging the note. The account already exists. Whether the Parent can view the password again, or must reset it, is TBD (see Open Issues).
 
 **Priority:** High — a family cannot use any `SHLF` or `REC` feature without a child profile, and per `UC-PAR-onboarding` a parent account cannot exist without one either.\
 **Frequency of Use:** Once per family immediately after onboarding (first child), with occasional repeats for additional children.\
@@ -304,6 +329,8 @@ If the account record is created but the invite email fails (4a), the account re
 | Age | integer | required, per `BR-kid-data-stored`; expected range roughly 6–11 (see 4b and Open Issues) | Visible to the parent; used by the recommender as the primary signal (`BR-reading-level-proxy`); never visible to the system admin (`BR-admin-limited-view`) | — |
 | Grade | string/enum (e.g., K–6) | required, per `BR-kid-data-stored`; must be a recognized school grade | Visible to the parent; used by the recommender alongside age (`BR-reading-level-proxy`); never visible to the system admin (`BR-admin-limited-view`) | — |
 | Reading level | string/number, one of Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range | optional, per `BR-kid-data-stored`; manually entered by the parent, or skipped — never assessed by the system, per `BR-no-reading-level-assessment` and `BR-reading-level-parent-entered` | Visible to the parent; used by the recommender if given, otherwise age/grade stand in (`BR-reading-level-proxy`); never visible to the system admin (`BR-admin-limited-view`) | Lexile (Lexile Framework), Accelerated Reader (AR) |
+| Username | string | required; unique; format rules TBD | Entered by the Parent; visible to the Parent and the child; never visible to the system admin (`BR-admin-limited-view`) | — |
+| Password | string | system-generated; strength and length rules TBD | Shown to the Parent once, on the credentials screen; stored only as a salted hash; never logged | — |
 | Avatar | enum / image reference | required; selected from a provided set | Visible to the parent and child; see Open Issues re: `BR-kid-anonymous-profile` | Kid-Facing Profile |
 
 **Related Use Cases:** `UC-PAR-onboarding` (invokes this use case immediately for the first child)\
@@ -313,6 +340,7 @@ If the account record is created but the invite email fails (4a), the account re
 - **New conflict:** `business-rules.md` §2.1 `BR-kid-data-stored` enumerates the stored child fields as name, age, grade, and (optionally) reading level only — it does not mention reading interests or favorite books already read. But `vision-and-scope.md` §4.2 `FEAT-onboarding-profile` — the feature this use case implements — also lists reading interests and favorite books already read as part of the onboarding profile. These two now-current documents disagree on what onboarding actually collects; raise with the client before deciding whether to add those fields to this use case or a separate one.
 - **New conflict:** `business-rules.md` v0.2 restates `BR-kid-anonymous-profile` ("a nickname and character avatar only... no real identifying information is displayed") with a note that the rule "still governs what is displayed," even though the child's real name is now stored per `BR-kid-data-stored`. This use case currently collects and displays the child's real name, with no nickname, per explicit direction for this project. That is a direct conflict with the client-sourced rule as currently written in `business-rules.md` — needs an explicit decision (and a `business-rules.md` update) rather than being left to stand unchanged against this use case.
 - `business-rules.md` §2.2 flags `BR-24hr-review-window` (cited in PRE-2) itself as needing reconfirmation with the client — it is absent from the team's second-meeting notes, which simplified scope elsewhere. If it's dropped, PRE-2 needs to drop the suspension clause.
+- Whether the Parent can see the generated password again after leaving the credentials screen, how the Parent resets it, and whether the child can change it, are not specified. No business rule in `business-rules.md` covers child login credentials.
 - Whether this use case, and the product generally, needs to support a child outside the roughly 6–11 target age band (see extension 4b) is not specified anywhere.
 
 ---
@@ -1201,8 +1229,8 @@ Quality attributes: `ROB-no-data-loss` (a failed removal leaves the book on the 
 5. The system displays the book's detail page with an "Add to my shelf" action.
 6. The child taps "Add to my shelf" and chooses a shelf category (Reading Now, Want to Read, Maybe Later, or Finished).
 7. The system records a pending shelf request for the child's linked parents and tells the child it is waiting for a grown-up to approve.
-8. A linked parent approves the request.
-9. The system adds the book to the child's shelf in the requested category and tells the child in-app. Use case ends.
+8. A linked parent reviews the request and must either confirm or deny adding the book to the child's shelf.
+9. The parent confirms the request. The system adds the book to the child's shelf in the requested category and tells the child in-app. Use case ends.
 
 **Extensions:**
 
@@ -1215,7 +1243,7 @@ Quality attributes: `ROB-no-data-loss` (a failed removal leaves the book on the 
 - 6a. The child already has a pending request for this book. The system shows that it is pending and does not create a duplicate.
 - 6b. The child closes the category choice without choosing. No request is created.
 - 7a. Recording the request fails. The system shows an error and creates no request; the child may retry.
-- 8a. The parent declines. No shelf entry is created. The child is told, in neutral wording (TBD), that the book was not added this time. The request is closed.
+- 8a. The parent denies the request. No shelf entry is created. The child is told, in neutral wording (TBD), that the book was not added this time. The request is closed.
 - 8b. No parent responds. The request stays pending, and the child sees that it is still waiting. No expiry is defined (see Open Issues).
 - 8c. The book is blocked after the request was made but before approval. The system does not add it, and the child is told the book is no longer available.
 - 9a. Adding the book to the shelf fails. The approval is not committed, the parent sees an error, and the parent may retry.
@@ -1557,7 +1585,91 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 
 ---
 
-_**Gap:** admin review of flagged reflections and of reflections pending deletion (`UC-SHLF-kid-add-note`) has no use case yet. It may belong in this area, and the admin must not see reflection content until `OI-15` is settled._
+### UC-ADM-flag-review: Review Flagged Reviews and Notes
+
+**UC ID and Name:** `UC-ADM-flag-review`: Review Flagged Reviews and Notes\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-06_\
+**Primary Actor:** A System Admin\
+**Secondary Actors:** A Parent (is notified if the account is suspended)\
+**Trigger:** The admin opens the flagged content list, or taps an in-app alert about a flagged review or note (`UC-SHLF-kid-add-note` step 6).\
+**Description:** An admin views a list of reviews and notes the system has flagged, opens an entry to see the flagged content with the detected passages highlighted, and sees the account behind it. The admin then either suspends the account or unflags the content, and each choice needs a further confirmation. **This is the only use case in which `BR-admin-limited-view` does not apply.** For security and safety reasons, the admin sees the child's real name and account details here, and nowhere else. A suspension saves the content to a list of dangerous content and notifies the parent. The suspension confirmation asks whether the content breaks only the app's conduct rules or also breaks the law and should be marked for escalation.
+
+**Preconditions:**
+
+- PRE-1. The admin is logged in with the admin role.
+
+**Postconditions:**
+
+- POST-1. The admin has seen the list of flagged content.
+- POST-2. If the admin suspended the account: the account is suspended, the flagged content is saved to the dangerous content list with its classification (conduct only, or law-breaking and marked for escalation), and the parent has been notified.
+- POST-3. If the admin unflagged the content: the flag is removed and the decision is recorded.
+- POST-4. Every time the admin opens an entry, the access is recorded with the admin, the entry, and the time, because child details were shown.
+- POST-5. A resolved entry is marked resolved and no longer appears as open.
+
+**Main Success Scenario:**
+
+1. The admin opens the flagged content list.
+2. The system displays the open flagged reviews and notes, newest first. Each row shows the content type (review or note), the flag category, and the date flagged. It does not show the child's name or any content in the list.
+3. The admin taps an entry.
+4. The system displays the flagged content in full, with the passages that triggered the flag highlighted, and the flag category.
+5. The system displays information about the account: the child's real name, age, grade, and username, the account status, the parent's name and email, and the number of earlier flags on the account. The system records the access (POST-4).
+6. The admin taps "Suspend account."
+7. The system displays a suspension confirmation screen. It asks the admin to choose one of two classifications: the content breaks only the app's conduct rules, or the content broke the law and should be marked for further escalation.
+8. The admin chooses a classification and confirms the suspension.
+9. The system sets the account to suspended and ends the child's active sessions.
+10. The system saves the flagged content to the dangerous content list with the classification, the account reference, and the time. If the content was classified as breaking the law, the system marks it for further escalation.
+11. The system notifies the parent in-app that the account is suspended.
+12. The system marks the flag resolved and shows the admin the outcome. Use case ends.
+
+**Extensions:**
+
+- 2a. There is no open flagged content. The system shows an empty-list message.
+- 2b. The list cannot load. The system shows a retry message and no partial list.
+- 3a. The entry was resolved by another admin since the list loaded. The system tells the admin, shows the recorded outcome, and returns to the list.
+- 4a. The parent has already removed the content from the child's view (`BR-parent-content-removal`). The system still shows its retained copy to the admin and says it was removed by the parent.
+- 4b. No passage can be highlighted, for example because the flag came from the category check alone. The system shows the content without highlights and the flag category.
+- 5a. The account is already suspended. The system shows its status and does not offer "Suspend account." The admin may still unflag the content (6b) or return to the list.
+- 6a. The admin leaves the entry without choosing. No change; the entry stays open.
+- 6b. The admin taps "Unflag content." The system displays a confirmation asking the admin to confirm that the content does not break the rules. On confirm, the system removes the flag, records the admin, the time, and the decision, marks the entry resolved, and returns to the list. If the admin cancels, no change is made. Use case ends.
+- 8a. The admin cancels the suspension. No change; the system returns to the entry (step 4).
+- 8b. The admin confirms without choosing a classification. The system shows an inline error and does not suspend; returns to step 7.
+- 9a. Ending the active sessions fails. The suspension is kept, because blocking new sign-ins is the control that matters. The system retries and shows the admin that the retry is pending (as in `UC-ADM-suspend-account` 5a).
+- 9b. Setting the suspension fails. The system shows an error; the account stays active, nothing is saved to the dangerous content list, and the admin may retry from step 6.
+- 10a. Saving to the dangerous content list fails. The suspension is kept. The system shows the admin that saving failed, keeps the flag open, and retries. The content must not be lost.
+- 11a. The parent notification cannot be sent. The system retries it and keeps the suspension in place. A notification is never only a log entry (`SAF-flag-delivery`).
+
+**Priority:** High — flagged content involves violence or self-harm, and the admin needs a way to act on it. Blocked in part by the open issues below.\
+**Frequency of Use:** Rare; only when the content check flags something.\
+**Business Rules:** `BR-note-safety-flagging`, `BR-parent-content-removal`, `BR-notes-visible-to-parent`; `BR-admin-limited-view` is **suspended for this use case only** (see Open Issues)
+
+**Associated Information:**
+
+| Property name | Data type | Validation rule | Security or access concerns | Glossary reference |
+|---|---|---|---|---|
+| Flagged entry | record: content type (review or note), content, flag category, detected passages, flagged at, status | status is open or resolved | Admin-visible only through this use case; the list shows no content | — |
+| Flag category | enum: violence, self-harm | system-set by the content check (`UC-SHLF-kid-add-note`) | Admin-visible here | — |
+| Detected passages | list of character ranges in the content | system-set; may be empty (4b) | Admin-visible here | — |
+| Account information | child's real name, age, grade, username; account status; parent's name and email; earlier flag count | read-only | Child PII shown to the admin **only** in this use case; each view is recorded; never shown on any other admin page | — |
+| Classification | enum: conduct only, breaks the law (escalate) | required when suspending | Admin-visible | — |
+| Dangerous content list entry | record: content, flag category, classification, account reference, saved at, saved by | created only by a suspension; never edited | Admin-only; holds child content and must be protected like the child's data | — |
+
+Unflagging is the only way an admin clears a flag. An unflagged entry is not saved to the dangerous content list.
+
+**Related Use Cases:** `UC-SHLF-kid-add-note` (raises the flag and the alert that leads here); `UC-ADM-suspend-account` (the same suspension, but this use case adds the content review, classification, and dangerous content list); `UC-SHLF-parent-view-shelf` (where the parent sees the flag marker)\
+**Assumptions:** Flagged "reviews" are the ratings and written reflections a child adds to a finished book. A flag stays open until an admin resolves it. Any admin may resolve an entry.\
+**Open Issues:**
+- **Exception to `BR-admin-limited-view`:** the rule in `business-rules.md` has no exception, and this use case breaks it. The rule needs an explicit exception, and the client should confirm it. This also settles part of `OI-15` (admin access to flagged content), which is cited here but not yet filed in `OPEN-ISSUES.md`. `UC-SHLF-kid-add-note` step 6 and its Open Issues still say the admin alert must not show reflection content; they need to be reconciled with this use case.
+- **Authority:** `UC-ADM-suspend-account` notes that no source gives the admin the power to suspend; this use case assumes it. The client should confirm.
+- **Escalation:** what "further escalation" means, who receives a law-breaking item, and how, is not specified (`OI-18`, cited in `vision-and-scope.md` but not yet filed).
+- **Dangerous content list:** retention period, who may view it beyond the admin, and whether it can be exported are not specified.
+- **Notifications:** whether the parent is told the reason or the classification, and whether the child is told anything, are not specified. Whether the parent is notified when content is unflagged is also open.
+- **Reinstatement:** how a suspended account is restored is not covered (see `UC-ADM-suspend-account`).
+- **Detection:** how passages are detected and highlighted is not specified; the flag categories are only violence and self-harm.
+
+---
+
+_**Gap:** reflections pending deletion (`UC-SHLF-kid-add-note`) have no admin use case.
 
 ---
 

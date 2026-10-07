@@ -443,7 +443,6 @@ Domain terms are in the [project glossary](../docs/requirements/project-glossary
 _Found while writing this version. Each belongs to the document named, not here._
 
 - **Specification:** replace `CO-technology-stack` "TBD" with a pointer to `KD-tech-stack`; add a `DE-*` for the email provider; state that children sign in with a generated text password.
-- **Use cases:** `UC-PAR-create-kid-account` should generate and show the child's password, and resolve the real-name display conflict (8.2.11). Missing use cases: parent approval of a shelf request (`UC-SHLF-manual-search`), sub-parent account setup, and admin review of flagged reflections.
 - **Open issues:** `OI-15` to `OI-18` are cited but not defined; add a new issue for how violent or self-harm content is detected; close `OI-10` (web-first).
 - **Vision and scope:** replace the diagram in section 4.1 with a link to section 3 of this document.
 

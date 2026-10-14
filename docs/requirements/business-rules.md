@@ -3,16 +3,17 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Yang Yang
-**Version:** 0.2
+**Version:** 0.3
 
 ---
 
 ## Revision History
 
-| Date | Version | Description | Author |
-|---|---|---|---|
-| 2026-09-13| 0.1 | Initial rules from the client brief and first client meeting | McKenzie Mitchell-Richardson |
-| 2026-10-01 | 0.2 | Updated document based off of notes, transcript, flowcharts, and slide deck from second meeting with Yang. | McKenzie Mitchell-Richardson |
+| Date       | Version | Description                                                                                                | Author                       |
+|------------|---------|------------------------------------------------------------------------------------------------------------|------------------------------|
+| 2026-09-13 | 0.1     | Initial rules from the client brief and first client meeting                                               | McKenzie Mitchell-Richardson |
+| 2026-10-01 | 0.2     | Updated document based off of notes, transcript, flowcharts, and slide deck from second meeting with Yang. | McKenzie Mitchell-Richardson |
+| 2026-10-13 | 0.3     | Added `BR-parent-report-book` for `UC-PAR-report-book` (client-confirmed, not yet in a source document).   | Grayson Whittingham, Claude  |
 ---
 
 ## 1. Introduction
@@ -61,6 +62,8 @@ Flagged — likely a team decision, not a rule: the brief notes email is "prefer
 **BR-24hr-review-window:** A parent must confirm they have reviewed their child's activity within 24 hours; failure to do so results in temporary suspension of the child's account. Source: client concept brief, "Parental Controls, Privacy, and Account Structure" section (noted by the client as COPPA-adjacent compliance). Flagged — reconfirm: Meeting 2's list of notifications (a kid is told when a book is removed; a parent is alerted when a note is flagged) includes no review reminder, and the meeting simplified scope elsewhere. Ask Yang Yang whether this rule still stands for the MVP.
 
 **BR-parent-content-removal:** A parent may remove flagged words or content from their child's account and may report abuse or self-harm signals. Source: client concept brief, "Parental Controls, Privacy, and Account Structure" section.
+
+**BR-parent-report-book:** A parent (Main or Sub Parent) may report a book from a child's recommendation batch under review or from the child's shelf, giving a reason and confirming after a warning that false reports may be punished. Once sent, the report is final and cannot be undone: the book never appears for that child again, and it is removed from their shelf with an in-app notice that gives no reason. The child's rating and reflection are kept unless the system admin later blocks the book. The report goes to the system admin's list of reported books, where the admin may block the book for everyone or discard the report. A Sub Parent's report is binding on the Main Parent, who is warned of this when creating a Sub Parent account. A false report is handled manually by the admin, who may warn the parent not to send false reports or suspend the account. The reporting parent is not told whether a report was acted on, and neither the child nor the parent is told if a rating or reflection is deleted because the book was blocked. Source: confirmed by the client in conversation with the team, 2026-10-13; no source document records it yet, so cite this entry until one is added.
 
 ### 2.3 Group and Social Safety
 [v0.2: Meeting 2 dropped peer-to-peer social sharing from the MVP ("too complicated for now"). The group rules below remain client policy for when social features return, so they are marked Deferred rather than retired.]

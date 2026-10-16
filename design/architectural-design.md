@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang, Research Scientist, IBR/Knight D Research
-**Version:** 0.3
+**Version:** 0.4
 
 ---
 
@@ -37,6 +37,7 @@ _[These are slugs, like every other identifier in your project, so an inserted d
 | 0.1 | | | Initial draft for Checkpoint 1 |
 | 0.2 | 2026-10-02 | Team 05 | Filled in sections 1–4 for Checkpoint 1 from SRS v0.2, use cases v0.5, vision and scope v0.4 and the 2026-09-25 flowchart; fixed relative links to `docs/` |
 | 0.3 | 2026-10-05 | Team 05 | Recorded the tech stack, auth and child-credential decisions; filled in sections 5, 8 and 9 and the links in 10.1 and 12; updated sections 2–4 against use cases v0.8 |
+| 0.4 | 2026-10-15 | Team 05 (draft with Claude) | Brought the document up to use cases v0.10 and business rules v0.3: the 2026-09-24 scope cut, parent-chosen child usernames, sub-parent setup, `UC-PAR-report-book`, `UC-ADM-flag-review`, and the block and reflection rules. Added `KD-admin-flag-review` and `KD-book-exclusion`, risks, and open questions `OI-19` to `OI-23` (proposed, not yet filed). Items that are proposals are marked as such |
 
 ---
 
@@ -60,8 +61,8 @@ _BookBuddies' ranking below was accepted by the team on 2026-10-02; it still nee
 
 | Priority | Quality goal | Specification handles | Why it shapes the architecture |
 |---|---|---|---|
-| 1 | Children's personal data stays private | `SEC-pii-boundary`, `SEC-role-authorization`, `DI-pii-segregation`, `CO-coppa-adjacent` | The users are children aged 6–11, and the system stores their real names (`DI-child-stored`). A child's details reaching the admin, another family, or a log is a COPPA-adjacent exposure, not a bug, and the separation has to exist in the first schema because it cannot be retrofitted (`RI-pii-boundary-leak`). |
-| 2 | Safety flags reach a parent and the admin immediately | `SAF-flag-delivery`, `FR-NOTE-flagging`, `SAF-child-content` | A reflection that signals violence or self-harm is the one event in this product where minutes matter. Children are told during onboarding that such content is reported (`FR-NOTE-disclosure`), so the alert has to be delivered, not only logged. |
+| 1 | Children's personal data stays private | `SEC-pii-boundary`, `SEC-role-authorization`, `DI-pii-segregation`, `CO-coppa-adjacent`, `UC-ADM-flag-review` | The users are children aged 6–11, and the system stores their real names (`DI-child-stored`). A child's details reaching the admin, another family, or a log is a COPPA-adjacent exposure, not a bug, and the separation has to exist in the first schema because it cannot be retrofitted (`RI-pii-boundary-leak`). The one planned exception is the admin's flagged-content review, which reaches a flagged child's identifying details (`KD-admin-flag-review`, `OI-15`). |
+| 2 | Safety flags reach a parent and the admin immediately | `SAF-flag-delivery`, `FR-NOTE-flagging`, `SAF-child-content`, `UC-SHLF-kid-add-note`, `UC-ADM-flag-review` | A reflection that signals violence or self-harm is the one event in this product where minutes matter. Children are told during onboarding that such content is reported (`FR-NOTE-disclosure`), so the alert has to be delivered, not only logged. |
 | 3 | Someone other than the team can run and change it | `MNT-handover`, `CO-single-application`, `OE-hosting` | The team graduates, and who will host and maintain BookBuddies is unknown (`OI-9`). Every extra moving part is one more thing a future maintainer may not be able to operate. |
 
 ### 1.3 Stakeholders
@@ -113,9 +114,9 @@ _BookBuddies' context:]_
 C4Context
     title System Context: BookBuddies
 
-    Person(child, "Child", "Ages 6-11; signs in with credentials generated when a parent creates the child account")
-    Person(parent, "Parent", "Primary or secondary parent; creates and oversees child accounts")
-    Person(admin, "System Admin", "Manages the catalog; receives safety alerts")
+    Person(child, "Child", "Ages 6-11; signs in with a parent-chosen username and a generated password")
+    Person(parent, "Parent", "Primary or secondary parent; creates and oversees child accounts, suggests and reports books")
+    Person(admin, "System Admin", "Manages the catalog and reports, reviews flagged content, suspends accounts")
 
     System(bb, "BookBuddies", "Recommends books, keeps each child's shelf, and gives parents oversight")
 
@@ -123,10 +124,10 @@ C4Context
     System_Ext(email, "Email Service", "Delivers parent account emails; provider not yet chosen")
 
     Rel(child, bb, "Gets recommendations, keeps a shelf, rates and reflects")
-    Rel(parent, bb, "Creates accounts, suggests books, reviews shelf and reflections")
-    Rel(admin, bb, "Manages catalog, handles safety alerts")
+    Rel(parent, bb, "Creates accounts, suggests and reports books, reviews shelf and reflections")
+    Rel(admin, bb, "Manages catalog and reports, reviews flagged content, suspends accounts")
     Rel(bb, dataset, "Imports the seed catalog (offline, not live)")
-    Rel(bb, email, "Sends account creation and linking emails")
+    Rel(bb, email, "Sends parent account and sub-parent invitation emails")
 ```
 
 What stands behind each external system:
@@ -138,7 +139,7 @@ What stands behind each external system:
 
 Deliberately not in the diagram:
 
-- **Child sign-in has no external system.** A child has no email. When a parent creates the child account (`UC-PAR-create-kid-account`), BookBuddies generates a text password for the child, and the child signs in with it (team decision, 2026-10-02 and 2026-10-05). That use case and the specification do not yet say this; both need updating.
+- **Child sign-in has no external system.** A child has no email. When a parent creates the child account (`UC-PAR-create-kid-account`), the parent chooses the child's username, BookBuddies generates a password that the parent sees once, and the child signs in with both (team decision, 2026-10-02; username added in use cases v0.9, 2026-10-06). The specification does not yet say this and needs updating.
 - **No third-party authentication provider:** sign-in runs inside the application with Auth.js (`KD-auth-sessions`), so no credential leaves the system.
 - **Vercel and MongoDB Atlas:** they are where the containers run, not systems BookBuddies talks to. They appear in section 5.1 and, from Checkpoint 3, in section 7.
 - **Authorities:** whether safety flags are ever reported outside the system is unresolved (`OI-18`). It becomes a box only if the client confirms it.
@@ -155,8 +156,8 @@ _Each bullet is one sentence, and it cites what explains it: the key decision in
 _BookBuddies' strategy:]_
 
 - **One Next.js application on Vercel with one MongoDB Atlas database** (`KD-deployment-shape`, `KD-tech-stack`): the user interface and every server rule ship together, because `CO-single-application` requires it and an unknown future maintainer has to be able to run it (quality goal 3).
-- **Child data sits behind two independent walls** (`KD-pii-segregation`, `KD-auth-sessions`): identifying details live only in the Child Identity Store, and every request is authorized on the server and scoped to one family through revocable database sessions (quality goal 1; section 8.1). Exactly what the admin may see waits on `OI-15`.
-- **Recommendations are rules running inside the application over a locally stored catalog**, loaded by an offline import (`CO-rules-first-recommender`, `KD-catalog-import-offline`). The recommender mode is one system-wide setting, so a later AI stage replaces the rules behind the same Recommendation component without touching the rest (quality goal 3).
+- **Child data sits behind two independent walls** (`KD-pii-segregation`, `KD-auth-sessions`): identifying details live only in the Child Identity Store, and every request is authorized on the server and scoped to one family through revocable database sessions (quality goal 1; section 8.1). The admin's one planned route to child details is flagged-content review (`KD-admin-flag-review`), and whether the client accepts it is open (`OI-15`).
+- **Recommendations are rules running inside the application over a locally stored catalog**, loaded by an offline import (`CO-rules-first-recommender`, `KD-catalog-import-offline`). The recommender mode is one system-wide setting, so a later AI stage replaces the rules behind the same Recommendation component without touching the rest (quality goal 3). A parent's report is a permanent per-child exclusion that the recommender and manual search both honor (`KD-book-exclusion`).
 - **A safety flag is saved in the same transaction as the reflection and its alerts** (`SAF-flag-delivery`; Safety Flagging and Notification in section 5.2; section 8.2.8), so a reflection can never be stored without its alert (quality goal 2).
 - **Time-based rules are checked when data is read, not by a background job** (`KD-time-rules-on-read`), because Vercel runs no long-lived process; a scheduled cleanup only removes what has already expired (quality goals 2 and 3).
 
@@ -180,14 +181,14 @@ _BookBuddies' containers:]_
 C4Container
     title Container Diagram: BookBuddies
 
-    Person(child, "Child", "Signs in with a generated text password")
+    Person(child, "Child", "Signs in with a parent-chosen username and a generated password")
     Person(parent, "Parent", "Primary or secondary parent")
-    Person(admin, "System Admin", "Manages the catalog; receives safety alerts")
+    Person(admin, "System Admin", "Manages the catalog and reports, reviews flagged content, suspends accounts")
 
     System_Boundary(bb, "BookBuddies") {
         Container(ui, "Web UI", "Next.js / React, TypeScript", "Child, parent and admin screens, running in the browser")
         Container(app, "Application", "Next.js on the Node.js runtime, TypeScript, Vercel Functions", "Server components, server actions and route handlers; every business rule and every authorization check")
-        ContainerDb(db, "Database", "MongoDB Atlas", "Accounts, sessions, child identities (own collection), catalog, shelves, recommendations, reflections, flags, notifications, audit log")
+        ContainerDb(db, "Database", "MongoDB Atlas", "Accounts, sessions, child identities (own collection), catalog, shelves and shelf requests, recommendation batches and reading profiles, reflections, flags, reports and per-child exclusions, dangerous content list, notifications, audit log")
         Container(importer, "Catalog Import", "Node.js script, TypeScript", "Run by a developer to load or refresh the seed catalog")
     }
 
@@ -218,18 +219,18 @@ _BookBuddies' components:]_
 
 | Use case area | Component | Responsibility | Depends on | Status |
 |---|---|---|---|---|
-| `PAR` | Accounts & Family | Owns parent accounts (primary and secondary), sub-parent invitations, child accounts and their generated passwords, consent records, parent book suggestions and the growth recap | Identity & Access, Child Identity Store, Recommendation, Notification | provisional |
-| `REC` | Recommendation | Owns reading profiles, the system-wide recommender mode, rules-based batch generation, parent review and release of batches, and the child's reactions | Catalog, Child Identity Store, Shelf, Notification | provisional |
-| `SHLF` | Shelf | Owns each child's shelf and categories, ratings, reflections and their 24-hour pending deletion, keyword search, shelf requests and their parent approval, and parent removal with its notice | Catalog, Safety Flagging, Notification, Identity & Access | provisional |
-| `ADM` | Administration | Owns catalog management (add, block), account suspension and aggregate statistics; never reads the Child Identity Store | Catalog, Identity & Access, Notification | provisional |
-| (cross-cutting) | Identity & Access | Signs users in, issues and revokes database sessions, and decides what each role and family may reach; every server action and route handler goes through it | Notification | provisional |
-| (cross-cutting) | Child Identity Store | The only component that reads or writes a child's identifying details (`DI-child-stored`); everything else holds an opaque child ID, nickname and avatar | Identity & Access | provisional |
-| (cross-cutting) | Catalog | Owns books, tags and block status; every catalog read leaves out blocked books; filled in bulk by the Catalog Import | Children's Book Dataset (through the Catalog Import) | provisional |
-| (cross-cutting) | Safety Flagging | Screens a reflection when it is saved and, on a match, records the flag and its alerts in the same transaction; the detection method is not yet specified | Notification | provisional |
-| (cross-cutting) | Notification | Stores every in-app notice and alert until it is seen, and sends every email the system sends | Email Service | provisional |
-| (cross-cutting) | Scheduled Cleanup | Purges records whose time has passed, such as reflections past pending deletion; never the only thing enforcing a time rule | Vercel Cron | provisional |
+| `PAR` | Accounts & Family | Owns parent accounts (primary and sub parents, including the sub-parent invitation and setup), child accounts and their onboarding answers, consent records, parent book suggestions, the growth recap, and parent book reports with the per-child exclusions they create | Identity & Access, Child Identity Store, Recommendation, Shelf, Notification | provisional |
+| `REC` | Recommendation | Owns each child's reading profile (interests, favorite books, reading-level input), the system-wide recommender mode, rules-based batch generation that honors blocked books and per-child exclusions, parent review and release of batches, and the child's reactions | Catalog, Child Identity Store, Shelf, Accounts & Family | provisional |
+| `SHLF` | Shelf | Owns each child's shelf in four categories (Reading Now, Want to Read, Maybe Later, Finished), ratings, reflections and their 24-hour pending deletion, keyword search that honors exclusions, shelf requests and their parent approval, and parent removal with its notice | Catalog, Accounts & Family, Safety Flagging, Notification, Identity & Access | provisional |
+| `ADM` | Administration | Owns catalog management (add, tag, block), the reported-books list and its decisions (block, discard, warn), account suspension and the dangerous content list, aggregate statistics, and flagged-content review, which is the only admin path to child details (`KD-admin-flag-review`) | Catalog, Accounts & Family, Shelf, Safety Flagging, Child Identity Store (flagged-content review only), Identity & Access, Notification | provisional |
+| (cross-cutting) | Identity & Access | Signs users in, issues and revokes database sessions (a suspension ends them at once), and decides what each role and family may reach; every server action and route handler goes through it | Notification | provisional |
+| (cross-cutting) | Child Identity Store | The only component that reads or writes a child's real name, age, grade and reading level (`DI-child-stored`), with two named read paths: age and grade for the recommender, and identifying details for flagged-content review. Everything else holds an opaque child ID, nickname and avatar. The username and password hash stay with Identity & Access | Identity & Access | provisional |
+| (cross-cutting) | Catalog | Owns books, tags, catalog status (draft until tagged, then active, or blocked) and custom tags; every catalog read leaves out blocked books; filled in bulk by the Catalog Import and one book at a time by the admin (`UC-ADM-add-content`) | Children's Book Dataset (through the Catalog Import) | provisional |
+| (cross-cutting) | Safety Flagging | Screens a reflection when it is saved and, on a match, records its flag (violence or self-harm) and the alerts in the same transaction; the detection method is not yet specified (`OI-19`) | Notification | provisional |
+| (cross-cutting) | Notification | Stores every in-app notice and alert (removal notices, flag alerts, false-report warnings, shelf-request prompts) until it is seen, and sends every email the system sends | Email Service | provisional |
+| (cross-cutting) | Scheduled Cleanup | Purges records whose time has passed, such as reflections past pending deletion; purges a dangerous content list entry once its retention period has passed, which the client has yet to set (`OI-23`); never the only thing enforcing a time rule | Vercel Cron | provisional |
 
-Recommendation reads only age, grade and reading level from the Child Identity Store, through a function that returns no name.
+Recommendation reads only age, grade and reading level from the Child Identity Store, through a function that returns no name. Its reading profile (interests and favorite books, `UC-REC-kid-onboarding`) sits under the child's opaque ID, not in the Child Identity Store, because it is not identifying. The one other read of the store is `UC-ADM-flag-review`, through a separate function that returns a flagged child's identifying details and nothing else (`KD-admin-flag-review`).
 
 _[Check before Checkpoint 1: every area in your use case file appears in the first column, and every external system in section 3 appears in some Depends on cell.]_
 
@@ -268,11 +269,11 @@ _Secrets (passwords, API keys, connection strings) never appear in this document
 
 **Trust boundary.** The Application container is the boundary. Everything outside it is untrusted: the browser, including every client component and anything it sends; the Catalog Import's input file; the Email Service; and calls from Vercel Cron. Every server action and route handler is a public endpoint, including actions no page shows, so each one checks the session and role itself through Identity & Access before doing anything. Next.js middleware may redirect for convenience but is never the check. The cleanup route accepts only requests carrying the cron secret (`SEC-role-authorization`).
 
-**Authentication** (`SEC-auth`, `KD-auth-sessions`). Parents sign in with email and password. Children sign in with a text password the system generates when a parent creates the account (`UC-PAR-create-kid-account`); the parent sees it once and is the only one who can reset it. Whether the child's sign-in name is also generated is not yet decided. Auth.js handles sign-in and sessions: the Credentials provider checks passwords, which are stored only as salted hashes, and sessions use Auth.js's database strategy through its MongoDB adapter. The cookie (httpOnly, Secure, SameSite=Lax) carries only a random session token, and deleting the session document signs the user out everywhere, as suspension needs (`UC-ADM-suspend-account`). Failed sign-ins are counted per account and slowed down. Admin accounts are created by hand, never through sign-up.
+**Authentication** (`SEC-auth`, `KD-auth-sessions`). Parents sign in with email and password. Sub parents sign in with the username and password they chose at setup (`UC-PAR-create-sub-parent-account`). Children sign in with a username the parent chooses and a password the system generates (`UC-PAR-create-kid-account`); the parent sees the password once. Team decision, 2026-10-15, to confirm with the client (`OI-22`): the parent can reset the password and sees the new one once, and the child cannot change it. Whether the parent can see the current password is still open. Auth.js handles sign-in and sessions: the Credentials provider checks passwords, which are stored only as salted hashes, and sessions use Auth.js's database strategy through its MongoDB adapter. The cookie (httpOnly, Secure, SameSite=Lax) carries only a random session token, and deleting the session document signs the user out everywhere, as suspension needs (`UC-ADM-suspend-account`). Failed sign-ins are counted per account and slowed down. Admin accounts are created by hand, never through sign-up.
 
-**Authorization** (`SEC-role-authorization`). The roles are child, parent (primary and secondary) and admin. Beyond the role, every read and write is scoped: a child reaches only their own records; a parent reaches only children linked to their family; a secondary parent can do what a primary parent can except create and delete accounts (`UC-PAR-create-sub-parent-account`); an admin reaches the catalog, aggregate statistics and parent account references, never a child's details (`BR-admin-limited-view`, `OI-15`). The scope is applied in each component's data-access functions, not in pages, so a query cannot be written without it.
+**Authorization** (`SEC-role-authorization`). The roles are child, parent (primary and secondary) and admin. Beyond the role, every read and write is scoped: a child reaches only their own records; a parent reaches only children linked to their family; a sub parent's permissions relative to the primary parent are not defined by any rule (`UC-PAR-create-sub-parent-account`, `OI-21`); until they are, the team has decided (2026-10-15, to confirm with the client, `OI-21`) that a sub parent has the same access to linked children as the primary parent, but cannot create or delete accounts. An admin reaches the catalog, aggregate statistics, parent account references and the reported-books list (opaque references only), and never a child's details, except inside `UC-ADM-flag-review`, which reaches a flagged entry's content and the flagged child's identifying details, with every view audited (`KD-admin-flag-review`). `BR-admin-limited-view` has no such exception yet (`OI-15`). The scope is applied in each component's data-access functions, not in pages, so a query cannot be written without it.
 
-**Sensitive data** (`SEC-pii-boundary`, `DI-pii-segregation`). A child's real name, age, grade and reading level (`DI-child-stored`) live only in the Child Identity Store's collection (`KD-pii-segregation`). Reflections, ratings and safety flags are also sensitive: always visible to the parent (`SEC-no-private-notes`) and to the admin only as `OI-15` decides. All of it is in MongoDB Atlas, encrypted in transit and at rest. The only external system that receives personal data is the Email Service, which gets parent names and email addresses and never child data. Reflection text is never sent to an outside service, including content-moderation services. Retention and disposal are `DI-disposal` in section 7.4 of the specification, still TBD pending the COPPA rules.
+**Sensitive data** (`SEC-pii-boundary`, `DI-pii-segregation`). A child's real name, age, grade and reading level (`DI-child-stored`) live only in the Child Identity Store's collection (`KD-pii-segregation`). Reflections, ratings and safety flags are also sensitive: always visible to the parent (`SEC-no-private-notes`). A flagged reflection and its flag category reach the admin only in `UC-ADM-flag-review`. Parent reports (reason, comment and exclusion) are sensitive too, and the admin sees them only as opaque account references. The dangerous content list, created by a suspension and holding copies of child content, is the most sensitive store in the system. Team decision, 2026-10-15: only the admin may view it, and each entry is deleted after a retention period the client has yet to set (`OI-23`). All of it is in MongoDB Atlas, encrypted in transit and at rest. The only external system that receives personal data is the Email Service, which gets parent names and email addresses and never child data. Reflection text is never sent to an outside service, including content-moderation services. Retention and disposal are `DI-disposal` in section 7.4 of the specification, still TBD pending the COPPA rules.
 
 **Secrets.** The database connection string, the Auth.js secret, the cron secret and the email API key live in Vercel environment variables, separately for each environment, and in an untracked `.env.local` for development. They never appear in the repository or in this document.
 
@@ -304,19 +305,19 @@ _One short subsection each: the rule in one sentence, why, and the file that sho
 
 **8.2.4 Code conventions.** TypeScript in strict mode everywhere, including the Catalog Import, with no `any` in domain code. Only a component's own data-access functions touch its collections; no page, action or other component imports the MongoDB client. Server-only modules are marked with the `server-only` package so they can never be bundled into the browser. Whether data access uses Mongoose or the native driver is a team decision to make before the first line of data code. Why: an agent writing a new file needs to know where database code is allowed to live. Shown in: not yet.
 
-**8.2.5 Validation.** Every server action and route handler validates its input with a zod schema before doing anything else, and that is the check that counts. Validation in the browser is only for friendliness. Free text from children (reflections, decline reasons) has length limits, and key collections also carry MongoDB schema validation as a backstop. Why: anything from the browser is untrusted (8.1). Shown in: not yet.
+**8.2.5 Validation.** Every server action and route handler validates its input with a zod schema before doing anything else, and that is the check that counts. Validation in the browser is only for friendliness. Free text from children and parents (reflections, decline reasons, report comments) has length limits, as do keyword searches (1–100 characters) and custom tags (1–30 characters). Key collections also carry MongoDB schema validation as a backstop. Username and password rules are still TBD (`UC-PAR-create-kid-account`), so their checks are written once the rules are. Why: anything from the browser is untrusted (8.1). Shown in: not yet.
 
 **8.2.6 Configuration and secrets.** All configuration comes from environment variables, read and validated once at startup by one config module; the recommender mode (`UC-REC-recommend-quiz-rules`) is one of them. Development uses a local or development database; Vercel preview deployments use their own database and never production data; production has its own. Secrets follow 8.1. Why: a preview deployment pointed at production data would expose real children's data to anyone with the preview link. Shown in: not yet.
 
-**8.2.7 Logging.** Server errors and security events (failed sign-ins, refused requests, cleanup runs) are logged with an error or request ID. Passwords, session IDs, email addresses, child names, ages, grades, reflection text and decline reasons are never logged. Why: Vercel's logs sit outside the data controls in 8.1, so nothing personal may reach them. Shown in: not yet.
+**8.2.7 Logging.** Server errors and security events (failed sign-ins, refused requests, cleanup runs) are logged with an error or request ID. Passwords, session IDs, email addresses, usernames, child names, ages, grades, reflection text, decline reasons, report comments and flagged passages are never logged. Why: Vercel's logs sit outside the data controls in 8.1, so nothing personal may reach them. Shown in: not yet.
 
-**8.2.8 Persistence and concurrency.** Any change that must never happen without another is one MongoDB transaction: a shelf removal and its notice (`UC-SHLF-parent-remove-book`), a reflection and its flag and alerts (`UC-SHLF-kid-add-note`), a parent account and its consent record. State changes that only one person may make (a batch released, a shelf request approved) use a conditional update so the first one wins and the second sees the new state. One MongoDB client is created per server instance and reused, because serverless functions otherwise exhaust connections. Development and tests run MongoDB as a replica set, since transactions need one. Why: `ROB-no-data-loss`, `SAF-flag-delivery`. Shown in: not yet.
+**8.2.8 Persistence and concurrency.** Any change that must never happen without another is one MongoDB transaction: a shelf removal and its notice (`UC-SHLF-parent-remove-book`), a reflection and its flag and alerts (`UC-SHLF-kid-add-note`), a parent account and its consent record, a book report with its exclusion, the shelf removal and the child's notice (`UC-PAR-report-book`), a block with its report decisions and the copy of any flagged reflection that the block would delete (`UC-ADM-block-content`), and a suspension with its session deletion and dangerous content entry (`UC-ADM-suspend-account`). State changes that only one person may make (a batch released, a shelf request approved) use a conditional update so the first one wins and the second sees the new state. One MongoDB client is created per server instance and reused, because serverless functions otherwise exhaust connections. Development and tests run MongoDB as a replica set, since transactions need one. Why: `ROB-no-data-loss`, `SAF-flag-delivery`. Shown in: not yet.
 
-**8.2.9 Auditing.** An append-only audit collection records who (account ID and role), what, which record, and when, for parent shelf removals, shelf-request decisions, safety flags and their delivery, admin catalog changes, suspensions, password resets and data deletions. It holds IDs only, never child-identifying fields or reflection text. Why: the first "who removed this?" or "was the parent alerted?" question needs an answer that does not depend on logs. Shown in: not yet.
+**8.2.9 Auditing.** An append-only audit collection records who (account ID and role), what, which record, and when, for parent shelf removals, parent book reports and the admin's report decisions, false-report warnings, shelf-request decisions, safety flags and their delivery, every view of child details in `UC-ADM-flag-review`, admin catalog changes, suspensions, password resets and data deletions. It holds IDs only, never child-identifying fields or reflection text. Why: the first "who removed this?" or "was the parent alerted?" question needs an answer that does not depend on logs. Shown in: not yet.
 
-**8.2.10 Testing.** Unit tests (Vitest) cover the rules engine, flag screening and time rules, using a fixed clock. Integration tests run against an in-memory MongoDB replica set and cover data access, transactions and authorization, with at least one "another family is refused" test per component. End-to-end tests (Playwright) cover the core loop: onboarding, recommendation, review, shelf. Test data is invented, never real children's data (`OI-13`). Why: the rules that protect children are the ones a refactor breaks silently. Shown in: not yet.
+**8.2.10 Testing.** Unit tests (Vitest) cover the rules engine, flag screening and time rules, using a fixed clock. Integration tests run against an in-memory MongoDB replica set and cover data access, transactions and authorization, with at least one "another family is refused" test per component. Authorization tests also check that an admin session cannot reach a child's identifying details or reflection text outside `UC-ADM-flag-review`, and that a reported book never returns for that child. End-to-end tests (Playwright) cover the core loop: onboarding, recommendation, review, shelf. Test data is invented, never real children's data (`OI-13`). Why: the rules that protect children are the ones a refactor breaks silently. Shown in: not yet.
 
-**8.2.11 Child-facing views.** Anything sent to a child's screen carries book data, the child's own nickname and avatar, and nothing else: no counts, streaks, reading level or comparisons (`UI-kid-no-metrics`, `BR-kid-anonymous-profile`). `UC-PAR-create-kid-account` currently displays the child's real name, which conflicts with `BR-kid-anonymous-profile`; it needs a decision. Why: a child-facing response is the easiest place to leak a field by accident. Shown in: not yet.
+**8.2.11 Child-facing views.** Anything sent to a child's screen carries book data, the child's own nickname and avatar, and nothing else: no counts, streaks, reading level or comparisons (`UI-kid-no-metrics`, `BR-kid-anonymous-profile`). Team decision, 2026-10-15: child-facing screens show the nickname and avatar only, as `BR-kid-anonymous-profile` says. The real name stays with the parent and the flagged-content review. `UC-PAR-create-kid-account` must stop showing the real name to the child and needs a nickname field, which it does not have yet. A parent's report produces a removal notice that gives no reason and does not name the parent (`BR-parent-report-book`). Why: a child-facing response is the easiest place to leak a field by accident. Shown in: not yet.
 
 ## 9. Architecture Decisions
 
@@ -332,11 +333,12 @@ _List three to six, ranked by importance to your client times difficulty to achi
 
 | Rank | Requirement | Specification handles | Importance × difficulty | Drives |
 |---|---|---|---|---|
-| 1 | A child's details never reach the admin or another family | `SEC-pii-boundary`, `DI-pii-segregation` | High × High | `KD-pii-segregation` |
+| 1 | A child's details never reach the admin or another family, except a flagged child's details inside flagged-content review | `SEC-pii-boundary`, `DI-pii-segregation`, `UC-ADM-flag-review` | High × High | `KD-pii-segregation`, `KD-admin-flag-review` |
 | 2 | Every request is authorized on the server, scoped to one family | `SEC-role-authorization`, `SEC-auth` | High × Medium | `KD-auth-sessions` |
-| 3 | A safety flag is delivered as an alert, not only logged | `SAF-flag-delivery` | High × Medium | `KD-tech-stack` (transactions), section 8.2.8 |
-| 4 | One application someone else can maintain | `CO-single-application`, `MNT-handover` | High × Low | `KD-deployment-shape`, `KD-tech-stack` |
-| 5 | Recommendations come from rules over a vetted catalog | `CO-rules-first-recommender`, `SAF-child-content` | Medium × Low | `KD-catalog-import-offline` |
+| 3 | A safety flag is delivered as an alert and reaches admin review, not only a log | `SAF-flag-delivery`, `FR-NOTE-flagging`, `UC-ADM-flag-review` | High × Medium | `KD-tech-stack` (transactions), section 8.2.8 |
+| 4 | A book a parent reports never returns for that child | `BR-parent-report-book`, `UC-PAR-report-book` | High × Medium | `KD-book-exclusion` |
+| 5 | One application someone else can maintain | `CO-single-application`, `MNT-handover` | High × Low | `KD-deployment-shape`, `KD-tech-stack` |
+| 6 | Recommendations come from rules over a vetted catalog | `CO-rules-first-recommender`, `SAF-child-content` | Medium × Low | `KD-catalog-import-offline` |
 
 ### 9.2 Key decisions
 
@@ -366,19 +368,35 @@ _BookBuddies' decisions. Accepted ones were made by the team; Proposed ones were
 
 **`KD-auth-sessions`: Auth.js with database sessions.** _Accepted, 2026-10-05._
 
-- **Driving requirements:** `SEC-auth`, `SEC-role-authorization`; `UC-ADM-suspend-account`, `UC-PAR-create-kid-account`.
-- **Context:** Both parents and children sign in with a password; children use a text password generated when the parent creates their account. Suspending an account must end its sessions at once.
+- **Driving requirements:** `SEC-auth`, `SEC-role-authorization`; `UC-ADM-suspend-account`, `UC-PAR-create-kid-account`, `UC-PAR-create-sub-parent-account`.
+- **Context:** Parents and sub parents sign in with a password. Children sign in with a username the parent chooses and a password the system generates when the parent creates their account. Suspending an account must end its sessions at once.
 - **Decision:** Auth.js with its MongoDB adapter and the `database` session strategy. The Credentials provider checks passwords, which are stored only as salted hashes, and the cookie holds only a random session token. Out of the box, Auth.js allows the Credentials provider only with JWT sessions, so sign-in needs one small piece of glue: after the password check succeeds, it creates the session through the Auth.js adapter and sets the session cookie. Everything after that (looking up, expiring and deleting sessions) is Auth.js's own. Confirm the exact glue against the Auth.js version installed.
 - **Rejected:** Auth.js's default JWT sessions, which cannot be revoked before they expire, so a suspended child would stay signed in. A hosted service such as Clerk or Auth0, which would hold children's sign-in data outside the system and add an external system to section 3.
 - **Trade-off:** The sign-in glue goes around an Auth.js default, so an Auth.js upgrade can break it. It is security-critical, so it needs its own tests (section 8.2.10), and it is a candidate risk for section 11 at Checkpoint 2.
 
 **`KD-pii-segregation`: child details in their own collection.** _Proposed._
 
-- **Driving requirements:** `SEC-pii-boundary`, `DI-pii-segregation`, `CO-coppa-adjacent`.
-- **Context:** The system stores children's real names (`DI-child-stored`), and what the admin may see is still disputed (`OI-15`).
-- **Decision:** A child's identifying details are stored in one collection, reached only through the Child Identity Store. Every other collection refers to the child by an opaque ID plus nickname and avatar. Admin code never imports the Child Identity Store.
+- **Driving requirements:** `SEC-pii-boundary`, `DI-pii-segregation`, `CO-coppa-adjacent`, `UC-ADM-flag-review`.
+- **Context:** The system stores children's real names (`DI-child-stored`) for law-enforcement reporting. Whether the admin may reach them through flagged-content review is still disputed (`OI-15`).
+- **Decision:** A child's identifying details are stored in one collection, reached only through the Child Identity Store. Every other collection refers to the child by an opaque ID plus nickname and avatar. Admin code never imports the Child Identity Store, except the one flagged-content review function that `KD-admin-flag-review` allows.
 - **Rejected:** One child document holding everything, with fields hidden per role. One forgotten projection in one query would leak a child's details.
 - **Trade-off:** Showing a child's name to a parent, or giving the recommender age and grade, needs an extra lookup through a narrow interface.
+
+**`KD-admin-flag-review`: flagged-content review is the admin's only route to child details.** _Proposed: team choice, 2026-10-15; pending client confirmation (`OI-15`)._
+
+- **Driving requirements:** `UC-ADM-flag-review`, `UC-SHLF-kid-add-note`, `SAF-flag-delivery`, `SEC-pii-boundary`, `BR-note-safety-flagging`.
+- **Context:** The client wants the admin to act on violent or self-harm content, and a report to law enforcement needs the child's real name (`DI-child-stored`). `UC-ADM-flag-review` lets the admin see a flagged child's identifying details. `BR-admin-limited-view` and `SEC-pii-boundary` say the admin never sees them. The two conflict until the client decides.
+- **Decision:** One admin screen, flagged-content review, may read a flagged entry's content, its flag category and detected passages, and the flagged child's real name, age, grade and username. It does so through one function in the Child Identity Store and one in Identity & Access, and no other admin page can call either. Every view writes an audit record with the admin's ID, the entry ID and the time, but never the content. Unflagging and classification are the only actions.
+- **Rejected:** (a) Reading the exception broadly, so that any admin page may show child details: the admin becomes a route to all child data. (b) Showing the admin flagged text only, with no name, leaving identity and escalation to the parent. This keeps `SEC-pii-boundary` whole and is the fallback if the client refuses the exception. It cannot support the law-enforcement reporting the client named unless some other route supplies the name.
+- **Trade-off:** `SEC-pii-boundary` ("not reachable through any admin-visible table, API, support or debug tool") has to be read as "except this one route". The route is small, audited and tested, but it is a privileged path that every change to admin code must be checked against.
+
+**`KD-book-exclusion`: a parent's report is a permanent per-child exclusion, not a catalog change.** _Proposed._
+
+- **Driving requirements:** `BR-parent-report-book`, `UC-PAR-report-book`, `UC-ADM-block-content`, `BR-parent-ultimate-say`.
+- **Context:** A parent can report a book for one child, and the report is final with no undo. The admin decides whether the book is blocked for every family, but a parent's report cannot be undone for the child who received it.
+- **Decision:** A report writes a row to the per-child exclusions held by Accounts & Family. Recommendation and manual search filter on those rows in the same query that filters blocked books. No code path deletes an exclusion. An admin block is a separate, global status on the Catalog (`UC-ADM-block-content`); discarding a report closes only that report.
+- **Rejected:** (a) Blocking the book for every family on a parent's report, which would let one parent remove a book from everyone's choices and make the admin a gate on every parent's decision. (b) Removing the book from the child's shelf only, which lets it return in the next recommendation.
+- **Trade-off:** Every recommendation and search query gets one more filter. The exclusion list is small, because reports are rare, so the cost is negligible. A missing filter in one query would show a reported book, which is why section 8.2.10 tests it.
 
 **`KD-time-rules-on-read`: deadlines are checked when data is read.** _Proposed._
 
@@ -391,8 +409,8 @@ _BookBuddies' decisions. Accepted ones were made by the team; Proposed ones were
 **`KD-catalog-import-offline`: the catalog is loaded by a script.** _Proposed._
 
 - **Driving requirements:** `SI-book-dataset`, `CO-rules-first-recommender`, `SAF-child-content`.
-- **Context:** The seed catalog comes from a pre-tagged dataset not yet chosen (`OI-1`).
-- **Decision:** A TypeScript script, run by a developer, reads the approved dataset, maps its tags, and upserts books into the catalog. The application never calls the dataset or any book API while a user waits.
+- **Context:** The seed catalog comes from a pre-tagged Kaggle or GitHub dataset, as the client asked on 2026-09-24. No dataset is chosen yet (`OI-1`).
+- **Decision:** A TypeScript script, run by a developer, reads the approved dataset, maps its tags, and upserts books into the catalog. The application never calls the dataset or any book API while a user waits. Admins add single books through `UC-ADM-add-content`, which writes through the Catalog's own functions; the script is for the bulk seed only.
 - **Rejected:** Calling a live book API (such as Google Books) per request. It adds latency and an outage path, and it would show children books nobody has vetted.
 - **Trade-off:** Refreshing the catalog is a manual step.
 
@@ -428,7 +446,12 @@ _A risk written as a category ("security", "performance") is not a risk. Write t
 
 | ID | Type | What could go wrong, and what it breaks | Mitigation or fix | Cites |
 |---|---|---|---|---|
-| _`RISK-payroll-api-unavailable`_ | _Risk_ | _Nobody has seen the Payroll System's interface. If it only accepts a nightly batch file, ordering cannot confirm payment at order time._ | _Ask for the interface document at the next client meeting; build Payment against a stub until then._ | _`DE-payroll-integration`, `OI-4`_ |
+| `RISK-admin-pii-route-widens` | Risk | If the flagged-content review route gains a field, a page or a second caller, the admin role becomes a route to every child's details, and `SEC-pii-boundary` fails without any error. | A test that lists every admin route and fails if one reads the Child Identity Store outside flagged-content review; review every change to admin code against `KD-admin-flag-review`. | `KD-admin-flag-review`, `OI-15` |
+| `RISK-flag-detection-unspecified` | Risk | The detection method for violence and self-harm is not specified. A missed reflection never reaches a parent or the admin; a false positive alerts a parent about a harmless reflection. Either breaks `SAF-flag-delivery`. | Decide the method and its test set before `UC-SHLF-kid-add-note` is built; test the flag path with invented examples only. | `SAF-flag-delivery`, `OI-19` |
+| `RISK-block-deletes-safety-evidence` | Risk | Blocking a book deletes its ratings and reflections (`UC-ADM-block-content`). If that includes a flagged reflection, the evidence the admin needs is gone before anyone reviews it. | Team decision (2026-10-15, `OI-20`): copy a flagged reflection to the dangerous content list before a block deletes it; the rest of the block's deletions follow `UC-ADM-block-content` v0.10. | `UC-ADM-block-content`, `OI-20` |
+| `RISK-dangerous-content-unbounded` | Risk | The dangerous content list keeps copies of child content and has no retention period yet. Until the period is set, entries pile up as a second, unmanaged store of the most sensitive data. | Team decision: admin-only viewing, and each entry stores its deletion date when it is created (proposed, consistent with `KD-time-rules-on-read`). Set the period before `UC-ADM-suspend-account` stores entries; keep the list out of exports and logs (section 8.2.7). | `UC-ADM-suspend-account`, `OI-23` |
+| `RISK-24h-rule-revived` | Risk | If `BR-24hr-review-window` is confirmed, every parent review needs a deadline and a suspension path that ends sessions at once. Both reach into the scheduled cleanup and session designs late. | Ask the client now; the pattern in `KD-time-rules-on-read` already supports it. | `BR-24hr-review-window`, `OI-16`, `KD-time-rules-on-read` |
+| `RISK-free-hosting-after-graduation` | Risk | Vercel's free plan is for non-commercial use, and the MongoDB Atlas free tier is size-limited. After graduation the application may stop running or need a paid plan. | Settle hosting and budget before the first pilot with families. | `KD-tech-stack`, `OI-9` |
 
 ## 12. Glossary
 
@@ -438,13 +461,28 @@ Domain terms are in the [project glossary](../docs/requirements/project-glossary
 
 ---
 
+## Open questions raised by this revision
+
+_Added 2026-10-15. Each needs a decision from the client, or confirmation of a team decision, before the component it names is built._
+
+- **`OI-15` (team decision, 2026-10-15; client to confirm):** May the admin see a flagged child's real name and age in flagged-content review? `UC-ADM-flag-review` says yes; `BR-admin-limited-view` and `SEC-pii-boundary` say no. The team chose the narrow review path in `KD-admin-flag-review`. Until the client confirms it, the admin screens show no child details.
+- **`OI-19` (client and team):** How are violent and self-harm content detected, and how are false positives handled? Blocks `UC-SHLF-kid-add-note`.
+- **`OI-20` (team decision, 2026-10-15; client to confirm):** On a block, flagged reflections are kept (copied to the dangerous content list); other ratings and reflections are deleted, as `UC-ADM-block-content` v0.10 says.
+- **`OI-21` (team decision, 2026-10-15; client to confirm):** A sub parent has the same access to linked children as the primary parent but cannot create or delete accounts. Whether there is a limit on sub parents per family is still open.
+- **`OI-22` (team decision, 2026-10-15; client to confirm):** The parent can reset a child's password and sees the new one once; the child cannot change it. Whether the parent can see the current password is still open.
+- **`OI-23` (team decision, 2026-10-15, on who may view it; client to set the period):** The dangerous content list is admin-only, and each entry is deleted after a retention period the client has yet to set. Whether it can be exported is still open. The period blocks any build of `UC-ADM-suspend-account` that stores entries.
+- **Reading interests and favorite books (team):** Are they child data under `BR-kid-data-stored`? This design stores them with Recommendation rather than the Child Identity Store, because they are not identifying.
+
 ## Changes needed in other documents
 
 _Found while writing this version. Each belongs to the document named, not here._
 
-- **Specification:** replace `CO-technology-stack` "TBD" with a pointer to `KD-tech-stack`; add a `DE-*` for the email provider; state that children sign in with a generated text password.
-- **Open issues:** `OI-15` to `OI-18` are cited but not defined; add a new issue for how violent or self-harm content is detected; close `OI-10` (web-first).
-- **Vision and scope:** replace the diagram in section 4.1 with a link to section 3 of this document.
+- **Specification (v0.2, 2026-10-02):** it is behind use cases v0.10 and business rules v0.3. Add requirements for parent book reports (`BR-parent-report-book`), sub-parent setup and invitation emails, the four shelf categories (`FR-SHLF-categories`), shelf requests with parent approval, and flagged-content review. Replace the `CO-technology-stack` "TBD" with a pointer to `KD-tech-stack`; add a `DE-*` for the email provider; state the child sign-in (parent-chosen username and generated password). `SEC-pii-boundary` ("not reachable through any admin-visible table, API, support or debug tool") is broken by `UC-ADM-flag-review` and needs the exception from `KD-admin-flag-review` written in, once the client confirms it.
+- **Use cases (v0.10):** `UC-PAR-create-kid-account` needs a nickname field and must stop showing the real name to the child (team decision 2026-10-15, matching `BR-kid-anonymous-profile`). §1.1 Purpose still describes groups, kids recommending to other kids and adults biasing recommendations. That contradicts §1.2 and `BR-user-roles`, so rewrite it. Several use cases still cite `BR-admin-no-pii`, which was replaced by `BR-admin-limited-view`. `UC-ADM-block-content` (deletes ratings and reflections) conflicts with `UC-SHLF-kid-view-shelf` step 3b, `UC-SHLF-parent-view-shelf` step 5b, and the retention statements in `UC-SHLF-kid-remove-book` and `UC-SHLF-kid-add-note` (`OI-20`). The team decided to keep flagged reflections on a block, so the use case needs to say so. `UC-PAR-create-kid-account` shows the child's real name, against `BR-kid-anonymous-profile`. `UC-PAR-create-sub-parent-account` has no business rule behind it (`OI-21`).
+- **Business rules (v0.3):** no rule covers the admin's flagged-content review exception (`UC-ADM-flag-review`), the parent approval of manual-search shelf requests (`UC-SHLF-manual-search`), or sub-parent permissions. `BR-flagging-disclosure` is cited but not defined. `BR-kid-data-stored` omits the reading interests and favorite books that `UC-REC-kid-onboarding` stores.
+- **Open issues:** `OPEN-ISSUES.md` stops at OI-14. OI-15 to OI-18 are cited across the documents but never filed. File OI-15 to OI-18 and the new OI-19 to OI-23 above.
+- **Glossary:** still defines Reading Group, Buddy Picks, Stretch My Reader, Achievement Page and the in-app reading test as live, as the specification's own note says. Add "Reported book" and "Dangerous content list".
+- **Vision and scope:** replace the diagram in section 4.1 with a link to section 3 of this document. `UC-PAR-suggest-book` and `UC-PAR-view-growth-report` are still not placed in the in-scope or out-of-scope lists in §4.3.
 
 ---
 

@@ -46,8 +46,7 @@ This version covers rules that could be attributed to Yang Yang's concept brief,
 
 **BR-reading-level-parent-entered:** A reading level is optional. If one is given, the parent/guardian enters it at sign-up using a system they already know (e.g., Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range). If the parent is unsure, the app may show referral links to external resources (e.g., AR Bookfinder, Scholastic Book Wizard) for reference only. Source: MTG2 flowchart deck, slides 2–3. (Meeting 2 notes said "kids asked to find their level externally"; the later deck assigns this to the parent, so the deck governs.)
 
-Flagged — not a business rule: the brief states reading-level baseline is set via an in-app test at account creation "(not a self-reported field)." No policy or regulation is cited for it — only a rationale ("some schools don't test until 2nd or 3rd grade"). The 2026-09-10 meeting transcript shows the team and Dr. Yang converging on this together live (project-glossary.md, "Reading Level"), so it is a confirmed product decision, not an open question — but it is still the team's design choice rather than a client-mandated policy, so it belongs in vision-and-scope.md (`FEAT-reading-level-baseline`) and not in this file.
-Flagged — likely a team decision, not a rule: the brief notes email is "preferred over phone number for data collection ease." The stated reason is operational convenience, not policy or regulation. Recommend moving this to the specification as a design decision unless Yang Yang says otherwise.
+A team decision, not a rule: the brief notes email is "preferred over phone number for data collection ease." The stated reason is operational convenience, not policy or regulation. Recommend moving this to the specification as a design decision unless Yang Yang says otherwise.
 
 ### 2.2 Parental Oversight and Review
 

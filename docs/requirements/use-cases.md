@@ -7,14 +7,6 @@
 
 ---
 
-_**How to use this template.** Instructions appear in italic square brackets. Fill in underneath them and leave them in place until the document is stable._
-
-_**What a use case is.** One goal a user can accomplish with your system, written as the dialogue between the actor and the system, including what happens when it goes wrong. It is the unit of work in this course: one use case becomes one issue, one branch, one pull request, and one set of tests._
-
-_**Why the use case and not the user story.** You will meet user stories in industry, and they are a good planning tool: "As a student, I want to submit my report so that I get credit." A story is deliberately under-specified, because it is a **placeholder for a conversation** that happens later, between people. That is exactly the wrong property when the thing building your code is an agent that will implement precisely what the specification says and never ask what you meant. Use stories to plan and prioritize. Build against use cases._
-
-_The difference that matters is the parts a story does not have: preconditions, the step-by-step flow, and above all the **extensions**, which is where the failure paths live. Most defects your team ships this semester will be in a path nobody wrote down._
-
 ## Identifiers
 
 _Use cases are identified as `UC-<AREA>-<slug>`, where the area code groups related functionality and the slug is coined from the goal: `UC-RUB-create-rubric`, `UC-WAR-manage-activities`, `UC-STU-invite-students`._
@@ -46,7 +38,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 
 ### 1.1 Purpose
 
-Bookbuddies is an app that allows kids get easy recommendation based on criteria, adult input, and other kids input. Kids are added to groups by adults and can record and recommend books to other kids. Adults can check a child's reading profile, manage accounts and groups, bias the recommendation system slightly, wipe child data, and report books. System admins are still a work in progress.
+Bookbuddies is an app that allows kids get easy recommendation based on criteria and adult input. Adults can check a child's reading profile, manage accounts and groups, bias the recommendation system slightly, wipe child data, and report books. System admins can review flagged books or notes, as well as check statistics of the recommender and accounts.
 
 ### 1.2 Scope
 
@@ -106,8 +98,6 @@ _Data fields are specified as a table:_
 
 ## 3. Use Case List
 
-_[Your area codes, then a table of every use case by area. Write this list first, before specifying any single use case in detail. It is the cheapest thing to review with your client, and finding out you missed a whole area costs minutes here rather than a week later.]_
-
 | Area code | Feature area                                                                                                                                           | Use cases                                                                                                                                                                                                         |
 |-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `PAR`     | Parent — account linking and oversight (`FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`)                                                 | `UC-PAR-onboarding`, `UC-PAR-create-sub-parent-account`, `UC-PAR-create-kid-account`, `UC-PAR-suggest-book`, `UC-PAR-view-growth-report`, `UC-PAR-report-book`                                                    |
@@ -122,18 +112,9 @@ Notes on the table above:
 - The `REC` use cases form two alternative flows that converge on the same downstream steps: `UC-REC-recommend-quiz-rules` → `UC-REC-parent-review` → `UC-REC-kid-review`, and `UC-REC-recommend-quiz-ai` → `UC-REC-parent-review` → `UC-REC-kid-review`. `FEAT-ai-recommendation` (and therefore `UC-REC-recommend-quiz-ai`) is explicitly out of scope for the MVP per §4.3 — carry that priority into the detailed use case.
 - `UC-ADM-add-content` and `UC-ADM-block-content` depend on `FEAT-book-tagging`, which `vision-and-scope.md` §4.3 lists as out of scope for the MVP pending `OI-1`/`OI-2`. `vision-and-scope.md` v0.4 moves `FEAT-book-tagging` into MVP scope, so these are Medium priority; building them is still blocked until the seed-catalog source and tag lists are settled (`OI-1`).
 
-**Future / stretch use cases** (not targeted for the MVP; kept here so the identifiers exist before they're needed):
-
-| Area code | Feature area                                                 | Use cases             |
-|-----------|--------------------------------------------------------------|-----------------------|
-| `SHLF`    | `FEAT-reading-identity-badges` (badge design still forming)  | `UC-SHLF-view-badges` |
-| `ADM`     | Admin account management (not described by any `FEAT-*` yet) | `UC-ADM-add-admin`    |
-
 ---
 
 ## 4. Use Cases
-
-_[One `###` heading per use case, grouped under a `##` heading per area. Worked example below, taken from Project Pulse. Delete it and write your own.]_
 
 ## [PAR] Parent Feature Area
 
@@ -1206,7 +1187,6 @@ A child can delete their own reflection only if it is not flagged. Removing a bo
 - **Reporting to authorities.** The client's 2026-09-24 wording says flagged content goes to "parents and authorities." This use case covers only the parent and admin. The rest is `OI-18`, cited in `vision-and-scope.md` but not yet filed in `OPEN-ISSUES.md`.
 - **Disclosure wording.** `BR-flagging-disclosure` is referenced in `business-rules.md` as open and is not defined in the rules file.
 - **Child notification.** Whether the child is told when their reflection is flagged is not specified.
-- **Character limit.** The 500-character figure is a team proposal and needs client input.
 - **Recommender use.** `FEAT-kid-reflections` says reflections feed the recommender, but the MVP recommender is rules-only. Whether reflections are used in the MVP is undecided.
 - **Pending deletion.** The 24-hour pending-deletion window and restore are the client's rule as now described to the team; no source yet confirms the length or the child's restore right. Also undecided: whether a pending-deletion reflection still feeds the recommender during the window.
 - **Admin review.** The admin should be able to review a reflection during its pending-deletion window. No use case in the ADM area covers this yet, and the admin's access to reflection content is blocked by `OI-15`.

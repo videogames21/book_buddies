@@ -59,14 +59,14 @@ The short prefix that groups use cases and features by area: `PAR` (parent accou
 
 The fixed set of characteristics every catalog book is tagged with, so the **Recommender** can match a child's answers to books (`FEAT-book-tagging`, `DI-book-tags`):
 
-| Domain | Values |
-|---|---|
-| Genre/Subject | funny, mystery, adventure, animals, fantasy |
-| Mood | silly, heartwarming, exciting, spooky-but-safe |
-| Format | comic/graphic novel, picture book, chapter book |
-| Themes | friendship, courage, resilience, family, problem-solving, animals |
-| Length | quick read, longer story |
-| Age/Interest Fit | **Age Band**, e.g., 6–8, 7–10, 9–12 |
+| Domain                    | Values                                                                           |
+|---------------------------|----------------------------------------------------------------------------------|
+| Genre/Subject             | funny, mystery, adventure, animals, fantasy                                      |
+| Mood                      | silly, heartwarming, exciting, spooky-but-safe                                   |
+| Format                    | comic/graphic novel, picture book, chapter book                                  |
+| Themes                    | friendship, courage, resilience, family, problem-solving, animals                |
+| Length                    | quick read, longer story                                                         |
+| Age/Interest Fit          | **Age Band**, e.g., 6–8, 7–10, 9–12                                              |
 | Reading Level / Challenge | Lexile or AR level, from sources such as Scholastic Book Wizard or the publisher |
 
 _**Source:** Dr. Yang's 2026-09-21 notes (Table 2); flowchart slide 2._ These values are called **standard tags**. Admins may also add **Custom Tags**.
@@ -114,11 +114,11 @@ _**Open:** whether the parent sees decline reasons, and whether a declined book 
 
 A badge a child earns for a pattern in their reading, shown as part of their reader identity, never as a count, level, or comparison with other kids (`FEAT-reading-identity-badges`, `BR-kid-no-metrics`). Dr. Yang's 2026-09-21 design: after 3 meaningful interactions (save, read, like) in a category, the matching badge unlocks. There are three badge types:
 
-| Type | Trigger | Example |
-|---|---|---|
-| Interest/Genre | Repeated engagement with a topic or genre | "Animal Explorer" |
-| Exploration | Tries books outside usual preferences | "Genre Traveler" |
-| Creator | Uses a book as inspiration for their own story or drawing | "Story Maker" |
+| Type           | Trigger                                                   | Example           |
+|----------------|-----------------------------------------------------------|-------------------|
+| Interest/Genre | Repeated engagement with a topic or genre                 | "Animal Explorer" |
+| Exploration    | Tries books outside usual preferences                     | "Genre Traveler"  |
+| Creator        | Uses a book as inspiration for their own story or drawing | "Story Maker"     |
 
 _**Status:** post-MVP (`UC-SHLF-view-badges`). The final badge list is still open (`OI-14`). Per 2026-09-24, any logged reading hours behind a badge need parent approval, to stop kids gaming the system. Parents can see their child's badges ("See Badge" in the flowchart's Parent Review)._
 

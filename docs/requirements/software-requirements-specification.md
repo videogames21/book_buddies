@@ -30,7 +30,7 @@ Requirements cited from elsewhere keep their own identifiers: `UC-*` from [use-c
 |---|---|---|---|
 | 2026-09-17 | 0.1 | Filled in project/team/client identification (content is scheduled for week 4 per the team's own process) | Team 05 |
 | 2026-10-02 | 0.2 | Filled in every section from vision-and-scope v0.4, use-cases v0.4, business-rules v0.2, the glossary and OPEN-ISSUES. Drops the teacher role, groups, peer feed, in-app reading test and Stretch My Reader per the 2026-09-24 meeting. Anything not decided by the client or team is marked TBD and linked to an open issue | Team 05 |
-| 2026-10-20 | 0.3 | Replaced the "pending the COPPA link" placeholders with requirements drawn from the FTC COPPA Rule text (`docs/coppa/coppa_full`): rewrote `CO-coppa-adjacent`, `DE-client-coppa-rules`, `FR-ACCT-consent`, `FR-DATA-removal`, `DI-disposal` and the Legal note; added `FR-ACCT-consent-confirm`, `FR-DATA-review`, `FR-DATA-notice`, `DI-retention`, `DI-consent-record`, `SEC-coppa-program`. | Grayson Whittingham, Claude |
+| 2026-10-20 | 0.3 | Replaced the "pending the COPPA link" placeholders with requirements drawn from the FTC COPPA Rule text (`docs/coppa/coppa-full`): rewrote `CO-coppa-adjacent`, `DE-client-coppa-rules`, `FR-ACCT-consent`, `FR-DATA-removal`, `DI-disposal` and the Legal note; added `FR-ACCT-consent-confirm`, `FR-DATA-review`, `FR-DATA-notice`, `DI-retention`, `DI-consent-record`, `SEC-coppa-program`. | Grayson Whittingham, Claude |
 
 ---
 
@@ -91,7 +91,7 @@ BookBuddies is a new, self-contained product with no predecessor to replace and 
 - **CO-no-social:** The system shall not provide messaging, public child profiles, stranger search, groups or peer feeds in the MVP (`BR-no-open-discovery`; groups and peer sharing deferred per business-rules 2.3).
 - **CO-rules-first-recommender:** The MVP recommender shall be rules-based; ML re-ranking is post-MVP (`FEAT-ai-recommendation`, `RI-scope-creep-ai`).
 - **CO-no-reading-level-assessment:** The system shall not assess, estimate or infer a child's reading level (`BR-no-reading-level-assessment`).
-- **CO-coppa-adjacent:** The design shall build in the requirements of the FTC COPPA Rule from the start: verifiable parental consent before any collection from a child, direct and online notices, parent review and deletion rights, data minimization, a written retention policy, and a written security program. The rule text is `docs/coppa/coppa_full`; the requirements drawn from it are in `docs/coppa/coppa-design-requirements.md` (`AS-coppa-adjacent-only`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`).
+- **CO-coppa-adjacent:** The design shall build in the requirements of the FTC COPPA Rule from the start: verifiable parental consent before any collection from a child, direct and online notices, parent review and deletion rights, data minimization, a written retention policy, and a written security program. The rule text is `docs/coppa/coppa-full`; the requirements drawn from it are in `docs/coppa/coppa-design-requirements.md` (`AS-coppa-adjacent-only`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`).
 - **CO-no-third-party-sharing:** The system shall not release a child's personal information to third parties, make it public in identifiable form, or use it to train an outside AI model without separate parental consent, and the MVP is designed to need none (`BR-coppa-no-third-party-disclosure`). This keeps the email-plus consent method valid.
 - **CO-technology-stack:** Language, framework, database and auth approach are TBD and are a human decision, not derived from external notes (`OI-9`).
 
@@ -101,7 +101,7 @@ BookBuddies is a new, self-contained product with no predecessor to replace and 
 - **AS-email-linking:** Parent accounts are created and linked by email (vision 2.7).
 - **AS-book-data-source / DE-book-dataset:** The seed catalog comes from a pre-tagged children's-book dataset (Kaggle or GitHub); none has been approved (`OI-1`). Without it there is nothing to recommend.
 - **AS-supported-browser:** Users have a current browser and internet access.
-- **DE-client-coppa-rules:** The client supplied the COPPA rules: the FTC rule text in `docs/coppa/coppa_full`. Resolved as a dependency. Whether the project counts as a covered "operator", and who that operator is after graduation, is still unanswered (`OI-20`).
+- **DE-client-coppa-rules:** The client supplied the COPPA rules: the FTC rule text in `docs/coppa/coppa-full`. Resolved as a dependency. Whether the project counts as a covered "operator", and who that operator is after graduation, is still unanswered (`OI-20`).
 - **AS-seed-catalog-size:** The launch catalog is small, about 30-50 books (`OI-12`); production volume is TBD.
 
 ---

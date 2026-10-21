@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05 — BookBuddies
 **Client:** Dr. Yang Yang
-**Version:** 0.5
+**Version:** 0.6
 
 ---
 
@@ -18,6 +18,7 @@
 | 2026-09-13 | 0.3 | Checked every term against the actual meeting-1 transcript (2026-09-10). Confirmed "Buddy Picks" as client vocabulary; added terms that surfaced live (Shiny App, 24-Hour Review, Achievement Page, Rating); flagged a direct conflict between what Dr. Yang said live and wrote afterward on Reading Level visibility. | Iid Maxamuud |
 | 2026-09-17 | 0.4 | Corrected the Recommender entry's citation to point at OPEN-ISSUES.md `OI-2` instead of the (template) interview guide file | Team 05 |
 | 2026-10-07 | 0.5 | Applied the 2026-09-21 written answers, the 2026-09-24 meeting, and the flowchart. Moved cut terms (Achievement Page, Buddy Picks, In-App Reading Test, Reading Group, Social Boundary, Stretch My Reader, Teacher) to a new Retired Terms section as permanently out of scope. Rewrote Rating (4-option scale), Reading Level (parent-entered, never shown to the child), Recommender (rule-based scoring, recommender mode), Seed Catalog (pre-tagged Kaggle/GitHub dataset), and Report Function. Added terms used by the use cases and design: Main Parent, Sub Parent, Starting Reader Profile, Book Domains, Shelf categories, Recommendation Reaction, Decline Reason, Recommendation Batch, Parent Suggestion, Reflection, Pending Deletion, Safety Flag, Custom Tag, System Admin, Catalog and Content Admin, Recap, Active User, Age Band, Area Code, Manual Search, MVP. | Iid Maxamuud |
+| 2026-10-20 | 0.6 | Rewrote the COPPA entry from the FTC COPPA Rule text the client supplied (`docs/coppa/coppa_full`), replacing the "client is sending the rules link" placeholder; added Personal information and Verifiable parental consent as related terms. | Grayson Whittingham, Claude |
 
 ---
 
@@ -88,9 +89,13 @@ The parent sets the child's username, and the system generates the password, whi
 
 ### COPPA
 
-The Children's Online Privacy Protection Act (U.S. federal law). As of 2026-09-24 the client wants COPPA compliance "built in from the start," starting with recorded parental consent at account creation (`BR-coppa-parental-consent`). Dr. Yang is sending the team the COPPA rules link; add further rules only from that source.
+The Children's Online Privacy Protection Act (U.S. federal law), implemented by the FTC's COPPA Rule (16 CFR 312). It covers online services directed to children under 13, so it covers BookBuddies' 6–11 audience. As of 2026-09-24 the client wants COPPA compliance "built in from the start." In practice that means: verifiable parental consent before anything is collected from a child (`BR-coppa-parental-consent`), a direct notice to the parent and an online privacy notice (`BR-coppa-notice`), parent rights to review, stop and delete (`BR-coppa-parent-rights`), collecting only what is needed (`BR-coppa-minimization`), a written retention policy (`BR-coppa-retention`), and no sharing of a child's data with third parties without separate consent (`BR-coppa-no-third-party-disclosure`).
 
-_**Note:** the team is designing toward COPPA-aligned practice, not formal certification, which would need legal review (`AS-coppa-adjacent-only`)._
+_**Source:** the FTC rule text the client supplied, `docs/coppa/coppa_full`; the team's reading of it is in `docs/coppa/coppa-design-requirements.md`._
+
+_**Note:** the team is designing to the COPPA Rule's requirements but cannot claim formal compliance or certification, which would need legal review (`AS-coppa-adjacent-only`, `OI-20`)._
+
+_**Related terms:** **Personal information** under COPPA includes a child's name, any persistent identifier such as an account ID, and anything the child provides that is linked to one, so quiz answers, shelf and ratings on a child account all count. **Verifiable parental consent** is consent given by a method that reasonably confirms the person is the child's parent._
 
 ### Custom Tag
 

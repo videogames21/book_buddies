@@ -9,16 +9,16 @@
 
 ## Identifiers
 
-| Space | For | Example |
-|---|---|---|
-| `FR-<AREA>-<slug>` | Functional requirements outside any use case | `FR-SAVE-autosave-active` |
-| `UI-<slug>` | User interface requirements | `UI-spa-views` |
-| `SI-<slug>` | Software and system interfaces | `SI-llm-proxy-only` |
-| `CI-<slug>` | Communications interfaces | `CI-email-notifications` |
-| `DI-<slug>` | Data requirements | `DI-persist-graph` |
-| `OE-<slug>` | Operating environment | `OE-supported-browsers` |
-| `CO-<slug>` | Design and implementation constraints | `CO-single-application` |
-| `AS-<slug>` / `DE-<slug>` | Assumptions and dependencies | `AS-supported-browser`, `DE-llm-service` |
+| Space                     | For                                          | Example                                  |
+|---------------------------|----------------------------------------------|------------------------------------------|
+| `FR-<AREA>-<slug>`        | Functional requirements outside any use case | `FR-SAVE-autosave-active`                |
+| `UI-<slug>`               | User interface requirements                  | `UI-spa-views`                           |
+| `SI-<slug>`               | Software and system interfaces               | `SI-llm-proxy-only`                      |
+| `CI-<slug>`               | Communications interfaces                    | `CI-email-notifications`                 |
+| `DI-<slug>`               | Data requirements                            | `DI-persist-graph`                       |
+| `OE-<slug>`               | Operating environment                        | `OE-supported-browsers`                  |
+| `CO-<slug>`               | Design and implementation constraints        | `CO-single-application`                  |
+| `AS-<slug>` / `DE-<slug>` | Assumptions and dependencies                 | `AS-supported-browser`, `DE-llm-service` |
 
 Quality attributes get one identifier space per attribute: `USE-` usability, `PER-` performance, `SEC-` security, `SAF-` safety, `AVL-` availability, `ROB-` robustness, `SCA-` scalability, `INT-` interoperability, `MNT-` maintainability.
 
@@ -124,12 +124,12 @@ Link only: [use-cases.md](use-cases.md).
 
 Planned use cases by area (from the use-case list; only `UC-PAR-create-sub-parent-account` is fully specified so far):
 
-| Area | Features | Use cases |
-|---|---|---|
-| PAR | `FEAT-parent-account-linking`, `FEAT-parent-suggest-book`, `FEAT-onboarding-profile`, `FEAT-reading-level-input`, `FEAT-parent-review-dashboard` | onboarding, create-second-parent-account, create-kid-account, suggest-book, view-growth-report |
-| REC | `FEAT-recommendation-quiz`, `FEAT-onboarding-profile` | kid-onboarding, recommend-quiz-rules, parent-review, kid-review |
-| SHLF | `FEAT-shelf`, `FEAT-ratings`, `FEAT-kid-reflections` | parent/kid-view-shelf, kid-move-book, kid-remove-book, kid-rate-book, kid-add-note, parent-remove-book |
-| ADM | `FEAT-admin-pii-segregation`, `FEAT-book-tagging` | suspend-account, add-content, block-content, view-recommender-stats, view-usage-stats |
+| Area | Features                                                                                                                                         | Use cases                                                                                              |
+|------|--------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| PAR  | `FEAT-parent-account-linking`, `FEAT-parent-suggest-book`, `FEAT-onboarding-profile`, `FEAT-reading-level-input`, `FEAT-parent-review-dashboard` | onboarding, create-second-parent-account, create-kid-account, suggest-book, view-growth-report         |
+| REC  | `FEAT-recommendation-quiz`, `FEAT-onboarding-profile`                                                                                            | kid-onboarding, recommend-quiz-rules, parent-review, kid-review                                        |
+| SHLF | `FEAT-shelf`, `FEAT-ratings`, `FEAT-kid-reflections`                                                                                             | parent/kid-view-shelf, kid-move-book, kid-remove-book, kid-rate-book, kid-add-note, parent-remove-book |
+| ADM  | `FEAT-admin-pii-segregation`, `FEAT-book-tagging`                                                                                                | suspend-account, add-content, block-content, view-recommender-stats, view-usage-stats                  |
 
 ### 5.2 Non-use-case functional requirements
 

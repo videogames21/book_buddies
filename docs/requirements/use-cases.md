@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.10
+**Version:** 0.11
 
 ---
 
@@ -31,6 +31,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-04]_ | 0.8     | Reflection deletion (24-hour pending window, restore, unflagged only) and kept ratings and reflections on shelf removal; wrote the `ADM` area use cases (add-content with custom tags, block-content, suspend-account, view-recommender-stats, view-usage-stats); wrote `UC-SHLF-manual-search` (keyword search, parent approval before a shelf add)                                                                                                                                                                                                                               | _Claude_                        |
 | _[2026-10-06]_ | 0.9     | Parent confirm-or-deny step in `UC-SHLF-manual-search`; folded the Sub Parent's account setup (username and password) into `UC-PAR-create-sub-parent-account` instead of a separate use case; added a Parent-entered username and a system-generated password, shown with a note, to `UC-PAR-create-kid-account`; wrote `UC-ADM-flag-review` (admin reviews flagged reviews and notes, the one exception to `BR-admin-limited-view`)                                                                                                                                               | _Grayson Whittingham_, _Claude_ |
 | _[2026-10-13]_ | 0.10    | Wrote `UC-PAR-report-book` (parent reports a book from a recommendation batch or the shelf; report screen with a reason and a false-report warning; final, per-child exclusion; child notice with no reason; Sub Parent reports bind the Main Parent) and `BR-parent-report-book`; `UC-ADM-block-content` now has a list of reported books with confirmed block, discard, or warn-parent actions, and a block deletes ratings and reflections after warning the admin; Sub Parent pop-up warns the Main Parent; linked from `UC-REC-parent-review` and `UC-SHLF-parent-view-shelf` | _Grayson Whittingham_, _Claude_ |
+| _[2026-10-20]_ | 0.11    | Rewrote `UC-PAR-onboarding` consent steps from the FTC COPPA Rule text: consent notice content, confirmation email, no child collection until confirmed, unconfirmed-account cleanup, consent record field                                                                                                                                                                                                                                                                                                                                                              | _Grayson Whittingham_, _Claude_ |
 
 ---
 
@@ -136,18 +137,20 @@ Notes on the table above:
 
 - POST-1. A new Main Parent account exists, linked to the supplied email.
 - POST-2. The parent is logged in.
-- POST-3. Parental consent has been recorded for the account, per `BR-coppa-parental-consent`.
+- POST-3. Parental consent has been recorded and confirmed by the Parent through the emailed link, per `BR-coppa-parental-consent`.
 - POST-4. At least one child account exists, linked to the new parent account — a parent account cannot exist without a linked child, so the system carries the Parent directly into `UC-PAR-create-kid-account` before this use case is considered complete.
 
 **Main Success Scenario:**
 
 1. The Parent taps "Create Account."
-2. The system displays a sign-up form requesting name, email, and password, together with a parental-consent notice required for a product that serves children, per `BR-coppa-parental-consent`.
+2. The system displays a sign-up form requesting name, email, and password, together with the direct consent notice and a link to the online privacy notice, per `BR-coppa-notice`. The consent notice states what will be collected from the child and how it is used, that nothing is collected without the Parent's consent, and that no information is shared with third parties.
 3. The Parent enters their name, email, and password, acknowledges the consent notice, and submits the form.
 4. The system validates the email format and checks that it is not already registered.
-5. The system creates the Main Parent account, records the consent acknowledgment, and logs the Parent in.
-6. The system immediately invokes `UC-PAR-create-kid-account`, since a parent account cannot exist without at least one linked child.
-7. Use case ends once `UC-PAR-create-kid-account` completes successfully.
+5. The system creates the Main Parent account in an "awaiting confirmation" state, records the consent acknowledgment (date, method, and notice version), sends a confirmation email that restates what was consented to and how to revoke it, and logs the Parent in.
+6. The system holds the Parent on a "check your email" screen. No child account can be created and no child information can be collected until the Parent confirms through the link in the email.
+7. The Parent opens the link; the system marks the consent confirmed.
+8. The system immediately invokes `UC-PAR-create-kid-account`, since a parent account cannot exist without at least one linked child.
+9. Use case ends once `UC-PAR-create-kid-account` completes successfully.
 
 **Extensions:**
 
@@ -157,7 +160,9 @@ Notes on the table above:
 - 4b. The email is not a valid email format. The system displays an inline validation error; returns to step 3.
 - 4c. The password does not meet the minimum strength policy. The system displays an inline validation error; returns to step 3.
 - 5a. The system fails to persist the new account (e.g., database timeout). The system displays an error and does not log the parent in; no partial account record is left behind.
-- 6a. The Parent abandons the flow during `UC-PAR-create-kid-account` (e.g., closes the app, navigates away) before a child account is created. The system keeps the Main Parent account but does not treat onboarding as finished — on the Parent's next login, the system routes them straight back into `UC-PAR-create-kid-account` before allowing access to anything else, rather than restarting this use case.
+- 6a. The Parent has not confirmed within the time limit (TBD, `OI-22`). The system deletes the Parent's name and email, which were held only to obtain consent, and the unconfirmed account; a later sign-up starts again at step 1.
+- 6b. The Parent did not receive the email and asks for it again. The system sends a new confirmation email and invalidates the earlier link; returns to step 6.
+- 8a. The Parent abandons the flow during `UC-PAR-create-kid-account` (e.g., closes the app, navigates away) before a child account is created. The system keeps the Main Parent account but does not treat onboarding as finished — on the Parent's next login, the system routes them straight back into `UC-PAR-create-kid-account` before allowing access to anything else, rather than restarting this use case.
 
 **Priority:** High — nothing else in the `PAR` area can happen without a parent account.\
 **Frequency of Use:** Once per family, at signup; rare after that.\
@@ -171,15 +176,16 @@ Notes on the table above:
 | Email                  | string    | required; valid email format; unique across parent accounts | Used for login and account recovery only                                                                                                         | —                  |
 | Password               | string    | required; meets a minimum strength policy (exact rule TBD)  | Stored hashed; never visible to anyone, including admin                                                                                          | —                  |
 | Consent acknowledgment | boolean   | required; must be explicitly acknowledged, not pre-checked  | Recorded as part of the account for compliance purposes, per `BR-coppa-parental-consent`                                                         | —                  |
+| Consent record         | structure | acknowledgment date, method (email-plus), notice version, confirmation date | Kept for as long as the child account exists; visible to the parent; never visible to the admin beyond the fact that consent exists (`DI-consent-record`) | —                  |
 
 If account creation fails partway (step 5a), the operation rolls back completely — no row is written for the account, so a retry with the same email does not collide with a half-created record.
 
-**Related Use Cases:** `UC-PAR-create-kid-account` (invoked immediately, in step 6, as a mandatory continuation of this use case — not optional)\
+**Related Use Cases:** `UC-PAR-create-kid-account` (invoked immediately, in step 8 once the Parent has confirmed consent, as a mandatory continuation of this use case — not optional)\
 **Assumptions:** none beyond what's listed in Open Issues.\
 **Open Issues:**
 - `OI-8` is resolved — `business-rules.md` §2.1 `BR-parent-creates-kid-account` and `BR-parent-account-structure`, and `vision-and-scope.md` §2.7 `AS-parent-account-first`, all confirm (2026-09-24/2026-10-01) that a parent account always exists before any child account, a child cannot self-register, and one parent account can manage multiple children. This use case's parent-first ordering is the client-confirmed design, not an assumption.
 - The earlier `BR-admin-no-pii` citation used elsewhere in this document is a stale identifier — `business-rules.md` v0.2 replaced "admin sees zero PII" with `BR-admin-limited-view` ("admin may see parent credentials and child-account counts, but not a child's details"). This use case now cites the current identifier.
-- `business-rules.md` §2.1 flags `BR-coppa-parental-consent` itself as incomplete: Yang Yang is sending the team the actual COPPA rules link, and further rules should only be added once attributed to that source. Treat the consent step above as a placeholder for the right legal language, not a finished implementation.
+- The consent steps now follow the FTC COPPA Rule text in `docs/coppa/coppa-full` (`BR-coppa-parental-consent`, `BR-coppa-notice`). The rule text is the document the client supplied. Still open: the consent method is not formally chosen (`OI-21`; email-plus is assumed, and holds only while the system shares no child data with third parties), and the confirmation time limit is TBD (`OI-22`). The wording of the consent notice itself still needs a review before launch.
 
 ---
 

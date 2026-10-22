@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang
-**Version:** 0.2
+**Version:** 0.3
 
 ---
 
@@ -30,6 +30,7 @@ Requirements cited from elsewhere keep their own identifiers: `UC-*` from [use-c
 |---|---|---|---|
 | 2026-09-17 | 0.1 | Filled in project/team/client identification (content is scheduled for week 4 per the team's own process) | Team 05 |
 | 2026-10-02 | 0.2 | Filled in every section from vision-and-scope v0.4, use-cases v0.4, business-rules v0.2, the glossary and OPEN-ISSUES. Drops the teacher role, groups, peer feed, in-app reading test and Stretch My Reader per the 2026-09-24 meeting. Anything not decided by the client or team is marked TBD and linked to an open issue | Team 05 |
+| 2026-10-20 | 0.3 | Replaced the "pending the COPPA link" placeholders with requirements drawn from the FTC COPPA Rule text (`docs/coppa/coppa-full`): rewrote `CO-coppa-adjacent`, `DE-client-coppa-rules`, `FR-ACCT-consent`, `FR-DATA-removal`, `DI-disposal` and the Legal note; added `FR-ACCT-consent-confirm`, `FR-DATA-review`, `FR-DATA-notice`, `DI-retention`, `DI-consent-record`, `SEC-coppa-program`. | Grayson Whittingham, Claude |
 
 ---
 
@@ -90,7 +91,8 @@ BookBuddies is a new, self-contained product with no predecessor to replace and 
 - **CO-no-social:** The system shall not provide messaging, public child profiles, stranger search, groups or peer feeds in the MVP (`BR-no-open-discovery`; groups and peer sharing deferred per business-rules 2.3).
 - **CO-rules-first-recommender:** The MVP recommender shall be rules-based; ML re-ranking is post-MVP (`FEAT-ai-recommendation`, `RI-scope-creep-ai`).
 - **CO-no-reading-level-assessment:** The system shall not assess, estimate or infer a child's reading level (`BR-no-reading-level-assessment`).
-- **CO-coppa-adjacent:** The design shall follow COPPA-adjacent practice from the start; the client has yet to supply the rules link (`AS-coppa-adjacent-only`, `BR-coppa-parental-consent`).
+- **CO-coppa-adjacent:** The design shall build in the requirements of the FTC COPPA Rule from the start: verifiable parental consent before any collection from a child, direct and online notices, parent review and deletion rights, data minimization, a written retention policy, and a written security program. The rule text is `docs/coppa/coppa-full`; the requirements drawn from it are in `docs/coppa/coppa-design-requirements.md` (`AS-coppa-adjacent-only`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`).
+- **CO-no-third-party-sharing:** The system shall not release a child's personal information to third parties, make it public in identifiable form, or use it to train an outside AI model without separate parental consent, and the MVP is designed to need none (`BR-coppa-no-third-party-disclosure`). This keeps the email-plus consent method valid.
 - **CO-technology-stack:** Language, framework, database and auth approach are TBD and are a human decision, not derived from external notes (`OI-9`).
 
 ### 2.5 Assumptions and dependencies
@@ -99,7 +101,7 @@ BookBuddies is a new, self-contained product with no predecessor to replace and 
 - **AS-email-linking:** Parent accounts are created and linked by email (vision 2.7).
 - **AS-book-data-source / DE-book-dataset:** The seed catalog comes from a pre-tagged children's-book dataset (Kaggle or GitHub); none has been approved (`OI-1`). Without it there is nothing to recommend.
 - **AS-supported-browser:** Users have a current browser and internet access.
-- **DE-client-coppa-rules:** The client will provide the COPPA rules link.
+- **DE-client-coppa-rules:** The client supplied the COPPA rules: the FTC rule text in `docs/coppa/coppa-full`. Resolved as a dependency. Whether the project counts as a covered "operator", and who that operator is after graduation, is still unanswered (`OI-20`).
 - **AS-seed-catalog-size:** The launch catalog is small, about 30-50 books (`OI-12`); production volume is TBD.
 
 ---
@@ -136,7 +138,10 @@ Planned use cases by area (from the use-case list; only `UC-PAR-create-sub-paren
 - **FR-ACCT-parent-first:** The system shall allow a child account to be created only by a logged-in parent (`BR-parent-creates-kid-account`, `BR-parent-account-linked`).
 - **FR-ACCT-multi-child:** The system shall let one parent account manage multiple child accounts and let a secondary parent be added (`BR-parent-account-structure`).
 - **FR-ACCT-child-display:** The system shall show a child only a nickname and character avatar (`BR-kid-anonymous-profile`).
-- **FR-ACCT-consent:** When a parent creates an account, the system shall record parental consent before the account becomes active (`BR-coppa-parental-consent`; wording TBD pending the COPPA link).
+- **FR-ACCT-consent:** When a parent creates an account, the system shall show the direct consent notice (`BR-coppa-notice`) and require an explicit, not pre-checked, acknowledgment before the account is created, and shall record the date, method and notice version (`BR-coppa-parental-consent`, `DI-consent-record`).
+- **FR-ACCT-consent-confirm:** After the acknowledgment, the system shall send the parent a confirmation email that states what was consented to and how to revoke it, and shall not allow a child account to be created or any child data to be collected until the parent confirms. If the parent does not confirm within a reasonable time, the system shall delete the contact details held only for consent (`BR-coppa-parental-consent`, `BR-coppa-notice`). The consent method (email-plus) and the time limit are TBD (`OI-21`, `OI-22`).
+- **FR-DATA-notice:** The system shall show a prominent link to the online privacy notice on the landing screen and next to every place a child's personal information is requested, and the notice shall include the retention policy (`BR-coppa-notice`, `BR-coppa-retention`).
+- **FR-DATA-review:** On a parent's request, the system shall show the parent the categories of personal information held about their child and the data itself, shall let the parent stop further collection or use, and shall confirm the requester is that child's parent (`BR-coppa-parent-rights`).
 - **FR-ONB-profile:** When a child account is created, the system shall collect age/grade, reading interests and favorite books already read, and an optional reading level (`FEAT-onboarding-profile`).
 - **FR-ONB-level-optional:** The system shall accept a parent-entered reading level or let the parent skip it, and where the parent is unsure may show referral links to external tools for reference only (`BR-reading-level-parent-entered`).
 - **FR-REC-rules:** When a child requests a recommendation, the system shall return books from the tagged catalog matched to the child's profile, using age/grade as the primary signal and reading level only as a difficulty input when present (`BR-reading-level-proxy`). The exact matching rules and number of results are TBD (`OI-2`).
@@ -154,7 +159,7 @@ Planned use cases by area (from the use-case list; only `UC-PAR-create-sub-paren
 - **FR-PAR-review-window:** Whether the system shall require a parent to confirm review within 24 hours, suspending the child's account otherwise, is TBD (`BR-24hr-review-window`, `OI-16`). Do not build or drop this until answered.
 - **FR-PAR-content-removal:** The system shall let a parent remove flagged content from their child's account and report abuse or self-harm signals (`BR-parent-content-removal`).
 - **FR-ADM-catalog:** The system shall let an admin add and block catalog content (ADM use cases).
-- **FR-DATA-removal:** On a parent's request, the system shall remove a child's data (client constraint in vision 3.1 / glossary; retention rules TBD, see 7.4).
+- **FR-DATA-removal:** On a parent's request, the system shall delete a child's data so that it is not retrievable in the normal course of business, including the child's profile, answers, shelf, ratings, reflections and logs (client constraint in vision 3.1 / glossary; `BR-coppa-parent-rights`; retention rules, see 7.4). A deleted child's contribution to any book-level aggregate rating shall be removed or irreversibly de-identified.
 
 Post-MVP: **FR-REC-ml** (ML re-ranking, `FEAT-ai-recommendation`), **FR-BADGE-identity** (`FEAT-reading-identity-badges`, `OI-14`), **FR-RECAP-adult** (`FEAT-recap-adult`, `BR-recap-qualitative-only`), `UC-ADM-add-admin`, `UC-SHLF-view-badges`.
 
@@ -189,7 +194,10 @@ Main entities: **Family/Parent account** (primary, secondary), **Child profile**
 
 - **DI-acquire:** Child data is entered by the parent at account creation and by the child through use of the app.
 - **DI-integrity:** Every child record shall reference an existing parent account; the system shall not allow orphan children (`BR-parent-account-linked`).
-- **DI-disposal:** The system shall delete a child's data when a parent requests it. Retention periods and law-enforcement retention for real names (`BR-kid-data-stored`) are TBD pending the COPPA rules.
+- **DI-disposal:** The system shall delete a child's data when a parent requests it (`FR-DATA-removal`).
+- **DI-retention:** The system shall not keep a child's personal information indefinitely. A written retention policy shall state the purposes, the business need and a deletion timeframe, and shall be published in the online notice; an automated purge shall enforce it (`BR-coppa-retention`). The timeframe, and how long a child's real name is kept for law-enforcement reporting (`BR-kid-data-stored`), are TBD (`OI-22`, `OI-23`).
+- **DI-consent-record:** For each parent consent, the system shall store the date, the method, the version of the notice shown, and whether any third-party disclosure was separately consented to (`BR-coppa-parental-consent`).
+- **DI-minimization:** Each field collected from or about a child shall have a stated purpose; fields without one shall not be collected (`BR-coppa-minimization`). `DI-child-stored` is under review against this (`OI-23`).
 
 ---
 
@@ -243,6 +251,7 @@ Targets are TBD unless stated; the client has not given numbers (`OI-11`, `OI-12
 - **SEC-role-authorization:** The system shall enforce role permissions on the server (child, parent, admin); a child shall only see their own data.
 - **SEC-no-private-notes:** Reflections are always parent-visible (`BR-notes-visible-to-parent`).
 - **SEC-auth:** Parent authentication shall use a vetted mechanism rather than ad hoc password handling (mechanism TBD).
+- **SEC-coppa-program:** The team shall keep a written information security program: a named coordinator, a risk assessment at least once a year, safeguards matched to those risks, ongoing testing, and an annual review. Before any outside service (hosting, email, analytics) holds a child's data, the team shall get written assurances from it that it will keep the data secure (`docs/coppa/coppa-design-requirements.md` §3.7). The coordinator is TBD.
 
 ### 9.4 Safety
 
@@ -274,6 +283,6 @@ Not required. The product is English-language for the MVP; no other locale has b
 
 ## 11. Other Requirements
 
-- **Legal:** COPPA-adjacent design from the start (`CO-coppa-adjacent`). Formal compliance or certification would need legal review the team cannot provide (`AS-coppa-adjacent-only`).
-- **Testing with children:** Consent process for real child testers is TBD (`OI-13`).
+- **Legal:** COPPA requirements built in from the start (`CO-coppa-adjacent`). Formal compliance or certification, and whether the project is a covered operator at all, would need legal review the team cannot provide (`AS-coppa-adjacent-only`, `OI-20`).
+- **Testing with children:** A real child tester using the app is a collection from a child, so each tester's parent must give the same verifiable consent (`BR-coppa-parental-consent`). Who recruits the testers is still TBD (`OI-13`).
 - **Open conflicts to close before building:** `OI-15` (admin PII), `OI-16` (24-hour review), `OI-17` (rating mechanism), `OI-18` (reporting to authorities), `OI-1` (dataset).

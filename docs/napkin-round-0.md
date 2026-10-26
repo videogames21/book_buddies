@@ -4,6 +4,30 @@
 
 ---
 
+## Status, 2026-10-26
+
+The sections below are the original napkin, left as written so the first-round reasoning stays readable. Several of its assumptions have since been overtaken by the client meetings and the team's decisions. Where they differ, the current position wins:
+
+| Napkin said | Current position | Where it is recorded |
+|---|---|---|
+| A five-person team | Six members | `Team_Contract.md` |
+| Buddy feed, peer picks, groups of 2–20 kids | Removed until further notice (2026-09-24 meeting; team position 2026-10-26) | vision-and-scope §4.3; business-rules §2.3 |
+| Teacher role, to defer | Removed from the project, not deferred | `BR-user-roles` |
+| Seed content from Google Books or similar | A pre-tagged children's dataset from Kaggle or GitHub, loaded by an offline import; not yet chosen | `OI-1`; `KD-catalog-import-offline` |
+| Reading level from an in-app test | No test; an optional reading level entered by the parent, with age and grade as the main signal | `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered` |
+| The 24-hour review/suspension workflow must not be cut | Unconfirmed: no 2026-09-24 source restates it | `OI-16`; `BR-24hr-review-window` |
+| Admin sees no PII | The admin sees parents' names, usernames and emails, and a flagged child's details only in flagged-content review, every view audited (team position; client to confirm) | `BR-admin-limited-view`; `KD-admin-flag-review`; `OI-15` |
+| Anonymous child profiles | Kept: the child sees only a nickname and avatar. The real name is stored for the parent and flag review, and whether it is needed at all is open | `BR-kid-anonymous-profile`; `OI-23` |
+| Node/Express or Django, PostgreSQL, a managed auth provider, Render/Railway/Fly.io | One Next.js app in TypeScript on Vercel, MongoDB Atlas, Auth.js with revocable database sessions; the rejected alternatives are recorded | architectural-design.md §9.2 (`KD-deployment-shape`, `KD-tech-stack`, `KD-auth-sessions`) |
+| Child profiles are not independently authenticated | Each child signs in with a username the parent chooses and a generated password | `FR-ACCT-credentials` |
+| Peer-rating aggregates in the ranking | Dropped with the social layer; ratings are per child, on four options | glossary, "Rating"; `FR-RATE-rating` |
+| Stretch My Reader and achievement pages are first to cut | Both withdrawn | vision-and-scope §4.2 |
+| COPPA-adjacent compliance work | The FTC COPPA Rule is built in from the start: verified parental consent, parent rights to review and delete, minimization, retention | `BR-coppa-*`; `docs/coppa/` |
+
+What still holds: the hard part is the child-data boundary, not the recommender; the recommender starts as rules over tagged metadata with no ML; there is one deployable and no distributed system; and a safety flag must reach a parent and the admin as an alert, not a log (`SAF-flag-delivery`).
+
+---
+
 ## 1. Shape
 
 **A CRUD application with a recommendation layer and a permissions system bolted on top — not a data pipeline, not real-time, not ML-native.**

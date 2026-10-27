@@ -1,4 +1,4 @@
-# Team Contract: <team name>
+# Team Contract: Team 05: Book Buddies
 
 **Project:** Book Buddies <br>
 **Members:** Iid Maxamuud, McKenzie Mitchell-Richardson, Tam Nguyen, Ethan Paredez, Jayapradeep Jayaraman Srinivas, Grayson Whittingham <br>
@@ -40,7 +40,7 @@ A reviewer reads the issue before the diff. Blocking a merge: **If a test case d
 
 ## 6. Working with AI
 
-We use **Claude Code**. Our charter lives in `CLADUE.md`.
+We use **Claude Code**. Our charter lives in `CLAUDE.md`.
 Every member can explain any line submitted under their name.
 We do not merge agent output that nobody has read.
 Additional limits we agree on: **<anything else>**.

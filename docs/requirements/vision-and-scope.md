@@ -2,7 +2,7 @@
 **Project:** BookBuddies
 **Team:** 5
 **Client:** Yang Yang
-**Version:** 0.5
+**Version:** 0.8
 
 ---
 
@@ -25,6 +25,9 @@
 | 2026-09-17 | 0.3 | Reconciled the MVP scope table against [OPEN-ISSUES.md](OPEN-ISSUES.md): corrected four features that were listed as both in and out of scope, added `FEAT-ebook-reader` to section 4.2 so it has a definition before section 4.3 excludes it, and updated stale `OI-*` citations | Team 05 |
 | 2026-09-25 | 0.4 | Applied the 2026-09-24 client meeting and follow-up flowchart: withdrew `FEAT-peer-feed`, `FEAT-groups`, `FEAT-group-sharing-controls`, `FEAT-stretch-my-reader`, `FEAT-reading-level-baseline`, `FEAT-teacher-flagging`; added `FEAT-onboarding-profile`, `FEAT-kid-reflections`, `FEAT-parent-suggest-book`, `FEAT-reading-level-input`; updated the shelf categories, MVP scope, vision statement, to-be flow, risks, assumptions, and stakeholder table; opened `OI-15` through `OI-18` for new contradictions this round surfaced | Tam Nguyen |
 | 2026-10-20 | 0.5 | Replaced the "client will send the COPPA rules link" wording in `AS-coppa-adjacent-only` with the FTC COPPA Rule text the client supplied (`docs/coppa/coppa-full`). | Grayson Whittingham, Claude |
+| 2026-10-25 | 0.6 | Cleanup of stale references, no scope change: recorded `OI-17` (four-option rating) and `OI-10` (web first) as resolved; pointed the Profiles notes reference at `docs/external/bookbuddies-profile-notes.md`; replaced the §4.1 context diagram with a link to the architecture's context; updated §3.2 for the Kaggle/GitHub dataset and the open 24-hour rule; replaced the stale `BR-admin-no-pii` citation | Team 05 (cleanup with Claude) |
+| 2026-10-26 | 0.7 | Pointed the 2026-09-24 references at `docs/requirements/client-interview-2026-09-24.md`; recorded groups and peer sharing as removed until further notice, and the team's position on admin visibility (`OI-15`) | Team 05 (cleanup with Claude) |
+| 2026-10-26 | 0.8 | Added `FEAT-consent-privacy`, `FEAT-parent-book-report`, `FEAT-admin-catalog` and `FEAT-flag-review` to §4.2 and to the MVP scope in §4.3, so the COPPA rights, parent reports, catalog management and flag review each have a feature | Team 05 (cleanup with Claude) |
 
 ---
 
@@ -64,8 +67,8 @@ A parent or teacher suggests titles from their own limited knowledge of the chil
 
 - Client interview notes, 2026-09-10 — `docs/requirements/client-interview-2026-09-10.md`
 - Team napkin assessment, undated — `docs/napkin-round-0.md`
-- Dr. Yang's follow-up design notes ("BookBuddies Profiles"), 2026-09-12 — seed catalog tagging domains, recommender staging, adult- and kid-facing profile scope, and gamification badge concepts. Not yet added to the repo — add alongside this revision.
-- Client meeting notes, 2026-09-24, plus Dr. Yang's follow-up flowchart (PPTX + PNG) — `docs/external/client-meeting-2026-09-24.md`. Drops the teacher role, in-app reading test, peer feed/groups, and Stretch My Reader from the 2026-09-10/09-12 material; this revision reflects those cuts. Two internal contradictions from this round remain open — see `OI-15` and `OI-16`.
+- Dr. Yang's follow-up design notes ("BookBuddies Profiles"), 2026-09-12 — seed catalog tagging domains, recommender staging, adult- and kid-facing profile scope, and gamification badge concepts — `docs/external/bookbuddies-profile-notes.md`.
+- Client meeting notes, 2026-09-24, plus Dr. Yang's follow-up flowchart (PPTX + PNG) — notes in `docs/requirements/client-interview-2026-09-24.md`; the flowchart is not yet in the repo. Drops the teacher role, in-app reading test, peer feed/groups, and Stretch My Reader from the 2026-09-10/09-12 material; this revision reflects those cuts. Two internal contradictions from this round remain open — see `OI-15` and `OI-16`.
 - Original concept slide deck — Dr. Yang, not yet added to the repo
 - Shiny app demo link — Dr. Yang, not yet added to the repo
 
@@ -82,7 +85,7 @@ Elementary-age kids struggle to find books they're excited to read — not becau
 The client has not yet given the team target numbers for these. The objectives below are draft candidates pending client confirmation. The criteria behind recommendation relevance also remain unresolved (see `OI-2`).
 
 - `BO-book-engagement` (DRAFT): Increase the number of books a child finishes reading per month, relative to before using the app, by a target percentage TBD with the client.
-- `BO-recommendation-relevance` (DRAFT): Increase the share of quiz/AI-suggested books a child rates positively (e.g., 4+ stars or a "loved it" reaction) to a target percentage TBD with the client.
+- `BO-recommendation-relevance` (DRAFT): Increase the share of quiz/AI-suggested books a child rates positively (e.g., a "Loved it" or "Liked it" rating) to a target percentage TBD with the client.
 - `BO-parent-oversight-efficiency` (DRAFT): Reduce the time a parent spends reviewing a child's activity to complete the 24-hour compliance check, to a target TBD with the client. *This objective assumes the 24-hour review/suspension rule from 2026-09-10 still applies — that assumption is now unconfirmed, see `OI-16`.*
 
 ### 2.3 Success Metrics
@@ -132,7 +135,7 @@ flowchart TD
 
 The onboarding profile plus rules-based recommendation (new) replaces the ad hoc adult suggestion from the as-is flow, directly addressing the "recommendations capped by what the adult knows" pain point. The shelf, ratings, and reflections (new) replace the "nothing is tracked" pain point, and reflections also feed the recommender over time.
 
-**What stays manual:** a parent still reviews the child's shelf and reflections and can remove a book; the child is notified when that happens. **What is no longer in this flow:** the in-app reading-level test, the picture-based quiz's peer-picks component, achievement pages, and Stretch My Reader — all cut in the 2026-09-24 meeting (see `docs/external/client-meeting-2026-09-24.md`).
+**What stays manual:** a parent still reviews the child's shelf and reflections and can remove a book; the child is notified when that happens. **What is no longer in this flow:** the in-app reading-level test, the picture-based quiz's peer-picks component, achievement pages, and Stretch My Reader — all cut in the 2026-09-24 meeting or the follow-up flowchart (see `docs/requirements/client-interview-2026-09-24.md`).
 
 **Open as of this revision:** whether a parent must complete a 24-hour review-and-confirm cycle with account suspension on non-compliance (a hard rule as of 2026-09-10, absent from every 2026-09-24 source) is unresolved — see `OI-16`. The diagram above shows only the un-timed "view and remove" behavior that all sources agree on.
 
@@ -168,9 +171,9 @@ The onboarding profile plus rules-based recommendation (new) replaces the ad hoc
 
 ### 3.2 User Environment
 
-Children are expected to use the app largely at home (evenings and weekends), in short, touch-first sessions of roughly 5–15 minutes — the client's note that the discovery quiz is picture-based (not text-heavy) points to a UI built around large tap targets and minimal reliance on reading to navigate the app itself. Parents check in periodically, at minimum every 24 hours to satisfy the review-window rule, likely from a phone in short gaps between other tasks. There is no existing software this project integrates with today; the one external dependency is a book-metadata source (Google Books or similar) used once, up front, to build the seed catalog rather than as a live integration.
+Children are expected to use the app largely at home (evenings and weekends), in short, touch-first sessions of roughly 5–15 minutes — the client's note that the discovery quiz is picture-based (not text-heavy) points to a UI built around large tap targets and minimal reliance on reading to navigate the app itself. Parents check in periodically, likely from a phone in short gaps between other tasks; whether they must check in at least every 24 hours depends on the unconfirmed review-window rule (`OI-16`). There is no existing software this project integrates with today; the one external dependency is a pre-tagged children's-book dataset (Kaggle or GitHub, not yet chosen, `OI-1`) imported up front to build the seed catalog rather than used as a live integration.
 
-_**Open issue:** whether BookBuddies needs to be a native mobile app, a mobile-responsive web app, or both has not been specified by the client — see `OI-10`. **Update, 2026-09-24:** the client has since directed web-first, mobile later, which substantially answers this — recommend closing `OI-10` in the next OPEN-ISSUES.md pass._
+_**Resolved (`OI-10`):** the client directed web first, mobile later (2026-09-24). The MVP is a mobile-responsive web app._
 
 ### 3.3 Alternatives and Competition
 
@@ -186,14 +189,9 @@ _**Open issue:** whether BookBuddies needs to be a native mobile app, a mobile-r
 
 ### 4.1 Product Perspective
 
-BookBuddies is a self-contained product: a child-facing app, a parent-facing review dashboard, and a lightweight recommendation engine, all backed by one database. Per the team's napkin assessment, its only external dependency in the MVP is a book-metadata source used to build the seed catalog — there is no live integration with a school system or LMS in this phase.
+BookBuddies is a self-contained product: a child-facing app, a parent-facing review dashboard, admin tools, and a lightweight recommendation engine, all backed by one database. Its external dependencies in the MVP are a pre-tagged book dataset used to build the seed catalog and an email service for parent account emails; there is no live integration with a school system or LMS in this phase.
 
-```mermaid
-flowchart LR
-  Child[Child] --> BB[BookBuddies]
-  Parent[Parent] --> BB
-  BB --> GB[(Book dataset — Kaggle/GitHub, pre-tagged — seed content only)]
-```
+The context diagram is kept in one place, section 3 of the [architecture-of-record](../../design/architectural-design.md#3-context-and-scope).
 
 ### 4.2 Major Features and Scope
 
@@ -212,17 +210,21 @@ _The features below were revised 2026-09-25 to reflect the 2026-09-24 client mee
 - `FEAT-achievement-pages` **(WITHDRAWN)**: Originally a Duolingo-style page showing weekly/monthly books, genres, and reading-level progress. Already withdrawn per 2026-09-12 notes (child never sees their reading level) — see `OI-6`; the 2026-09-24 meeting does not revive it. Retired in favor of `FEAT-reading-identity-badges` and `FEAT-recap-adult`.
 - `FEAT-shelf`: Let a child archive books they're interested in. **Categories have changed twice:** 2026-09-10 said want-to-read / read / recommend; 2026-09-24 said want to read / reading / recommended to friends / don't want to read; the 2026-09-25 flowchart shows **Reading Now / Want to Read / Maybe Later / Finished**, with no "recommend to friends" category (consistent with peer sharing being cut). Treating the flowchart, as the newest artifact, as current.
 - `FEAT-peer-feed` **(WITHDRAWN 2026-09-24)**: Showed a child what friends and classmates were reading. Cut — "peer-to-peer social sharing dropped: too complicated for now."
-- `FEAT-manual-search`: Let a child search the catalog by keyword. Unchanged, though not depicted in the 2026-09-25 flowchart.
-- `FEAT-ratings`: Let a child rate a book after finishing it. **Mechanism is contradicted between the two newest sources**, not yet resolved: 2026-09-24 says "stars or thumbs"; the 2026-09-25 flowchart shows a 4-option scale (loved it / liked it / it was okay / not for me). See `OI-17`. The original "aggregate community rating" is dropped along with the rest of the peer/social layer.
+- `FEAT-manual-search`: Let a child search the catalog by keyword. Not depicted in the 2026-09-25 flowchart. A book found this way reaches the child's shelf only after a linked parent approves the request (`UC-SHLF-manual-search`).
+- `FEAT-ratings`: Let a child rate a book after finishing it, on four options: Loved it / Liked it / It was okay / Not for me. The 2026-09-24 notes said "stars or thumbs"; the team adopted the 2026-09-25 flowchart's scale on 2026-10-07 (`OI-17`, resolved). The original "aggregate community rating" is dropped along with the rest of the peer/social layer.
 - `FEAT-groups` **(WITHDRAWN 2026-09-24)**: Let kids form or join reading groups of 2–20 members. Cut along with peer-to-peer sharing.
 - `FEAT-stretch-my-reader` **(WITHDRAWN 2026-09-24)**: Offered opt-in prompts toward higher-reading-level books. Client's own note: "No stretch my reader option." Absent from the flowchart too.
 - `FEAT-reading-level-baseline` **(WITHDRAWN 2026-09-24, replaced by `FEAT-reading-level-input`)**: Was an in-app reading test at account creation. 2026-09-24: "No in-app reading test; kids asked to find their level externally if needed."
 - `FEAT-reading-level-input` **(new 2026-09-25, replaces `FEAT-reading-level-baseline`)**: Let a parent optionally enter a child's reading level (Lexile, AR, or similar) at onboarding, or skip it. Age and grade — not reading level — are the primary recommendation signal; if reading level is given, it's used to match difficulty, and the flowchart suggests pointing an unsure parent to an external tool (e.g., AR Bookfinder, Scholastic Book Wizard) rather than the app assessing it.
 - `FEAT-parent-account-linking`: Link a parent account to one or more child accounts. 2026-09-24 confirms the parent always creates the account first and a child cannot self-register (resolves `OI-8`); a secondary parent/guardian can be added to an account, and one parent can manage multiple children.
 - `FEAT-parent-review-dashboard`: Let a parent view a child's shelf and reflections, and remove a book from the shelf (the child gets an in-app pop-up when this happens). **The 24-hour review-and-confirm/suspension mechanic from 2026-09-10 is not restated in any 2026-09-24 source, and one raw note says "take out parent approval option."** Not treating this as removed without client confirmation — see `OI-16`.
-- `FEAT-admin-pii-segregation` **(conflict — do not build against either version yet)**: Was "admin sees zero PII" as of 2026-09-10 (`OI-7`, `BR-admin-no-pii`). The client's own 2026-09-24 notes give two different answers in the same meeting: one line says admin has "access to personal data, user credentials," another says admin sees only "parent credentials and number of child accounts, not child details." See `OI-15`.
+- `FEAT-admin-pii-segregation` **(team position set 2026-10-26; client to confirm, `OI-15`)**: Was "admin sees zero PII" as of 2026-09-10 (`OI-7`, since replaced by `OI-15`; the rule is now `BR-admin-limited-view`). The client's own 2026-09-24 notes give two different answers in the same meeting: one line says admin has "access to personal data, user credentials," another says admin sees only "parent credentials and number of child accounts, not child details." See `OI-15`. The team's position (2026-10-26, `KD-admin-flag-review`): the admin sees no child details except in flagged-content review, where every view is recorded.
 - `FEAT-teacher-flagging` **(WITHDRAWN 2026-09-24 — full removal, not a deferral)**: Previously a stretch goal letting a teacher flag content. The teacher role itself was removed from scope entirely 2026-09-24, so this has no remaining role to attach to.
-- `FEAT-ebook-reader`: Not part of the product. The client concept brief is explicit that BookBuddies is recommendation, tracking, and social sharing only, not an ebook reader — a child reads the book itself elsewhere (library, bookstore, home). Listed here, and excluded in section 4.3, so the boundary is on the record rather than assumed.
+- `FEAT-consent-privacy` **(new 2026-10-26)**: Give parents the privacy controls the COPPA Rule requires, built in from the start as the client asked: notice and verifiable parental consent before anything is collected from a child, a privacy notice linked wherever a child's information is collected, and the parent's rights to review and export their child's data, stop further collection, delete the child's data, and delete the child's account (`BR-coppa-*`; `UC-PAR-onboarding`, `UC-PAR-review-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account`).
+- `FEAT-parent-book-report` **(new 2026-10-26)**: Let a parent report a book as unsuitable for their child. The report is final, removes the book from that child's recommendations, search and shelf for good, and goes to the system admin, who may block the book for everyone, and who may warn, then suspend, a parent who keeps sending false reports (`BR-parent-report-book`, confirmed by the client 2026-10-13; `UC-PAR-report-book`, `UC-ADM-block-content`, `UC-ADM-suspend-parent-account`).
+- `FEAT-admin-catalog` **(new 2026-10-26)**: Let the system admin keep the catalog safe and current: add single books, correct a book's details and tags, block a book for every child, and unblock one blocked in error, on top of the bulk import from the seed dataset (`UC-ADM-add-content`, `UC-ADM-edit-content`, `UC-ADM-block-content`, `UC-ADM-unblock-content`). Tagging itself is `FEAT-book-tagging`.
+- `FEAT-flag-review` **(new 2026-10-26)**: Let the system admin review reflections flagged for violence or self-harm, see the flagged child's details there and nowhere else, unflag them or suspend the account, and reinstate a suspended account. Admin authority to suspend was confirmed by the team on 2026-10-26; the client is, in practice, the admin. What the admin may see still needs the client's confirmation (`OI-15`), and escalation to authorities is `OI-18` (`UC-ADM-flag-review`, `UC-ADM-suspend-account`, `UC-ADM-reinstate-account`).
+- `FEAT-ebook-reader`: Not part of the product. The client concept brief is explicit that BookBuddies is not an ebook reader (the brief's "recommendation, tracking, and social sharing only" predates the 2026-09-24 cut of social sharing) — a child reads the book itself elsewhere (library, bookstore, home). Listed here, and excluded in section 4.3, so the boundary is on the record rather than assumed.
 
 ### 4.3 MVP Scope
 
@@ -230,14 +232,14 @@ _A 2026-09-17 revision (v0.3) reconciled an earlier drafting error where four fe
 
 _The client described this MVP as "bare-bones: working recommendation flow + basic parent and kid profiles," web-first._
 
-**In scope for the MVP:** `FEAT-onboarding-profile`, `FEAT-recommendation-quiz`, `FEAT-shelf`, `FEAT-ratings`, `FEAT-kid-reflections`, `FEAT-parent-suggest-book`, `FEAT-manual-search`, `FEAT-reading-level-input`, `FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`, `FEAT-admin-pii-segregation`, `FEAT-book-tagging`
+**In scope for the MVP:** `FEAT-onboarding-profile`, `FEAT-recommendation-quiz`, `FEAT-shelf`, `FEAT-ratings`, `FEAT-kid-reflections`, `FEAT-parent-suggest-book`, `FEAT-manual-search`, `FEAT-reading-level-input`, `FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`, `FEAT-admin-pii-segregation`, `FEAT-book-tagging`, `FEAT-consent-privacy`, `FEAT-parent-book-report`, `FEAT-admin-catalog`, `FEAT-flag-review`
 
-_Three of these MVP features carry an open conflict that should be closed before they're built, not after (see section 4.2 for detail): `FEAT-ratings` (`OI-17`, rating mechanism), `FEAT-parent-review-dashboard` (`OI-16`, whether the 24-hour review/suspension rule still applies), and `FEAT-admin-pii-segregation` (`OI-15`, what admin can see). `FEAT-book-tagging` moved into MVP scope this revision because the client's preferred dataset (pre-tagged, from Kaggle/GitHub) would remove most of the manual-tagging burden that kept it out before — but the dataset itself is still unnamed (`OI-1`)._
+_Two of these MVP features carry an open conflict that should be closed before they're built, not after (see section 4.2 for detail): `FEAT-parent-review-dashboard` (`OI-16`, whether the 24-hour review/suspension rule still applies) and `FEAT-admin-pii-segregation` (`OI-15`, what admin can see). The third, `FEAT-ratings`, was settled on 2026-10-07 (`OI-17`). `FEAT-book-tagging` moved into MVP scope this revision because the client's preferred dataset (pre-tagged, from Kaggle/GitHub) would remove most of the manual-tagging burden that kept it out before — but the dataset itself is still unnamed (`OI-1`)._
 
 **Explicitly out of scope for the MVP:**
 - `FEAT-ai-recommendation` (deferred to a later release): Rules-based only for the MVP; ML re-ranking is an explicit later phase per both the client and the team's own risk mitigation (`RI-scope-creep-ai`).
 - `FEAT-ebook-reader` (confirmed out of scope, not deferred): the client concept brief rules this out entirely — see the entry in section 4.2.
-- `FEAT-groups`, `FEAT-peer-feed`, `FEAT-group-sharing-controls` (confirmed out, not deferred): peer-to-peer sharing and reading groups were cut from scope entirely 2026-09-24.
+- `FEAT-groups`, `FEAT-peer-feed`, `FEAT-group-sharing-controls` (removed until further notice): peer-to-peer sharing and reading groups were cut 2026-09-24, and the team confirmed on 2026-10-26 that they are out of the product, not on a later-phase roadmap, unless the client reopens them.
 - `FEAT-stretch-my-reader` (confirmed out): "No stretch my reader option" (2026-09-24).
 - `FEAT-reading-level-baseline` (confirmed out, superseded by `FEAT-reading-level-input`): no in-app reading test (2026-09-24).
 - `FEAT-teacher-flagging` (confirmed out, not deferred): the teacher role was removed from scope entirely (2026-09-24), not deferred to a later phase.

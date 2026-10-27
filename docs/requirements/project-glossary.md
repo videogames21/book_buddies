@@ -3,10 +3,12 @@
 **Project:** BookBuddies
 **Team:** Team 05 — BookBuddies
 **Client:** Dr. Yang Yang
-**Version:** 0.6
+**Version:** 0.10
 
 ---
 
+> **What changed in v0.7.** Added Book Report, Child Identity Store, Consent Record, Dangerous Content List, Per-Child Exclusion and Shelf Request, which the use cases and architecture already rely on, and cleared notes about open issues that have since been filed or closed.
+>
 > **What changed in v0.5.** The 2026-09-24 client meeting, Dr. Yang's 2026-09-21 written answers, and the follow-up flowchart cut the teacher role, reading groups, Buddy Picks, Stretch My Reader, the Achievement Page and the in-app reading test. Those terms now live under **Retired Terms** at the bottom, so nobody builds against them. Live definitions were rewritten to match business-rules v0.2, vision-and-scope v0.4, SRS v0.2 and use-cases v0.9. The Reading Level visibility conflict from v0.4 is now settled: the app never assesses a child's level and never shows it to the child.
 
 ## Revision History
@@ -19,6 +21,10 @@
 | 2026-09-17 | 0.4 | Corrected the Recommender entry's citation to point at OPEN-ISSUES.md `OI-2` instead of the (template) interview guide file | Team 05 |
 | 2026-10-07 | 0.5 | Applied the 2026-09-21 written answers, the 2026-09-24 meeting, and the flowchart. Moved cut terms (Achievement Page, Buddy Picks, In-App Reading Test, Reading Group, Social Boundary, Stretch My Reader, Teacher) to a new Retired Terms section as permanently out of scope. Rewrote Rating (4-option scale), Reading Level (parent-entered, never shown to the child), Recommender (rule-based scoring, recommender mode), Seed Catalog (pre-tagged Kaggle/GitHub dataset), and Report Function. Added terms used by the use cases and design: Main Parent, Sub Parent, Starting Reader Profile, Book Domains, Shelf categories, Recommendation Reaction, Decline Reason, Recommendation Batch, Parent Suggestion, Reflection, Pending Deletion, Safety Flag, Custom Tag, System Admin, Catalog and Content Admin, Recap, Active User, Age Band, Area Code, Manual Search, MVP. | Iid Maxamuud |
 | 2026-10-20 | 0.6 | Rewrote the COPPA entry from the FTC COPPA Rule text the client supplied (`docs/coppa/coppa-full`), replacing the "client is sending the rules link" placeholder; added Personal information and Verifiable parental consent as related terms. | Grayson Whittingham, Claude |
+| 2026-10-25 | 0.7 | Added Book Report, Child Identity Store, Consent Record, Dangerous Content List, Per-Child Exclusion and Shelf Request; added parent book reports to Report Function; marked `OI-6` and `OI-17` closed and pointed Safety Flag detection at `OI-19`. | Team 05 (cleanup with Claude) |
+| 2026-10-26 | 0.8 | Safety flags apply to reflections only; flagged-content review recorded as the one admin exception (team position, `OI-15`); retired terms are removed until further notice rather than permanently; the MVP recommender's own-data inputs include ratings and reflections; the dangerous content list also receives flagged reflections from a block (`OI-24`). | Team 05 (cleanup with Claude) |
+| 2026-10-26 | 0.9 | System Admin: the client is the admin in practice; the admin may suspend and reinstate accounts and unblock books; parent "credentials" are names, usernames and emails, never passwords. | Team 05 (cleanup with Claude) |
+| 2026-10-26 | 0.10 | Trimmed System Admin to the powers the use cases give it, and named what is a deployment setting or a parent's tool instead; added editing books, parent-account suspension and the audit log. | Team 05 (cleanup with Claude) |
 
 ---
 
@@ -72,11 +78,21 @@ The fixed set of characteristics every catalog book is tagged with, so the **Rec
 
 _**Source:** Dr. Yang's 2026-09-21 notes (Table 2); flowchart slide 2._ These values are called **standard tags**. Admins may also add **Custom Tags**.
 
+### Book Report (Reported Book)
+
+A parent's report that a catalog book is unsuitable for one of their children, made from a **Recommendation Batch** under **Parent Review** or from the child's **Shelf**. The parent gives a reason and confirms after a warning that false reports may be punished. The report is final: it creates a **Per-Child Exclusion**, removes the book from the child's batch and shelf with a removal notice that gives no reason, and puts the book on the admin's list of reported books, where the admin may block it for everyone, discard the report, or warn the parent (`BR-parent-report-book`, `UC-PAR-report-book`, `UC-ADM-block-content`).
+
+_**Not to be confused with:** an admin **block** (`UC-ADM-block-content`), which removes a book for every child, or a parent simply removing a book from the shelf (`UC-SHLF-parent-remove-book`), which does not stop it being recommended again._
+
 ### Catalog and Content Admin
 
 A possible second admin role Dr. Yang proposed on 2026-09-21: someone who maintains the book catalog, book metadata and recommender rules, with **no** access to family or child accounts. She asked whether this should be separate from the **System Admin** to limit access to children's information.
 
 _**Status:** proposed, not decided. Use cases currently have a single admin role._
+
+### Child Identity Store
+
+The one part of the design that holds a child's identifying details: real name, age, grade and optional reading level (`KD-pii-segregation`, `DI-pii-segregation`). Everything else refers to the child by an opaque ID, nickname and avatar. Only two paths read it: the recommender (age, grade and reading level, never the name) and the admin's flagged-content review (`KD-admin-flag-review`, pending `OI-15`). An architecture term; see architecture-of-record §5.2.
 
 ### Child Profile (Child Account)
 
@@ -86,6 +102,10 @@ A child's account, created only by a parent and always linked to a parent accoun
 - **Displayed:** nickname and character avatar only — see **Kid-Facing Profile**.
 
 The parent sets the child's username, and the system generates the password, which is shown to the parent once (`UC-PAR-create-kid-account`).
+
+### Consent Record
+
+The stored proof of a parent's verifiable parental consent: the parent and family, the version of the notice shown, the acknowledgment and confirmation dates, the method (email-plus is assumed, `OI-21`), and any separately consented third-party disclosure (`BR-coppa-parental-consent`, `DI-consent-record`, `UC-PAR-onboarding`). It is kept while the child account exists, is visible to the parent, and shows the admin only that consent exists.
 
 ### COPPA
 
@@ -103,11 +123,15 @@ A free-form label an admin adds to a catalog book on top of the standard **Book 
 
 _**Open:** whether children see custom tags, whether the recommender or **Manual Search** uses them, and who may rename or delete them._
 
+### Dangerous Content List
+
+The admin-only record of flagged child content, saved when flagged-content review leads to a suspension, or when a book block would delete a flagged reflection, with its flag category and classification (breaks only the app's conduct rules, or breaks the law and is marked for escalation) (`UC-ADM-flag-review`, `UC-ADM-block-content` 7c). It holds copies of child content, so it is the most sensitive store in the system and is protected like the child's own data. Team decision, 2026-10-15: only the admin may view it. Its retention period and whether it can be exported are `OI-27`; whether a book block keeps a flagged reflection on it is `OI-24`.
+
 ### Data Boundary
 
 The rule for what the recommender may learn from: anonymous, behavior-only signals across every registered user — never demographic traits (`BR-similarity-data-boundary`). A child's notes may feed the recommender without being shown to other children.
 
-_**Status:** applies once the recommender uses cross-user data (post-MVP); the MVP rules recommender uses only the child's own profile and quiz answers._
+_**Status:** applies once the recommender uses cross-user data (post-MVP); the MVP rules recommender uses only the child's own data: profile, quiz answers, and their own ratings and reflections (2026-09-24 notes)._
 
 ### Decline Reason
 
@@ -173,11 +197,17 @@ The 24-hour state a child's own reflection enters when they delete it. It's hidd
 
 _**Open:** no client source yet confirms the 24-hour length or the restore right._
 
+### Per-Child Exclusion
+
+The permanent record, created by a **Book Report**, that a book must never again appear for that one child: not in recommendations, not in **Manual Search**, and not on the shelf (`BR-parent-report-book`, `KD-book-exclusion`, `DI-report-exclusion`). It has no undo, and an admin discarding the report does not remove it. It affects no other child.
+
+_**Not to be confused with:** a catalog **block**, which is global and set only by the admin (`UC-ADM-block-content`)._
+
 ### Rating
 
 A child's reaction to a book they've finished, chosen from **four options: Loved it / Liked it / It was okay / Not for me** (flowchart step 7; Dr. Yang's 2026-09-21 notes). This is the "child feedback loop" in the MVP goals and feeds the recommender. Ratings are per child; the community-wide aggregate rating ("five kids rated it five stars") was dropped with the social layer.
 
-_**Decision:** the team adopted the four-option scale on 2026-10-07, over the 9/24 note's "stars or thumbs." Close `OI-17` and update `FR-RATE-rating`._
+_**Decision:** the team adopted the four-option scale on 2026-10-07, over the 9/24 note's "stars or thumbs." `OI-17` is closed and `FR-RATE-rating` follows it._
 
 _**Not to be confused with:** a **Recommendation Reaction** (Yes / Maybe later / Not for me), which happens *before* reading. Both include "Not for me," so UI copy and data fields must keep them distinct._
 
@@ -193,7 +223,7 @@ A child's reading ability on a scale the parent already knows — Lexile, AR/ATO
 
 - **Never assessed:** BookBuddies must not test, estimate, infer or assign a reading level (`BR-no-reading-level-assessment`). This replaces the in-app reading test from 2026-09-10 (see **Retired Terms**).
 - **Not the main signal:** age and grade are the main recommendation signals. A reading level, when given, is used to match book difficulty (`BR-reading-level-proxy`).
-- **Never shown to the child** (`BR-kid-no-metrics`). The v0.4 conflict about showing it on the Achievement Page is moot now that page is retired. Recommend closing `OI-6`.
+- **Never shown to the child** (`BR-kid-no-metrics`). The v0.4 conflict about showing it on the Achievement Page is moot now that page is retired, and `OI-6` is closed.
 
 ### Recommendation Batch
 
@@ -233,16 +263,17 @@ _**Superseded:** Dr. Yang's 2026-09-21 notes mention "private notes the child ch
 
 How unsafe content gets surfaced. There are two paths:
 
-- **Automatic:** a **Safety Flag** on a child's reflection or review.
+- **Automatic:** a **Safety Flag** on a child's reflection.
 - **Parent-initiated:** a parent may remove flagged words or content and report abuse or self-harm signals (`BR-parent-content-removal`).
+- **Parent book report:** a parent reports an unsuitable catalog book for their child, which goes to the admin's list of reported books (see **Book Report**).
 
 _**Open:** the 2026-09-24 wording says content is reported to "parents and authorities." What reporting to authorities would involve is `OI-18`._
 
 ### Safety Flag
 
-A marker the system sets on a child's reflection or review that contains violent or self-harm content. It is saved in the same transaction as an immediate in-app alert to the parent and the **System Admin** (`BR-note-safety-flagging`, `SAF-flag-delivery`). A flagged reflection can't be deleted. Admins handle flags through `UC-ADM-flag-review`, the one exception to `BR-admin-limited-view`.
+A marker the system sets on a child's reflection that contains violent or self-harm content. It is saved in the same transaction as an immediate in-app alert to the parent and the **System Admin** (`BR-note-safety-flagging`, `SAF-flag-delivery`). A flagged reflection can't be deleted. Admins handle flags through `UC-ADM-flag-review`, the one exception to `BR-admin-limited-view` (team position 2026-10-26, client to confirm, `OI-15`). Ratings are never flagged; they carry no text.
 
-_**Open:** exactly what the admin sees (`OI-15`), and how the content is detected (no open issue yet)._
+_**Open:** client confirmation of what the admin sees (`OI-15`), and how the content is detected (`OI-19`)._
 
 ### Seed Catalog
 
@@ -255,6 +286,12 @@ _**Superseded:** the earlier ideas of using Google Books (2026-09-10) or Open Li
 A child's personal list of books, in four categories: **Reading Now**, **Want to Read**, **Maybe Later**, **Finished** (flowchart step 6; `FEAT-shelf`). Books arrive through a **Recommendation Reaction** or a parent-approved **Manual Search** request. A parent can view the shelf and remove books, and the child gets an in-app notice when that happens (`BR-parent-shelf-removal`). A parent can't add books to the shelf directly.
 
 _**Superseded categories:** want-to-read / read / recommend (9/10); want to read / reading / recommended to friends / don't want to read (9/24)._
+
+### Shelf Request
+
+A child's request, made from **Manual Search**, to put a book on their shelf in a chosen category. Nothing is added until a linked parent approves it; the parent may also decline it. Its status is pending, approved, declined, cancelled, or already satisfied (`UC-SHLF-manual-search`, `DI-shelf-requests`).
+
+_**Open:** no business rule governs the approval yet, no use case covers the parent's side of it, and expiry is undefined (`UC-SHLF-manual-search` Open Issues)._
 
 ### Shiny App
 
@@ -280,15 +317,15 @@ _**Synonyms:** secondary parent (business-rules, SRS)._
 
 ### System Admin
 
-The platform-wide operator role. It manages accounts and roles, the catalog, recommender settings, system configuration, notifications, audit logs, usage analytics, and data export and retention, and it receives **Safety Flag** alerts. A System Admin sees parent credentials and the number of child accounts per parent, but **not** a child's details (`BR-admin-limited-view`). Children are identified to admins by internal profile ID only. Admin use cases: suspend account, add or block content, view recommender and usage stats, flag review.
+The platform-wide operator role. It manages the catalog (add, edit, block and unblock books), reviews reported books and flagged reflections, suspends and reinstates child and parent accounts, views recommender and usage statistics and the audit log, and receives **Safety Flag** alerts. It does not have screens for the recommender mode or other system configuration, which are deployment settings (architecture §8.2.6); retention is enforced by the scheduled cleanup; data export belongs to parents (`UC-PAR-review-child-data`); and admin accounts are created by hand (`UC-ADM-add-admin` is post-MVP). In practice the client is the system admin (team decision 2026-10-26). A System Admin sees parents' and Sub Parents' names, usernames and emails (never passwords) and the number of child accounts per parent, but **not** a child's details (`BR-admin-limited-view`), except in flagged-content review, where every view is recorded (`UC-ADM-flag-review`). Children are otherwise identified to admins by internal profile ID only. Admin use cases: add, edit, block or unblock content; suspend a child or parent account, or reinstate one; view recommender and usage stats; view the audit log; flag review.
 
-_**Open:** whether flagged-content review is the only exception to the no-child-details rule (`OI-15`), whether the admin may suspend accounts at all, and whether a separate **Catalog and Content Admin** role is needed._
+_**Open:** client confirmation that flagged-content review is the only exception to the no-child-details rule (`OI-15`), and whether a separate **Catalog and Content Admin** role is needed._
 
 ---
 
 ## Retired Terms
 
-_These terms appeared in earlier client material but were **permanently removed from the project** on 2026-09-24. They are not deferred features. Kept here so older documents and meeting notes still make sense. Don't build against them unless the client reopens them._
+_These terms appeared in earlier client material but were **removed from the project until further notice** on 2026-09-24 (team position confirmed 2026-10-26). They are not on any roadmap. Kept here so older documents and meeting notes still make sense. Don't build against them unless the client reopens them._
 
 ### Achievement Page — WITHDRAWN
 

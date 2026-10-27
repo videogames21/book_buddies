@@ -67,12 +67,4 @@ Update the row in `docs/traceability.md`: **Build** to `ðŸŸ¡ In progress` or `âœ
 
 If the build showed the use case or a rule to be wrong or incomplete, say so and propose the specification edit.
 
-## Phase 6: open the pull request
-
-Keep the commits separate. Draft the description from `.github/PULL_REQUEST_TEMPLATE.md`, at most three lines per section:
-
-- **Traces to:** the use case and `docs/design/<area>.md`.
-- **How it was verified:** under Verified, each test-list row and the test that covers it, and what Phase 4 ran. Under Not verified, every extension the row marks untested and anything skipped. Never state a confidence level.
-- **Reviewer focus:** which commit is the trunk, any refactor commit and why the use case needed it, every change to shared code (a new access rule first), and any change to the design, named as a design change.
-
-Recommend a fresh-context review (a new session, or `/code-review`) before a human reviewer, with its findings added under How it was verified. Then tell the developer the pull request is ready for **a teammate who did not write it**, and that once it merges they close the use case (the [method](https://washingtonwei.github.io/cosc-40943/method/), Phase C) before starting the next.
+Once completed tell the developer to review the code before committing changes.

@@ -132,7 +132,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 |---|---|---|---|---|---|---|
 | `UC-PAR-onboarding` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-create-sub-parent-account` |  | ❌ Not started |  |  |  |  |
-| `UC-PAR-create-kid-account` | MVP | 📐 Designed | [design/par.md](../design/par.md#uc-par-create-kid-account-create-a-linked-child-account) |  |  |  |
+| `UC-PAR-create-kid-account` | MVP | ✅ Built | [design/par.md](../design/par.md#uc-par-create-kid-account-create-a-linked-child-account) | `src/app/(parent)/parent/children/new/` (page, form, `actions.ts`, `access.ts`, `schema.ts`); `src/server/accounts-family/child-accounts.ts`; `src/server/child-identity/child-identity.ts`; `src/server/identity-access/` (`child-credentials.ts`, `passwords.ts`, `sessions.ts`, `auth.ts`) | Unit, `schema.test.ts`: 4a, 4b bounds, 4c, 4d, 4f, 4h, 4i. Unit, `child-credentials.test.ts`: the password rules. Integration, `actions.int.test.ts`: main, skipped reading level, 1b, 1c, 4b, 4g, 4g concurrent, 5a, 6a, 7a, authorization, logging, no real name to the child. End-to-end, `tests/e2e/create-kid-account.spec.ts`: main, 1a, 1b page, 1c page, 4b warning, 4e, privacy notice. The end-to-end tests sign in through a test-only session fixture, because sign-in (`UC-PAR-onboarding`) is not built | ✅ Verified |
 | `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
 | `UC-PAR-report-book` |  | ❌ Not started |  |  |  |  |

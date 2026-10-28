@@ -100,7 +100,11 @@ classDiagram
 - `src/server/identity-access/child-credentials.ts` (new, server-only): `generateChildPassword` (a cryptographically random password, see Open questions for its rules) and `insertChildCredential` (role `child`, the lowercased username, the hash, the child ID).
 - `src/server/identity-access/passwords.ts` and `sessions.ts` (new, server-only): salted hashing (`KD-auth-sessions`) and `requireParent()`, which returns the parent's user ID, family ID and parent role (`main` or `sub`). Both are shared with every later use case.
 - `src/server/lib/db.ts`, `clock.ts`, `action-result.ts`, `config.ts` (new): one Mongo client per instance, the settable clock, the `{ ok, data | error }` helper and the validated environment (§8.2.1, §8.2.2, §8.2.6, §8.2.8).
-- `src/server/accounts-family/avatars.ts` and `src/server/accounts-family/grades.ts` (new, server-only): the fixed avatar set and grade list the schema checks against.
+- `src/server/accounts-family/avatars.ts` and `src/server/accounts-family/grades.ts` (new): the fixed avatar set and grade list the schema checks against. *Built without `server-only`, because the shared schema and the form import them; they hold only constants.* The avatar keys are the image names in `public/avatars/` (20 drawn characters from the team's Figma file, added 2026-10-28).
+- `src/app/(parent)/parent/children/new/access.ts` (new, added in the build): `checkCreateChildAccess()`, the Main Parent and consent check that both the page and the action run. It is not in `actions.ts`, because every export of a `"use server"` file is callable from the browser.
+- `src/app/privacy-notice.ts` (new, added in the build): the online privacy notice link (`FR-DATA-notice`).
+- `src/server/lib/log.ts` and `src/server/lib/collections.ts` (new, added in the build): logging that records an error ID, place, error class and driver code but never the message (driver messages can quote a username, §8.2.7), and the helper that sets a collection's schema validator.
+- `src/server/identity-access/auth.ts` and `indexes.ts` (new, added in the build): Auth.js with database sessions and a session callback that passes on only the user ID (the default drops it), and the username index.
 
 ## Sequence
 
@@ -173,8 +177,8 @@ _Pages change data through server actions (§8.2.3), and every result uses the `
 
 | Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
 |---|---|---|---|---|
-| Page `/parent/children/new` (UC-PAR-create-kid-account) | A signed-in Main Parent whose family's consent is confirmed | None | The form, the avatar set, the grade list, the accepted reading-level scales, the referral links and the online privacy notice link (`FR-DATA-notice`) | 1b: a Sub Parent sees an explanation and no form. 1c: redirect to the "check your email" screen. No session: redirect to sign-in. |
-| Server action `createChildAccount` (UC-PAR-create-kid-account) | A signed-in Main Parent whose family's consent is confirmed; the family comes from the session | Name, nickname, age, grade, username, reading level (scale and value, or none), avatar key | `ok` with the child ID, the username and the generated password. The password is in this response only, and the response is never cached | 1b: `NOT_MAIN_PARENT`. 1c: `CONSENT_NOT_CONFIRMED`. 4a: `NAME_REQUIRED`. 4i: `NICKNAME_REQUIRED` or `NICKNAME_MATCHES_NAME`. 4c: `INVALID_GRADE`. 4f: `USERNAME_REQUIRED`. 4h: `INVALID_USERNAME`. 4g: `USERNAME_TAKEN`. 4d: `INVALID_READING_LEVEL`, with the accepted scales. An age that is not a whole number in the accepted range: `INVALID_AGE`. A missing or unknown avatar: `INVALID_AVATAR`. 5a and 6a: `SAVE_FAILED` with an error ID, nothing stored. 4b (age outside 6–11) and 4e are not errors. Not a parent: refused (§8.1). |
+| Page `/parent/children/new` (UC-PAR-create-kid-account) | A signed-in Main Parent whose family's consent is confirmed | None | The form, the avatar set, the grade list, the accepted reading-level scales, the referral links and the online privacy notice link (`FR-DATA-notice`) | 1b: a Sub Parent sees an explanation and no form. 1c: redirect to the "check your email" screen. No session: redirect to sign-in. A child or admin session: not found. |
+| Server action `createChildAccount` (UC-PAR-create-kid-account) | A signed-in Main Parent whose family's consent is confirmed; the family comes from the session | Name, nickname, age, grade, username, reading level (scale and value, or none), avatar key | `ok` with the child ID, the username and the generated password. The password is in this response only, and the response is never cached | 1b: `NOT_MAIN_PARENT`. 1c: `CONSENT_NOT_CONFIRMED`. 4a: `NAME_REQUIRED`. 4i: `NICKNAME_REQUIRED` or `NICKNAME_MATCHES_NAME`. 4c: `INVALID_GRADE`. 4f: `USERNAME_REQUIRED`. 4h: `INVALID_USERNAME`. 4g: `USERNAME_TAKEN`. 4d: `INVALID_READING_LEVEL`, with the accepted scales. An age that is not a whole number in the accepted range: `INVALID_AGE`. A missing or unknown avatar: `INVALID_AVATAR`. A nickname over 20 characters: `INVALID_NICKNAME` (added in the build with the agreed length). 5a and 6a: `SAVE_FAILED` with an error ID, nothing stored. 4b (age outside 6–11) and 4e are not errors. No session: `NOT_SIGNED_IN`. Not a parent (a child or admin session): `NOT_A_PARENT` (§8.1). |
 
 The parent's screens may show the child's real name. Nothing in this use case sends the real name, age, grade or reading level to a child's screen (`FR-ACCT-child-display`, §8.2.11).
 
@@ -279,11 +283,11 @@ _[One row per flow: the main success scenario and **every** extension of every u
 | UC-PAR-create-kid-account main | end-to-end | The parent fills in the form, sees the credentials, acknowledges, and lands on the child's reading-profile onboarding |
 | UC-PAR-create-kid-account main, password | unit | Generated passwords meet the agreed rules and differ between calls; the stored hash verifies against the shown password |
 | UC-PAR-create-kid-account 1a | end-to-end | Leaving the form without submitting writes nothing |
-| UC-PAR-create-kid-account 1b | integration | A Sub Parent gets the explanation on the page and `NOT_MAIN_PARENT` from the action, and nothing is stored |
-| UC-PAR-create-kid-account 1c | integration | A family without confirmed consent is redirected from the page and gets `CONSENT_NOT_CONFIRMED` from the action, and nothing is stored |
+| UC-PAR-create-kid-account 1b | integration, end-to-end | A Sub Parent gets `NOT_MAIN_PARENT` from the action and nothing is stored (integration); the page shows the explanation and no form (end-to-end) |
+| UC-PAR-create-kid-account 1c | integration, end-to-end | A family without confirmed consent gets `CONSENT_NOT_CONFIRMED` from the action and nothing is stored (integration); the page redirects to "check your email" (end-to-end) |
 | UC-PAR-create-kid-account 4a | unit | An empty or blank name is refused with `NAME_REQUIRED` |
 | UC-PAR-create-kid-account 4i | unit | An empty nickname is refused with `NICKNAME_REQUIRED`; a nickname equal to the name, ignoring case and surrounding spaces, with `NICKNAME_MATCHES_NAME` |
-| UC-PAR-create-kid-account 4b | integration | An age outside 6–11 but inside the accepted range is saved; the form shows the warning |
+| UC-PAR-create-kid-account 4b | integration, end-to-end | An age outside 6–11 but inside the accepted range is saved (integration); the form shows the warning and still submits (end-to-end) |
 | UC-PAR-create-kid-account 4b, bounds | unit | An age that is not a whole number, or is outside the accepted range, is refused with `INVALID_AGE` |
 | UC-PAR-create-kid-account 4c | unit | A grade not in the grade list is refused with `INVALID_GRADE` |
 | UC-PAR-create-kid-account 4d | unit | A reading level whose value does not match its scale's format, or whose scale is not accepted, is refused with `INVALID_READING_LEVEL` |
@@ -312,6 +316,8 @@ _[What this design could not settle and who can, and what could go wrong that yo
 
 What this design had to assume, and where each answer belongs. `DI-field-tables` says not to invent values for TBD fields, so these are **proposals**: `/implement` must not build the checks below until the team has written the agreed values into the use case's data table.
 
+**Resolved 2026-10-28:** the team adopted every proposal below (grades K–12), and they are in the use case's data table (use cases v0.16). The avatar set is the 20 images in `public/avatars/`.
+
 - **Username format (team; the use case, 4h).** Proposed: 3–20 characters, letters, digits and underscores, stored lowercase. Belongs in the use case's data table and §8.2.5, which says the checks are written once the rule exists.
 - **Generated password rules (team; the use case and `FR-ACCT-credentials`).** Proposed: three short common words and two digits from a cryptographically random source, so a 6–11-year-old can type it. Belongs in the use case's data table.
 - **Age range the server accepts (client; 4b).** Proposed: whole numbers 3–17, with the warning outside 6–11. Whether children outside the target band are allowed at all is open in the use case.
@@ -322,12 +328,17 @@ What this design had to assume, and where each answer belongs. `DI-field-tables`
 
 Other open items:
 
+- **Assumptions the build made about `UC-PAR-onboarding` (team; revisit when it is designed).** A parent is a document in the Auth.js `users` collection with `role: "parent"`, `parentRole: "main" | "sub"` and `familyId`. Consent is a `consentRecords` document with `familyId` and a `confirmedAt` date once confirmed. These routes are placeholders: sign-in `/sign-in`, "check your email" `/parent/onboarding/check-email`, the dashboard `/parent` (where Cancel goes) and `UC-REC-kid-onboarding` `/parent/children/<childId>/reading-profile`. The end-to-end tests sign in with a test-only session fixture that writes an Auth.js session directly.
+- **The privacy notice is a placeholder (client).** The link goes to the FTC's COPPA page until the client supplies the real notice (`FR-DATA-notice`, `COPPA-online-notice`).
+- **The referral links (4e) need checking (team).** AR BookFinder and Scholastic Book Wizard are the use case's examples; the Book Wizard address may have moved.
+- **The `users` collection has no schema validator.** Auth.js's adapter writes its own documents there; only the username index is added.
+
 - **`UC-PAR-onboarding` is not designed.** This use case needs a family ID, a Main Parent session and a confirmed consent record from it. Tests can create those as fixtures, but the feature cannot be used end to end until onboarding is designed and built.
 - **The real name (client, `OI-23`).** `BR-kid-data-stored` keeps it, but whether it must be stored is open, and `BR-coppa-minimization` argues against collecting what is not needed. If the client drops it, only the identity record and the form change.
 - **Seeing or resetting the password (client, `OI-26`).** This design makes the password unrecoverable after step 7 (7a). A reset needs its own use case.
 - **Suspension in PRE-2 (client, `OI-16`).** A suspended parent's sessions are deleted (§8.1), so they cannot reach this page; no extra check is designed. If `BR-24hr-review-window` comes back, revisit.
 - **Usernames that reveal the real name (team).** Nothing stops a parent choosing the child's real name as the username, which the child sees. `BR-kid-anonymous-profile` may call for the same check as the nickname (4i).
-- **A COPPA data inventory in the README (team).** `docs/coppa/coppa-design-requirements.md` §3.9 proposes that every pull request adding a collected field update a COPPA section of `README.md`. No business rule or SRS requirement has adopted it, so this design does not require it. If the team adopts it, the build of this use case is the first to add an entry (the fields in the purpose table above).
+- **A COPPA data inventory in the README (team).** `docs/coppa/coppa-design-requirements.md` §3.9 proposes that every pull request adding a collected field update a COPPA section of `README.md`. No business rule or SRS requirement has adopted it, so this design does not require it. If the team adopts it, the build of this use case is the first to add an entry (the fields in the purpose table above). **Adopted for this build (developer decision, 2026-10-28):** `README.md` now has the COPPA section, with this use case's fields.
 - **Accepted risk: the transaction spans three components.** One function in Accounts & Family coordinates writes owned by two other components. It is the only way to keep the three records all-or-nothing in MongoDB, and the tests for 5a and 6a guard it.
 
 ---

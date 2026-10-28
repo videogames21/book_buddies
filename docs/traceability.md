@@ -123,6 +123,49 @@ _[Leave this section as it is until week 8. It says what the two tables above gr
 
 _In week 8 the spine extends past the use case: **business objective → feature → use case area → use case → design → code → test.** A third table arrives with one row per use case and columns for the design element, the source files, and the tests, tracked as two separate states, built and verified, so that a use case which is built but untested stays visibly unverified rather than being absorbed into a single "done".]_
 
+
+### 3.1 Use case to design, code and test
+
+_Added 2026-10-27 with the first design under `/design`. One row per use case in [use-cases.md](requirements/use-cases.md). **Build** is `❌ Not started`, `📐 Designed` (its design is merged), `🟡 In progress` or `✅ Built`; **Verify** is filled by `/implement` from the tests that exist. **Release** is left blank where no document places the use case; the team fills it in._
+
+| Use case | Release | Build | Design | Code | Tests | Verify |
+|---|---|---|---|---|---|---|
+| `UC-PAR-onboarding` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-create-sub-parent-account` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-create-kid-account` | MVP | 📐 Designed | [design/par.md](../design/par.md#uc-par-create-kid-account-create-a-linked-child-account) |  |  |  |
+| `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
+| `UC-PAR-report-book` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-review-child-data` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-delete-child-data` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-delete-kid-account` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-approve-shelf-request` |  | ❌ Not started |  |  |  |  |
+| `UC-REC-kid-onboarding` |  | ❌ Not started |  |  |  |  |
+| `UC-REC-recommend-quiz-rules` |  | ❌ Not started |  |  |  |  |
+| `UC-REC-recommend-quiz-ai` | Later (`FEAT-ai-recommendation`) | ❌ Not started |  |  |  |  |
+| `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |
+| `UC-REC-kid-review` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-parent-view-shelf` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-kid-view-shelf` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-kid-move-book` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-kid-remove-book` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-kid-rate-book` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-kid-add-note` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-parent-remove-book` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-manual-search` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-add-content` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-edit-content` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-block-content` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-unblock-content` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-suspend-account` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-suspend-parent-account` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-reinstate-account` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-view-recommender-stats` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-view-usage-stats` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-view-audit-log` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-flag-review` |  | ❌ Not started |  |  |  |  |
+
 ---
 
 ## Working this document with your agent

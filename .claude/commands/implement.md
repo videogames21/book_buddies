@@ -22,10 +22,11 @@ The design was approved at its pull request, so there is no second approval of t
 1. **The design-of-record**, `design/<area>.md`: the sequence diagrams, components, API contract, key decisions, data model, and the **test list**. This is what you build.
 2. **The use case** in `docs/requirements/use-cases.md`, found by its identifier: the main success scenario and **every extension**. These are the flows your tests cover.
 3. **Its business rules** (`docs/requirements/business-rules.md`) and any `FR-*` or quality attribute in `docs/requirements/software-requirements-specification.md` it depends on. Confirm every cited identifier exists.
-4. **The vocabulary** in `docs/requirements/project-glossary.md`. Use its terms in identifiers and UI text.
-5. **The architecture-of-record**, `design/architectural-design.md`: the containers and this area's component, and **section 8 (Crosscutting Concepts) in full**, 8.1 Security and every 8.2 rule (error handling, time, and the rest). Where existing code breaks a convention, follow the convention, not the code, and note the drift for the pull request.
-6. **The team's charter** (`CLAUDE.md` or `AGENTS.md`), including the list of things the agent must not do. Two of them hold everywhere: **no dependency is added until a person confirms it exists and is the one we meant**, and never remove the `Co-Authored-By` trailer from a commit.
-7. **The row** in `docs/traceability.md`, and **the existing code** the design points at.
+4. **The COPPA Restrictions** (`docs/coppa/coppa-design-requirements`) These restrictions are mandatory and cannot be broken without permission. If an action results in a breaking of a rule, then ask the developer to review the rule and determine if they wish to keep going.
+5. **The vocabulary** in `docs/requirements/project-glossary.md`. Use its terms in identifiers and UI text.
+6. **The architecture-of-record**, `design/architectural-design.md`: the containers and this area's component, and **section 8 (Crosscutting Concepts) in full**, 8.1 Security and every 8.2 rule (error handling, time, and the rest). Where existing code breaks a convention, follow the convention, not the code, and note the drift for the pull request.
+7. **The team's charter** (`CLAUDE.md` or `AGENTS.md`), including the list of things the agent must not do. Two of them hold everywhere: **no dependency is added until a person confirms it exists and is the one we meant**, and never remove the `Co-Authored-By` trailer from a commit.
+8. **The row** in `docs/traceability.md`, and **the existing code** the design points at.
 
 **If the design disagrees with the specification or the code, say so now,** before building on the contradiction.
 

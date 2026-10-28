@@ -9,7 +9,7 @@ Take the use case named in `$ARGUMENTS` (for example `UC-ORD-place-order`) from 
 
 **Precondition: a merged design.** Confirm `design/<area>.md` is on `main` and covers this use case: its *Realizes* line lists the `UC-*`, and its row in `docs/traceability.md` reads `📐 Designed`. **If there is no merged design, stop and tell the developer to run `/design <UC-ID>` first.** Do not design inside the build.
 
-**Precondition: a fresh session.** The build reads the merged design, not the conversation that produced it. If this session already holds the `/design` conversation or unrelated work, ask the developer to run `/clear` and start again. Anything the documents do not answer is a gap in the design: ask, then fix `design/<area>.md` on this branch and name the change under Reviewer focus.
+**Precondition: a fresh session.** The build reads the merged design, not the conversation that produced it. If this session already holds the `/design` conversation or unrelated work, ask the developer to run `/clear` and start again. Anything the documents do not answer is a gap in the design: ask, then fix `design/<area>.md` on this branch and name the change under Areas to Look At in the pull request.
 
 **The specification and the design are authoritative, not infallible. Challenge them.** When a step is ambiguous, a decision contradicts the code or the specification, or a constraint looks stale, **ask or push back. Do not silently comply and do not invent the missing detail.** Propose the specification edit, or update the design. Saying a better way exists is not building it: an improvement the use case does not need is proposed, never made unasked.
 
@@ -52,7 +52,7 @@ Work on a branch, never on `main`, and **commit in steps a reviewer can read, cu
 - **Each commit carries the tests for what it adds** and passes them, run as targeted tests, not the full suite.
 - **A small use case with no trunk** is one commit and no pause, except that a security rule or migration still goes alone.
 
-Inside each commit, follow the project's conventions and the design. Keep the change to this use case: a rename, a tidier method, or a convention fixed elsewhere is listed under Reviewer focus as a follow-up, not made. **Keep the design honest:** if the build forced a change from the design, update `design/<area>.md` to describe what was built.
+Inside each commit, follow the project's conventions and the design. Keep the change to this use case: a rename, a tidier method, or a convention fixed elsewhere is listed under Areas to Look At in the pull request as a follow-up, not made. **Keep the design honest:** if the build forced a change from the design, update `design/<area>.md` to describe what was built.
 
 ## Phase 4: test and verify
 

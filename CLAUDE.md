@@ -14,6 +14,9 @@ BookBuddies (Team 05, client Dr. Yang Yang) is a book recommendation and reading
 - `docs/traceability.md`: links features to use case areas and business rules to what enforces them.
 - `docs/Team_Decisions.md`: an index of dated team decisions. Record decisions that survive a team meeting there.
 - `docs/coppa/`: COPPA source material and the requirements derived from it.
+- `docs/external/`: raw client material such as interview transcripts and profile notes. It is not authoritative (`docs/external/External-Files.md`). Don't base a decision on it unless a requirements document cites it. Use it only to summarize, and cite it every time you use it. Questions it raises go to a person and then into `docs/requirements/`.
+- `docs/constraints.md` holds no constraints of its own. `CO-*` and `OE-*` are in SRS §2.3–2.4, and their effect on the architecture is in architecture §2.
+- `Team_Contract.md` §6: no one merges agent output nobody has read, and every member must be able to explain each line submitted under their name. So keep diffs small enough to read.
 
 The design-of-record template is not in the repo; use the course copy linked in `/design` and follow the shape of `design/par.md`. `/design` and `/implement` also expect a per-use-case table in `traceability.md` with Build/Design/Code/Tests/Verify columns. It doesn't exist yet (§3 "From here (week 8)"), so add it the first time a use case is designed.
 
@@ -25,7 +28,7 @@ Use case areas: `PAR` (Accounts & Family), `REC` (Recommendation), `SHLF` (Shelf
 - Documents **cite identifiers and never restate** another document's content. Before citing a `UC-*`, `BR-*`, `FR-*`, `OI-*` or `KD-*` identifier, confirm it exists in the document that owns it.
 - The specification is authoritative but not infallible. When it is ambiguous or contradictory, ask or push back and propose the edit. Don't invent the missing detail. Questions only the client can answer go into `OPEN-ISSUES.md`.
 - Don't add scope the use case doesn't ask for: no admin overrides, retry queues, status fields or extra notifications.
-- Git: branch per sub-issue (`feat/42-short-slug`, `fix/...`) and never push to `main`. Every change goes through a pull request using `.github/PULL_REQUEST_TEMPLATE.md` (its `Traces to:` line names the `UC-*`/`BR-*`/design), and needs 2 approving reviews from non-owners. Don't commit or open a PR unless asked; the developer reviews first.
+- Git: branch per sub-issue (`feat/42-short-slug`, `fix/...`) and never push to `main`. Every change goes through a pull request using `.github/PULL_REQUEST_TEMPLATE.md` (name the `UC-*`/`BR-*`/design it traces to under Related Issue, and put reviewer follow-ups under Areas to Look At), and needs 2 approving reviews from non-owners. Don't commit or open a PR unless asked; the developer reviews first.
 
 ## Must not
 

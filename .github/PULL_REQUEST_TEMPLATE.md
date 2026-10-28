@@ -2,7 +2,7 @@
      e.g. "Email only students who have not submitted".
      At most three lines per section; never restate the diff. -->
 Closes # <!-- delete this line if there is no issue -->
-Traces to: <!-- UC-<AREA>-<slug>, BR-<slug>, docs/design/<area>.md, or "none: refactor | config" -->
+Traces to: <!-- UC-<AREA>-<slug>, BR-<slug>, design/<area>.md, or "none: refactor | config" -->
 
 ## Why
 <!-- The problem, in one or two sentences, readable without opening the issue. -->

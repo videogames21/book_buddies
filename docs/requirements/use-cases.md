@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.15
+**Version:** 0.14
 
 ---
 
@@ -33,9 +33,8 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-13]_ | 0.10    | Wrote `UC-PAR-report-book` (parent reports a book from a recommendation batch or the shelf; report screen with a reason and a false-report warning; final, per-child exclusion; child notice with no reason; Sub Parent reports bind the Main Parent) and `BR-parent-report-book`; `UC-ADM-block-content` now has a list of reported books with confirmed block, discard, or warn-parent actions, and a block deletes ratings and reflections after warning the admin; Sub Parent pop-up warns the Main Parent; linked from `UC-REC-parent-review` and `UC-SHLF-parent-view-shelf` | _Grayson Whittingham_, _Claude_ |
 | _[2026-10-20]_ | 0.11    | Rewrote `UC-PAR-onboarding` consent steps from the FTC COPPA Rule text: consent notice content, confirmation email, no child collection until confirmed, unconfirmed-account cleanup, consent record field                                                                                                                                                                                                                                                                                                                                                              | _Grayson Whittingham_, _Claude_ |
 | _[2026-10-25]_ | 0.12    | Cleanup of stale references, no flow changed: rewrote §1.1 Purpose without groups; corrected the `FEAT-*` mapping in the Use Case List; replaced `BR-admin-no-pii` with `BR-admin-limited-view` and removed citations of undefined rules (`BR-no-behavioral-analytics`, `BR-flagging-disclosure`); applied the four-option rating scale (`OI-17` resolved); removed "not yet filed" notes for `OI-15`–`OI-19`; marked `UC-PAR-view-growth-report` post-MVP per vision-and-scope §4.3 | _Claude_                        |
-| _[2026-10-26]_ | 0.13    | Applied team decisions and source-backed fixes: `UC-PAR-create-kid-account` is Main Parent only (Sub Parents cannot create accounts), requires confirmed consent, and adds a nickname so the child never sees their real name; onboarding POST-4 and the 1a cross-reference (now extension 8a) agree; per-child exclusions are applied in the rules quiz, manual search and parent suggestions; a block now removes shelf entries in both shelf views and copies flagged reflections to the dangerous content list (`OI-24`); decline reasons follow the glossary; ratings and reflections feed the rule-based MVP per the 2026-09-24 notes; parent removal keeps ratings and reflections; flag review covers reflections only and is the recorded exception to `BR-admin-limited-view` (team position, `OI-15`); suspension notices are in-app only; the reflection disclosure notes `OI-18`; catalog status includes draft | _Claude_                        |
-| _[2026-10-26]_ | 0.14    | Added `UC-PAR-review-child-data`, `UC-PAR-delete-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-kid-account`, `UC-PAR-approve-shelf-request`, `UC-ADM-unblock-content` and `UC-ADM-reinstate-account`; the admin may suspend accounts (team decision: the client is, in practice, the admin); the admin sees parents' and Sub Parents' names, usernames and emails, never passwords; mapped the new `FEAT-consent-privacy`, `FEAT-parent-book-report`, `FEAT-admin-catalog` and `FEAT-flag-review` | _Claude_                        |
-| _[2026-10-26]_ | 0.15    | Added `UC-ADM-edit-content`, `UC-ADM-suspend-parent-account` and `UC-ADM-view-audit-log`; `UC-ADM-reinstate-account` now covers parent accounts; repeated false reports point to the parent-account suspension | _Claude_                        |
+| _[2026-10-26]_ | 0.13    | Applied team decisions and source-backed fixes, and added the remaining areas' use cases. `UC-PAR-create-kid-account` is Main Parent only (Sub Parents cannot create accounts), requires confirmed consent, and adds a nickname so the child never sees their real name; onboarding POST-4 and the 1a cross-reference (now extension 8a) agree; per-child exclusions are applied in the rules quiz, manual search and parent suggestions; a block now removes shelf entries in both shelf views and copies flagged reflections to the dangerous content list (`OI-24`); decline reasons follow the glossary; ratings and reflections feed the rule-based MVP per the 2026-09-24 notes; parent removal keeps ratings and reflections; flag review covers reflections only and is the recorded exception to `BR-admin-limited-view` (team position, `OI-15`); suspension notices are in-app only; the reflection disclosure notes `OI-18`; catalog status includes draft; Added `UC-PAR-review-child-data`, `UC-PAR-delete-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-kid-account`, `UC-PAR-approve-shelf-request`, `UC-ADM-unblock-content` and `UC-ADM-reinstate-account`; the admin may suspend accounts (team decision: the client is, in practice, the admin); the admin sees parents' and Sub Parents' names, usernames and emails, never passwords; mapped the new `FEAT-consent-privacy`, `FEAT-parent-book-report`, `FEAT-admin-catalog` and `FEAT-flag-review`; Added `UC-ADM-edit-content`, `UC-ADM-suspend-parent-account` and `UC-ADM-view-audit-log`; `UC-ADM-reinstate-account` now covers parent accounts; repeated false reports point to the parent-account suspension | _Claude_ |
+| _[2026-10-29]_ | 0.14    | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): removed `UC-SHLF-kid-add-note` and all child free text; the optional 250-character parent note, an internal child ID and no real name in `UC-PAR-create-kid-account`; flagged parent notes in `UC-ADM-flag-review` (internal word list, human review, no outside reporting); dropped the 24-hour review rule; configurable retention and consent; the parent weekly dashboard, post-rating recommendations and V1 success measures; the curated seed catalog fields; added `UC-SHLF-par-finish-book`: a parent confirms a child finished a book before the child can rate it, and may add a note for the recommender that `UC-ADM-flag-review` also screens; `UC-SHLF-kid-move-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` updated to match; added `UC-SHLF-kid-dashboard`: a screen the child opens from the shelf with parent-approved recommended books, a radar chart of current reading interests and bookshelf activity and history (no badges yet); `UC-ADM-view-usage-stats` now includes the admin's lookup of one child's usage data by internal child ID, recorded in the audit log; the weekly check-in is covered by `FR-NOT-weekly-reminder` in the SRS, so the use cases that said it had no use case now cite it; `UC-SHLF-kid-view-shelf` links to the dashboard; the export and both deletion use cases now name the interest profile, shelf history and usage records (derived and per-child data), matching the inventory in `BR-kid-data-stored`; the admin's child lookup shows nothing for a child whose consent was revoked | _Claude_ |
 
 ---
 
@@ -43,7 +42,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 
 ### 1.1 Purpose
 
-BookBuddies lets kids get book recommendations based on their profile, a short quiz, and suggestions from their parents, and keep track of what they read on a personal shelf. Parents create and manage the family's accounts, suggest books, review their child's recommendations, shelf, ratings and reflections, remove and report books, approve books a child finds through search, and can have their child's data deleted. System admins manage the book catalog, review reported books and flagged reflections, and check statistics on the recommender and on accounts.
+BookBuddies lets kids get book recommendations based on their profile, a short quiz, and suggestions from their parents, and keep track of what they read on a personal shelf. Parents create and manage the family's accounts, suggest books, review their child's recommendations, shelf and ratings, add an optional note about their child's reading interests, remove and report books, approve books a child finds through search, and can have their child's data deleted. Children respond only through structured choices, never free text. System admins manage the book catalog, review reported books and flagged parent notes, and check statistics on the recommender and on accounts.
 
 ### 1.2 Scope
 
@@ -106,16 +105,17 @@ _Data fields are specified as a table:_
 | Area code | Feature area                                                                                                                                           | Use cases                                                                                                                                                                                                         |
 |-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `PAR`     | Parent — account linking, oversight and privacy rights (`FEAT-parent-account-linking`, `FEAT-parent-review-dashboard`, `FEAT-parent-suggest-book`, `FEAT-parent-book-report`, `FEAT-consent-privacy`, `FEAT-manual-search`, `FEAT-recap-adult`) | `UC-PAR-onboarding`, `UC-PAR-create-sub-parent-account`, `UC-PAR-create-kid-account`, `UC-PAR-suggest-book`, `UC-PAR-view-growth-report`, `UC-PAR-report-book`, `UC-PAR-review-child-data`, `UC-PAR-delete-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-kid-account`, `UC-PAR-approve-shelf-request` |
-| `SHLF`    | Shelf — tracking and rating what a child has read (`FEAT-shelf`, `FEAT-ratings`, `FEAT-kid-reflections`, `FEAT-manual-search`)                         | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-add-note`, `UC-SHLF-parent-remove-book`, `UC-SHLF-manual-search` |
+| `SHLF`    | Shelf — tracking and rating what a child has read (`FEAT-shelf`, `FEAT-ratings`, `FEAT-manual-search`)                         | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-dashboard`, `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-par-finish-book`, `UC-SHLF-parent-remove-book`, `UC-SHLF-manual-search` |
 | `REC`     | Recommend — quiz and (later) AI-assisted recommendations (`FEAT-onboarding-profile`, `FEAT-reading-level-input`, `FEAT-recommendation-quiz`, `FEAT-ai-recommendation`) | `UC-REC-kid-onboarding`, `UC-REC-recommend-quiz-rules`, `UC-REC-recommend-quiz-ai`, `UC-REC-parent-review`, `UC-REC-kid-review`                                                                                   |
 | `ADM`     | Admin — PII-segregated content and system oversight (`FEAT-admin-pii-segregation`, `FEAT-admin-catalog`, `FEAT-book-tagging`, `FEAT-flag-review`, `FEAT-parent-book-report`) | `UC-ADM-suspend-account`, `UC-ADM-suspend-parent-account`, `UC-ADM-reinstate-account`, `UC-ADM-add-content`, `UC-ADM-edit-content`, `UC-ADM-block-content`, `UC-ADM-unblock-content`, `UC-ADM-view-recommender-stats`, `UC-ADM-view-usage-stats`, `UC-ADM-view-audit-log`, `UC-ADM-flag-review` |
 
 Notes on the table above:
 
 - `UC-PAR-create-sub-parent-account` is the identifier already specified in section 4 below; it replaces an earlier, inconsistent name for the same use case (`UC-PAR-create-second-parent-account`) that appeared in a draft version of this list. Per the identifier rule in this document, the already-specified name wins and is never renamed.
-- `UC-PAR-suggest-book` corresponds to `FEAT-parent-suggest-book`, which is in the MVP (`vision-and-scope.md` §4.3). `UC-PAR-view-growth-report` corresponds to `FEAT-recap-adult`, which §4.3 places out of the MVP pending client confirmation. No use case implements `FEAT-adult-influence-notes`, whose status is unclear in §4.2.
+- `UC-PAR-suggest-book` corresponds to `FEAT-parent-suggest-book`, which is in the MVP (`vision-and-scope.md` §4.3). `UC-PAR-view-growth-report` corresponds to `FEAT-recap-adult`, which is in the MVP (team decision 2026-10-29, following the client's answer). No use case implements `FEAT-adult-influence-notes`, whose status is unclear in §4.2.
 - The `REC` use cases form two alternative flows that converge on the same downstream steps: `UC-REC-recommend-quiz-rules` → `UC-REC-parent-review` → `UC-REC-kid-review`, and `UC-REC-recommend-quiz-ai` → `UC-REC-parent-review` → `UC-REC-kid-review`. `FEAT-ai-recommendation` (and therefore `UC-REC-recommend-quiz-ai`) is explicitly out of scope for the MVP per §4.3 — carry that priority into the detailed use case.
-- `UC-ADM-add-content` and `UC-ADM-block-content` depend on `FEAT-book-tagging`, which `vision-and-scope.md` v0.4 moved into MVP scope; building them is still blocked until the seed-catalog source and tag lists are settled (`OI-1`).
+- `UC-ADM-add-content` and `UC-ADM-block-content` depend on `FEAT-book-tagging`, which `vision-and-scope.md` v0.4 moved into MVP scope. The client's 2026-10-28 answers settle the seed-catalog source: the curated 134-book `BookBuddies_Seed_Catalog.xlsx`, not Kaggle or GitHub data (`docs/external/client-answers-10-28-2026.md`, Q11).
+- `UC-SHLF-kid-add-note` was removed on 2026-10-28: the client removed free text from the child side (`docs/external/client-answers-10-28-2026.md`, Q8). Its identifier is retired and is not reused. The optional parent note that replaces it is entered in `UC-PAR-create-kid-account`.
 
 ---
 
@@ -164,7 +164,7 @@ Notes on the table above:
 - 4b. The email is not a valid email format. The system displays an inline validation error; returns to step 3.
 - 4c. The password does not meet the minimum strength policy. The system displays an inline validation error; returns to step 3.
 - 5a. The system fails to persist the new account (e.g., database timeout). The system displays an error and does not log the parent in; no partial account record is left behind.
-- 6a. The Parent has not confirmed within the time limit (TBD, `OI-22`). The system deletes the Parent's name and email, which were held only to obtain consent, and the unconfirmed account; a later sign-up starts again at step 1.
+- 6a. The Parent has not confirmed within the configurable time limit (placeholder 14 days, to be set after legal review; `OI-22`; client answers 2026-10-28, Q9). The system deletes the Parent's name and email, which were held only to obtain consent, and the unconfirmed account; a later sign-up starts again at step 1.
 - 6b. The Parent did not receive the email and asks for it again. The system sends a new confirmation email and invalidates the earlier link; returns to step 6.
 - 8a. The Parent abandons the flow during `UC-PAR-create-kid-account` (e.g., closes the app, navigates away) before a child account is created. The system keeps the Main Parent account but does not treat onboarding as finished — on the Parent's next login, the system routes them straight back into `UC-PAR-create-kid-account` before allowing access to anything else, rather than restarting this use case.
 
@@ -189,7 +189,7 @@ If account creation fails partway (step 5a), the operation rolls back completely
 **Open Issues:**
 - `OI-8` is resolved — `business-rules.md` §2.1 `BR-parent-creates-kid-account` and `BR-parent-account-structure`, and `vision-and-scope.md` §2.7 `AS-parent-account-first`, all confirm (2026-09-24/2026-10-01) that a parent account always exists before any child account, a child cannot self-register, and one parent account can manage multiple children. This use case's parent-first ordering is the client-confirmed design, not an assumption.
 - `business-rules.md` v0.2 replaced the 2026-09-10 "admin sees zero PII" rule (once cited as `BR-admin-no-pii`) with `BR-admin-limited-view`; every use case now cites the current identifier.
-- The consent steps now follow the FTC COPPA Rule text in `docs/coppa/coppa-full` (`BR-coppa-parental-consent`, `BR-coppa-notice`). The rule text is the document the client supplied. Still open: the consent method is not formally chosen (`OI-21`; email-plus is assumed, and holds only while the system shares no child data with third parties), and the confirmation time limit is TBD (`OI-22`). The wording of the consent notice itself still needs a review before launch.
+- The consent steps now follow the FTC COPPA Rule text in `docs/coppa/coppa-full` (`BR-coppa-parental-consent`, `BR-coppa-notice`). The rule text is the document the client supplied. The client accepted the email-plus consent with a consent record and revocation for V1 (client answers 2026-10-28, Q13) and accepted a 14-day confirmation limit as a placeholder (Q9). Both must be configurable, not hardcoded, since testing and legal review may change them. Still open for broader release: the final consent method (`OI-21`; email-plus holds only while the system shares no child data with third parties) and the final time limit (`OI-22`). The wording of the consent notice itself still needs a review before launch.
 
 ---
 
@@ -269,28 +269,30 @@ If the account record is created but the invite email fails (4a), the account re
 **Primary Actor:** The Main Parent (a Sub Parent cannot create accounts; see extension 1b)\
 **Secondary Actors:** none\
 **Trigger:** Either (a) immediately and automatically, as a mandatory continuation of `UC-PAR-onboarding` for the family's first child; or (b) the Main Parent taps "Add a Child" from the account dashboard, for any additional child.\
-**Description:** The Main Parent creates a linked child profile, entering the child's name, a nickname, age, grade, a username, and an optional reading level so the recommender has what it needs from the first use. The system generates the child's password and shows it to the parent to pass on to the child. The child sees only their nickname and avatar, never their real name (`BR-kid-anonymous-profile`). This corresponds to `FEAT-onboarding-profile` in `vision-and-scope.md` §4.2.
+**Description:** The Main Parent creates a linked child profile, entering a nickname (the child's profile name), age, grade, a username, an optional reading level, and an optional short note about the child's reading interests, so the recommender has what it needs from the first use. The system gives the profile an internal child ID and generates the child's password, which it shows to the parent to pass on to the child. The system never asks for the child's real or legal name; the child sees only their nickname and avatar (`BR-kid-anonymous-profile`). This corresponds to `FEAT-onboarding-profile` in `vision-and-scope.md` §4.2.
 
 **Preconditions:**
 
 - PRE-1. The Parent is logged in.
-- PRE-2. The Parent is the family's Main Parent, and the account is in good standing (not suspended under `BR-24hr-review-window`). *`business-rules.md` §2.2 itself now flags this rule as needing reconfirmation with the client — see the Open Issues note below.*
+- PRE-2. The Parent is the family's Main Parent, and the account is not suspended (`UC-ADM-suspend-parent-account`).
 - PRE-3. The family's parental consent is confirmed (`UC-PAR-onboarding` step 7, `BR-coppa-parental-consent`, `FR-ACCT-consent-confirm`).
 
 **Postconditions:**
 
 - POST-1. A child profile exists, linked to the Parent's account.
-- POST-2. The child profile includes the child's name, nickname, age, grade, and avatar; it includes a reading level only if the Parent chose to enter one.
+- POST-2. The child profile has an internal child ID and includes the nickname, age, grade, and avatar; it includes a reading level and a parent note only if the Parent chose to enter them.
 - POST-3. The child has login credentials: the username the Parent entered and a system-generated password.
 - POST-4. The Parent has been shown the credentials with a note to tell the child to log in with them.
+- POST-5. If the parent note matched the internal word list, it is marked flagged and an in-app alert has been issued to the system admin. No automatic action is taken and nothing is sent to an outside service (`BR-note-safety-flagging`).
 
 **Main Success Scenario:**
 
 1. The Parent arrives at this use case either straight from `UC-PAR-onboarding` (first child) or by tapping "Add a Child" from the account dashboard (additional child).
-2. The system displays a form requesting the child's name, a nickname, age, grade, a username, an optional reading level, and an avatar/character selection.
-3. The Parent enters the child's name, the nickname the child will be shown as, age, grade, and the username the child will log in with; optionally enters the child's reading level using a scale they already know (e.g., Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range), or skips it; and selects an avatar.
+2. The system displays a form requesting a nickname, age, grade, a username, an optional reading level, an optional parent note, and an avatar/character selection. The note box shows the prompt: "Share anything that may help BookBuddies better understand your child's reading interests and provide more relevant recommendations. Please do not include personal, identifying, sensitive, or confidential information, such as full names, school names, addresses, or contact information."
+3. The Parent enters the nickname the child will be shown as, age, grade, and the username the child will log in with; optionally enters the child's reading level using a scale they already know (e.g., Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range), or skips it; optionally writes a note of up to 250 characters; and selects an avatar.
 4. The system validates the entered values.
-5. The system creates the child profile, linked to the Parent's account, with the entered name, nickname, age, grade, username, and (if given) reading level available to the recommender.
+5. The system creates the child profile, linked to the Parent's account, with a new internal child ID, and with the entered nickname, age, grade, username, and (if given) reading level and note available to the recommender.
+5.1. The system checks the note, if one was given, against an internal word list (`BR-note-safety-flagging`). If it matches, the system saves the note with a flag and alerts the system admin; the note content is not in the alert.
 6. The system generates a password for the child's account.
 7. The system displays the username and generated password to the Parent with a note: "Tell your child to log in with these credentials."
 8. The Parent acknowledges the note. Use case ends.
@@ -300,8 +302,8 @@ If the account record is created but the invite email fails (4a), the account re
 - 1a. The Parent cancels before completing the form. If this is the family's first child (arrived via `UC-PAR-onboarding`), the use case ends without a profile, which triggers `UC-PAR-onboarding`'s extension 8a on the Parent's next login. If this is an additional child (arrived via "Add a Child"), the use case simply ends with no new profile created.
 - 1b. The Parent is a Sub Parent (PRE-2 fails). The system does not display "Add a Child", and blocks the action with an explanation if it is attempted directly.
 - 1c. The family's consent is not yet confirmed (PRE-3 fails). The system does not show the form and returns the Parent to the "check your email" screen of `UC-PAR-onboarding` step 6.
-- 4a. The child's name is empty. The system displays an inline validation error; returns to step 3.
-- 4i. The nickname is empty, or is the same as the child's name. The system displays an inline validation error; returns to step 3. (The second check is a team proposal, so the nickname does not reveal the real name.)
+- 4a. The nickname is empty. The system displays an inline validation error; returns to step 3.
+- 4i. The note is longer than 250 characters. The system displays an inline validation error and does not save the profile; returns to step 3.
 - 4b. The age entered is outside the product's target age band (roughly 6–11, per `vision-and-scope.md` §2.4). The system warns the Parent but does not necessarily block the entry (see Open Issues — whether a sibling outside the target band should be allowed is unconfirmed).
 - 4c. The grade entered is not a recognized school grade. The system displays an inline validation error; returns to step 3.
 - 4f. The username is empty. The system displays an inline validation error; returns to step 3.
@@ -310,23 +312,26 @@ If the account record is created but the invite email fails (4a), the account re
 - 4d. The Parent enters a reading level that does not match one of the accepted scales. The system displays an inline validation error and shows the accepted scales/formats; returns to step 3. Skipping the field entirely is not an error, per `BR-reading-level-parent-entered`.
 - 4e. The Parent is unsure of the child's reading level. The system may offer referral links to an external resource (e.g., AR Bookfinder, Scholastic Book Wizard) for the Parent's own reference; the system itself never assesses or estimates the level, per `BR-no-reading-level-assessment`.
 - 5a. The system fails to persist the child profile (e.g., database timeout). The system displays an error; no partial child record is left behind.
+- 5b. The word-list check cannot run. The system saves the note unflagged and records that the check did not run, so an admin can re-run it; it does not discard the note or block profile creation. *Team proposal; confirm with the client.*
 - 6a. The system fails to generate or save the password. The system displays an error; no child profile or credentials are left behind, and the Parent may retry from step 5.
 - 7a. The Parent leaves the credentials screen before acknowledging the note. The account already exists. Whether the Parent can view the password again, or must reset it, is TBD (see Open Issues).
 
 **Priority:** High — a family cannot use any `SHLF` or `REC` feature without a child profile, and per `UC-PAR-onboarding` a parent account cannot exist without one either.\
 **Frequency of Use:** Once per family immediately after onboarding (first child), with occasional repeats for additional children.\
-**Business Rules:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-admin-limited-view`
+**Business Rules:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-admin-limited-view`, `BR-note-safety-flagging`, `BR-parent-note`
 
 **Associated Information:**
 
 | Property name | Data type                                                                                | Validation rule                                                                                                                                                                           | Security or access concerns                                                                                                                                                                                                    | Glossary reference                                 |
 |---------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| Child's name  | string                                                                                   | required, per `BR-kid-data-stored`                                                                                                                                                        | PII, stored for law-enforcement reporting purposes per `BR-kid-data-stored` (`OI-23`); visible to the parent; never shown to the child (`BR-kid-anonymous-profile`); the system admin sees it only in flagged-content review (`UC-ADM-flag-review`, `OI-15`) | —                                                  |
-| Nickname      | string                                                                                   | required; must differ from the child's name (team proposal); length and format rules TBD                                                                                                  | Shown to the child and the parent; the only name on child-facing screens (`BR-kid-anonymous-profile`)                                                                                                                         | Kid-Facing Profile                                 |
-| Age           | integer                                                                                  | required, per `BR-kid-data-stored`; expected range roughly 6–11 (see 4b and Open Issues)                                                                                                  | Visible to the parent; used by the recommender as the primary signal (`BR-reading-level-proxy`); never visible to the system admin (`BR-admin-limited-view`)                                                                   | —                                                  |
-| Grade         | string/enum (e.g., K–6)                                                                  | required, per `BR-kid-data-stored`; must be a recognized school grade                                                                                                                     | Visible to the parent; used by the recommender alongside age (`BR-reading-level-proxy`); never visible to the system admin (`BR-admin-limited-view`)                                                                           | —                                                  |
+| Internal child ID | opaque identifier | system-generated; unique; never reused | Used instead of any name to link the child's reading data over time; the system admin may look a child up by this ID to see usage data, never identifying details (`BR-admin-limited-view`; the lookup is `UC-ADM-view-usage-stats`) | — |
+| Parent note | string | optional; at most 250 characters; shown with the privacy prompt in step 2 | Visible to the parent; used by the recommender; never shown to the child; the system admin sees it only if flagged, in `UC-ADM-flag-review` (`OI-15`) | — |
+| Note flag | enum: none, flagged, check not run | system-set by the internal word list (`BR-note-safety-flagging`) | Admin-visible only through `UC-ADM-flag-review` | — |
+| Nickname      | string                                                                                   | required; length and format rules TBD; the child's profile name, so the Parent is told not to use a real name                                                                                                  | Shown to the child and the parent; the only name on child-facing screens (`BR-kid-anonymous-profile`)                                                                                                                         | Kid-Facing Profile                                 |
+| Age           | integer                                                                                  | required, per `BR-kid-data-stored`; expected range roughly 6–11 (see 4b and Open Issues)                                                                                                  | Visible to the parent; used by the recommender as the primary signal (`BR-reading-level-proxy`); the system admin sees it only in flagged-content review (`UC-ADM-flag-review`)                                                                   | —                                                  |
+| Grade         | string/enum (e.g., K–6)                                                                  | required, per `BR-kid-data-stored`; must be a recognized school grade                                                                                                                     | Visible to the parent; used by the recommender alongside age (`BR-reading-level-proxy`); the system admin sees it only in flagged-content review (`UC-ADM-flag-review`)                                                                           | —                                                  |
 | Reading level | string/number, one of Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range | optional, per `BR-kid-data-stored`; manually entered by the parent, or skipped — never assessed by the system, per `BR-no-reading-level-assessment` and `BR-reading-level-parent-entered` | Visible to the parent; used by the recommender if given, otherwise age/grade stand in (`BR-reading-level-proxy`); never visible to the system admin (`BR-admin-limited-view`)                                                  | Lexile (Lexile Framework), Accelerated Reader (AR) |
-| Username      | string                                                                                   | required; unique; format rules TBD                                                                                                                                                        | Entered by the Parent; visible to the Parent and the child; never visible to the system admin (`BR-admin-limited-view`)                                                                                                        | —                                                  |
+| Username      | string                                                                                   | required; unique; format rules TBD                                                                                                                                                        | Entered by the Parent; visible to the Parent and the child; the system admin sees it only in flagged-content review (`UC-ADM-flag-review`)                                                                                                        | —                                                  |
 | Password      | string                                                                                   | system-generated; strength and length rules TBD                                                                                                                                           | Shown to the Parent once, on the credentials screen; stored only as a salted hash; never logged                                                                                                                                | —                                                  |
 | Avatar        | enum / image reference                                                                   | required; selected from a provided set                                                                                                                                                    | Visible to the parent and child (`BR-kid-anonymous-profile`)                                                                                                                                                                   | Kid-Facing Profile                                 |
 
@@ -334,9 +339,9 @@ If the account record is created but the invite email fails (4a), the account re
 **Assumptions:** Assumes no hard limit on the number of children one parent account can link; not yet confirmed with the client.\
 **Open Issues:**
 - The earlier conflict here — manual parent entry vs. an in-app baseline test — is now **resolved in this use case's favor**: `business-rules.md` v0.2 `BR-no-reading-level-assessment` and `BR-reading-level-parent-entered`, and `vision-and-scope.md` v0.4 `FEAT-reading-level-input`, all confirm (2026-09-24/2026-10-01) there is no in-app test and reading level is optional, parent-entered. The reading-level scale question is also now answered: Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range are all acceptable, per `BR-reading-level-parent-entered`.
-- **New conflict:** `business-rules.md` §2.1 `BR-kid-data-stored` enumerates the stored child fields as name, age, grade, and (optionally) reading level only — it does not mention reading interests or favorite books already read. But `vision-and-scope.md` §4.2 `FEAT-onboarding-profile` — the feature this use case implements — also lists reading interests and favorite books already read as part of the onboarding profile. These two now-current documents disagree on what onboarding actually collects; raise with the client before deciding whether to add those fields to this use case or a separate one.
-- **Resolved (team decision 2026-10-15, architecture §8.2.11):** the child's real name is stored but never shown to the child; child-facing screens use the nickname and avatar only, as `BR-kid-anonymous-profile` says. Whether the real name needs to be stored at all is still `OI-23`.
-- `business-rules.md` §2.2 flags `BR-24hr-review-window` (cited in PRE-2) itself as needing reconfirmation with the client — it is absent from the team's second-meeting notes, which simplified scope elsewhere. If it's dropped, PRE-2 needs to drop the suspension clause.
+- **Resolved:** `BR-kid-data-stored` v0.8 lists reading interests and favorite books, and the interest profile built from them, each with its purpose (`UC-REC-kid-onboarding`).
+- **Resolved (client answers 2026-10-28, Q3):** the system does not collect the child's real or legal name. It uses a nickname (the profile name) and an internal child ID. This closes `OI-23`. Age and grade were not addressed in the answers; `BR-reading-level-proxy` still uses them, so confirm with the client that both stay (`BR-coppa-minimization`).
+- **Parent note edits.** This use case creates the optional parent note. Where a parent edits or deletes it later is not specified, and no other use case covers it. Raise with the client before building.
 - Whether the Parent can see the generated password again after leaving the credentials screen, how the Parent resets it, and whether the child can change it, are not specified. No business rule in `business-rules.md` covers child login credentials.
 - Whether this use case, and the product generally, needs to support a child outside the roughly 6–11 target age band (see extension 4b) is not specified anywhere.
 
@@ -404,7 +409,7 @@ If the account record is created but the invite email fails (4a), the account re
 **Primary Actor:** A Parent\
 **Secondary Actors:** none\
 **Trigger:** The Parent taps "View Recap" from the child's dashboard, or opens a scheduled weekly/monthly notification.\
-**Description:** A parent views a short, qualitative snapshot of a child's recent reading activity — what caught their attention, a notable first — without raw counts, streaks, or comparisons. This corresponds to `FEAT-recap-adult`, which `vision-and-scope.md` §4.3 places out of the MVP pending client confirmation.
+**Description:** A parent views a weekly dashboard of their child's reading journey: changing interests, shelf activity, and progress over time, built from the child's data under the internal child ID. The client wants it as an engagement feature (client answers 2026-10-28, Q10). This corresponds to `FEAT-recap-adult`, which is in the MVP (team decision 2026-10-29, following the client's answer).
 
 **Preconditions:**
 
@@ -428,7 +433,7 @@ If the account record is created but the invite email fails (4a), the account re
 - 3a. No activity is recorded for the child in the selected period. The system displays an empty-state message rather than a fabricated report.
 - 3b. Recap generation fails (e.g., the underlying analytics service is unavailable). The system displays a retry message and does not show stale or fabricated data.
 
-**Priority:** Post-MVP, pending client confirmation (`FEAT-recap-adult` is out of the MVP per `vision-and-scope.md` §4.3). If confirmed, it would support `SM-review-compliance` by giving the parent something worth checking, but it is not itself a blocking gate.\
+**Priority:** Medium — the client asked for a weekly dashboard on 2026-10-28 (Q10), which put it in the MVP (team decision 2026-10-29; it was post-MVP in `vision-and-scope.md` before that). It is an engagement feature, not a blocking gate.\
 **Frequency of Use:** Periodic; weekly or monthly per the recap's own cadence.\
 **Business Rules:** `BR-recap-qualitative-only`, `BR-kid-no-metrics`
 
@@ -439,9 +444,11 @@ If the account record is created but the invite email fails (4a), the account re
 | Recap period  | enum (weekly, monthly)  | required                                                                                                       | Parent-only                                                                                  | —                  |
 | Recap text    | system-generated string | must not include counts, streaks, or peer comparisons, per `BR-recap-qualitative-only` and `BR-kid-no-metrics` | Parent-only; never shown to the child; never visible to the system admin (`BR-admin-limited-view`) | —                  |
 
-**Related Use Cases:** none defined yet; see Open Issues for how this may relate to `BR-24hr-review-window`.\
+**Related Use Cases:** `UC-SHLF-parent-view-shelf` (the everyday shelf view, not this recap)\
 **Assumptions:** none beyond what's listed in Open Issues.\
-**Open Issues:** This use case depends on `FEAT-recap-adult`, which `vision-and-scope.md` §4.3 leaves out of the MVP until the client confirms it is still wanted. It's also unclear whether viewing this recap is the same action that satisfies the 24-hour review acknowledgment required by `BR-24hr-review-window`, or whether that is a separate, explicit "I have reviewed" action — nothing in the current requirements docs settles this. Recommend filing both as new entries in `OPEN-ISSUES.md`.
+**Open Issues:**
+- **Qualitative only vs. a dashboard.** `BR-recap-qualitative-only` bars tallies, charts and progress bars, but the client describes a dashboard of activity and progress over time (Q10). Confirm what the parent view may show, then update the rule or this use case.
+- **Child view.** The child's version is `UC-SHLF-kid-dashboard` (recommended books, a radar chart of interests, shelf activity and history; badges are left out until `OI-14` is settled). Whether it complies with `BR-kid-no-metrics` and architecture §8.2.11 is open (`OI-31`).
 
 ### UC-PAR-report-book: Report a Book for a Child
 
@@ -467,7 +474,7 @@ If the account record is created but the invite email fails (4a), the account re
 - POST-3. The book is no longer in the child's current recommendation batch or on the child's shelf.
 - POST-4. If the book was on the child's shelf, the child has an in-app notice that it was removed. The notice gives no reason.
 - POST-5. The report, the exclusion, the removal, and the notice were saved together. No report exists without its exclusion.
-- POST-6. The child's rating and reflection for the book, if any, are kept. The book is unchanged for every other child.
+- POST-6. The child's rating for the book, if any, is kept. The book is unchanged for every other child.
 - POST-7. The report cannot be undone.
 
 **Main Success Scenario:**
@@ -515,7 +522,7 @@ Quality attributes: `ROB-no-data-loss` (a failed report leaves the book as it wa
 A report is final. There is no way for the Parent or the admin to remove the exclusion once the report is sent. Discarding a report in `UC-ADM-block-content` closes it in the admin's list only.
 
 **Related Use Cases:** `UC-REC-parent-review` (invokes this use case from step 4); `UC-SHLF-parent-view-shelf` (also invokes it); `UC-SHLF-parent-remove-book` (removes a shelf book without excluding it from future recommendations; same notice, no reason); `UC-ADM-block-content` (reviews the report; may block the book for everyone, discard the report, or warn the parent about a false report); `UC-ADM-suspend-parent-account` (how a repeated false report is punished); `UC-PAR-create-sub-parent-account` (warns the Main Parent that a Sub Parent's reports bind them); `UC-REC-recommend-quiz-rules` and `UC-REC-recommend-quiz-ai` (must skip excluded books)\
-**Assumptions:** The exclusion applies only to the child the book was reported for. A Sub Parent's report acts as the Main Parent's: it is final and the Main Parent cannot reverse it. A report removes the shelf entry as well, because the book must "no longer appear" for the child. Punishing a false report is manual: the admin decides, and may warn the parent (`UC-ADM-block-content` extension 3a) or suspend the account. The reporting parent is not told whether a report was acted on, except through that warning. Neither the child nor the parent is told if a rating or reflection is deleted later because the admin blocked the book. The business rule is confirmed by the client, but no source document records it yet.\
+**Assumptions:** The exclusion applies only to the child the book was reported for. A Sub Parent's report acts as the Main Parent's: it is final and the Main Parent cannot reverse it. A report removes the shelf entry as well, because the book must "no longer appear" for the child. Punishing a false report is manual: the admin decides, and may warn the parent (`UC-ADM-block-content` extension 3a) or suspend the account. The reporting parent is not told whether a report was acted on, except through that warning. Neither the child nor the parent is told when the admin later blocks the book and it leaves the shelf. The business rule is confirmed by the client, but no source document records it yet.\
 **Open Issues:**
 - **Admin identification.** The admin sees opaque account references only (`BR-admin-limited-view`). How an admin decides a report is false, using only that and the reason and comment, is not defined.
 
@@ -549,7 +556,7 @@ A report is final. There is no way for the Parent or the admin to remove the exc
 2. The system asks which child, if the Parent has more than one.
 3. The system asks the Parent to enter their password again, so the person reviewing is that child's parent (`BR-coppa-parent-rights`: the requester must be confirmed as the parent).
 4. The Parent enters their password.
-5. The system displays the child's data by category, each with the purpose it is held for: identity (real name, nickname, age, grade, optional reading level, username, avatar); reading profile (interests, favorite books); recommendations and reactions, including decline reasons; shelf; ratings; reflections, including any pending deletion and any safety flag on them; shelf requests; books reported for the child and their per-child exclusions; notifications; and the family's consent record. The child's password is never shown.
+5. The system displays the child's data by category, each with the purpose it is held for: identity (nickname, internal child ID, age, grade, optional reading level, username, avatar); reading profile (interests, favorite books) and the interest profile built from the child's choices, ratings and shelf activity; the parent note and any safety flag on it; recommendations and reactions, including decline reasons; shelf and shelf history; ratings; shelf requests; usage records (sign-in and action times); books reported for the child and their per-child exclusions; notifications; and the family's consent record. The child's password is never shown.
 6. The Parent taps "Download a copy."
 7. The system generates a file of the same data and offers it to the Parent as a download.
 8. The system records the view and the export. Use case ends.
@@ -566,7 +573,7 @@ A report is final. There is no way for the Parent or the admin to remove the exc
 
 **Priority:** High — the COPPA review right (`BR-coppa-parent-rights`) applies from the first child.\
 **Frequency of Use:** Rare; on request.\
-**Business Rules:** `BR-coppa-parent-rights`, `BR-parent-account-linked`, `BR-notes-visible-to-parent`
+**Business Rules:** `BR-coppa-parent-rights`, `BR-parent-account-linked`, `BR-parent-note`
 
 **Associated Information:**
 
@@ -578,11 +585,11 @@ A report is final. There is no way for the Parent or the admin to remove the exc
 
 Quality attributes: `SEC-role-authorization` (a parent reaches only linked children's data); `USE-parent-light`.
 
-**Related Use Cases:** `UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account`, `UC-PAR-revoke-consent` (the parent's other COPPA rights); `UC-SHLF-parent-view-shelf` (the everyday view of the shelf, ratings and reflections)\
+**Related Use Cases:** `UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account`, `UC-PAR-revoke-consent` (the parent's other COPPA rights); `UC-SHLF-parent-view-shelf` (the everyday view of the shelf and ratings)\
 **Assumptions:** A Sub Parent may review and export, since a Sub Parent has the same access to linked children as the Main Parent (`OI-25`). The data shown is only what is linked to this child; other families' data and aggregate statistics are not included.\
 **Open Issues:**
 - The export format is a team proposal.
-- Whether the export may include reflection text with a safety flag, and whether the Parent sees entries about the child on the dangerous content list, is not decided (`OI-27`).
+- Whether the export may include a parent note with a safety flag, and whether the Parent sees entries about the child on the dangerous content list, is not decided (`OI-27`).
 - Whether re-entering the password is enough to confirm the requester is the parent is a team proposal; the COPPA Rule asks only that the method not be unduly burdensome.
 
 ---
@@ -604,8 +611,8 @@ Quality attributes: `SEC-role-authorization` (a parent reaches only linked child
 
 **Postconditions:**
 
-- POST-1. The child's reading profile (interests, favorite books), recommendation batches, reactions and decline reasons, shelf entries, ratings, reflections (including any pending deletion), shelf requests and notifications are deleted, so they are no longer retrievable in the normal course of business.
-- POST-2. The child account, its identity fields (name, nickname, age, grade, optional reading level, username, avatar), its credentials, the family's consent record and any per-child exclusions are kept.
+- POST-1. The child's reading profile (interests, favorite books), the interest profile built from their activity, recommendation batches, reactions and decline reasons, shelf entries and shelf history, ratings, the parent note, shelf requests, notifications and usage records are deleted, so they are no longer retrievable in the normal course of business.
+- POST-2. The child account, its internal child ID, its identity fields (nickname, age, grade, optional reading level, username, avatar), its credentials, the family's consent record and any per-child exclusions are kept.
 - POST-3. Onboarding is marked incomplete for the child, so the Parent is asked to fill in the reading profile again (`UC-REC-kid-onboarding` 3b).
 - POST-4. Any aggregate statistic derived from the child's data no longer counts it (`FR-DATA-removal`).
 - POST-5. The deletion is recorded in the audit log with IDs only (architecture §8.2.9).
@@ -625,7 +632,7 @@ Quality attributes: `SEC-role-authorization` (a parent reaches only linked child
 - 1a. The Parent is a Sub Parent (PRE-1 fails). The system does not offer the action; deleting is an account change only the Main Parent makes (`OI-25`).
 - 2a. The Parent cancels. No change.
 - 4a. The password is wrong. The system shows an error and returns to step 3; repeated failures are slowed (`SEC-signin-throttling`).
-- 5a. The child has a flagged reflection that is still open in `UC-ADM-flag-review`, or entries on the dangerous content list. How a parent's deletion treats them is not decided (see Open Issues). Until it is, the system must not complete this step for that child.
+- 5a. The child has a flagged parent note that is still open in `UC-ADM-flag-review`, or entries on the dangerous content list. How a parent's deletion treats them is not decided (see Open Issues). Until it is, the system must not complete this step for that child.
 - 5b. Deleting fails part way. Nothing is deleted; the system shows an error and the Parent may retry. Deletion is all-or-nothing.
 - 6a. The Sub Parent notice cannot be saved. The deletion stands, and the system retries the notice.
 
@@ -640,12 +647,12 @@ Quality attributes: `SEC-role-authorization` (a parent reaches only linked child
 | Confirmation   | password + boolean | required; the Parent must re-enter their password and confirm | Main Parent only                                                    | —                  |
 | Audit record   | record           | system-set: parent ID, child ID, time, "reading data deleted" | Holds IDs only, never the deleted content (architecture §8.2.9)        | —                  |
 
-Deletion covers backups only through their own expiry; the backup window must be stated in the retention policy (`BR-coppa-retention`, `OI-22`).
+Deletion covers backups only through their own expiry; the backup window must be stated in the retention policy (`BR-coppa-retention`, `OI-22`). The retention periods are configurable, with 12 months of inactivity as the development placeholder (client answers 2026-10-28, Q9).
 
 **Related Use Cases:** `UC-PAR-review-child-data` (often precedes this); `UC-PAR-delete-kid-account` (deletes the account as well); `UC-REC-kid-onboarding` (the profile is filled in again)\
 **Assumptions:** Per-child exclusions are kept, because a parent's report is final while the account is in service (`BR-parent-report-book`). A parent who wants them gone deletes the account.\
 **Open Issues:**
-- **Flagged content.** Whether a parent's deletion removes a flagged reflection that is under admin review, or entries on the dangerous content list, needs a decision. `FR-DATA-removal` says no preservation exception may be assumed (`OI-27`, `OI-18`).
+- **Flagged content.** Whether a parent's deletion removes a flagged parent note that is under admin review, or entries on the dangerous content list, needs a decision. `FR-DATA-removal` says no preservation exception may be assumed (`OI-27`, `OI-18`).
 - Whether the Main Parent may delete only some categories, rather than all reading data at once, is not specified.
 - Whether the parent gets an email confirming the deletion is not specified; notifications are otherwise in-app only (`CI-in-app-alerts`).
 
@@ -711,7 +718,7 @@ A revoked account is not a suspended account: only the Parent can end a revocati
 **Assumptions:** Consent is revoked one child at a time; a parent revoking for every child repeats the use case (team proposal). The consent record is per family (`DI-consent-record`), so it holds a per-child status.\
 **Open Issues:**
 - How a parent gives consent again after revoking, and whether that needs a fresh notice and confirmation email, is not specified (`BR-coppa-parental-consent`, `OI-21`).
-- Whether a revoked child's data is kept until the general retention deadline, or deleted sooner, needs the retention period (`OI-22`).
+- Whether a revoked child's data is kept until the general retention deadline, or deleted sooner, needs the retention period (`OI-22`). The client accepted 12 months of inactivity as a configurable placeholder and may set different periods for different data types (client answers 2026-10-28, Q9). The consent method is likewise configurable (Q13).
 
 ---
 
@@ -733,7 +740,7 @@ A revoked account is not a suspended account: only the Parent can end a revocati
 **Postconditions:**
 
 - POST-1. The child account and its credentials no longer exist, and its sessions are ended.
-- POST-2. Everything in `FR-DATA-removal` is deleted: the identity fields in the Child Identity Store, the reading profile, recommendation batches and reactions, shelf, ratings, reflections, shelf requests, books reported for the child and their per-child exclusions, notifications, and the child's entries in applicable logs.
+- POST-2. Everything in `FR-DATA-removal` is deleted: the identity fields and internal child ID in the Child Identity Store, the reading profile, the interest profile, the parent note, recommendation batches and reactions, shelf and shelf history, ratings, shelf requests, usage records, books reported for the child and their per-child exclusions, notifications, and the child's entries in applicable logs.
 - POST-3. Aggregate statistics no longer count the child (`FR-DATA-removal`).
 - POST-4. The family's consent record shows the child removed, with the date.
 - POST-5. The deletion is recorded in the audit log with IDs only (architecture §8.2.9).
@@ -754,7 +761,7 @@ A revoked account is not a suspended account: only the Parent can end a revocati
 - 1a. The Parent is a Sub Parent (PRE-1 fails). The system does not offer the action; only the Main Parent creates or deletes accounts (`OI-25`).
 - 2a. The Parent cancels. No change.
 - 4a. The password is wrong, or the nickname does not match. The system shows an error and returns to step 3; repeated password failures are slowed (`SEC-signin-throttling`).
-- 5a. The child has a flagged reflection still open in `UC-ADM-flag-review`, or entries on the dangerous content list. As in `UC-PAR-delete-child-data` 5a, the handling is not decided, and the system must not complete this step for that child until it is.
+- 5a. The child has a flagged parent note still open in `UC-ADM-flag-review`, or entries on the dangerous content list. As in `UC-PAR-delete-child-data` 5a, the handling is not decided, and the system must not complete this step for that child until it is.
 - 5b. Deleting fails part way. Nothing is deleted; the system shows an error and the Parent may retry.
 - 7a. This was the family's last child. The Main Parent account stays, and the Parent is offered `UC-PAR-create-kid-account` on the next sign-in, as in `UC-PAR-onboarding` 8a.
 
@@ -776,7 +783,7 @@ Deletion covers backups only through their own expiry, stated in the retention p
 **Open Issues:**
 - **Flagged content.** As in `UC-PAR-delete-child-data`: whether a deletion removes flagged content under review or on the dangerous content list needs a decision (`FR-DATA-removal`, `OI-27`, `OI-18`).
 - Whether a parent can delete their own Main Parent account, and what happens to the family, has no use case.
-- Whether a short grace period, like the reflection's pending deletion, should apply is not specified.
+- Whether a short grace period should apply is not specified.
 
 ---
 
@@ -858,7 +865,7 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 **Created By:** _Claude_\
 **Date Created:** _2026-10-04_\
 **Primary Actor:** A Parent (sets up the child's profile on the child's behalf)\
-**Secondary Actors:** A Child (present for the reflection disclosure)\
+**Secondary Actors:** none\
 **Trigger:** Immediately after `UC-PAR-create-kid-account` completes for a child profile.\
 **Description:** A parent records the reading interests and favorite books already read for a newly created child, giving the recommender its starting profile. This corresponds to the reading-interest and favorite-book parts of `FEAT-onboarding-profile` in `vision-and-scope.md` §4.2.
 
@@ -872,8 +879,7 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 
 - POST-1. The child's reading interests are recorded, if any were selected.
 - POST-2. The child's favorite books already read are recorded, if any were selected.
-- POST-3. The child is shown the reflection disclosure: their parents can always read their reflections, and violent or self-harm content is reported to their parents and the system admin. The client's 2026-09-24 wording also names "authorities" (`client-interview-2026-09-24.md` §5); whether the disclosure says so depends on `OI-18`, because the disclosure must match what the system actually does.
-- POST-4. Onboarding is marked complete for this child profile.
+- POST-3. Onboarding is marked complete for this child profile.
 
 **Main Success Scenario:**
 
@@ -881,36 +887,34 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 2. The system displays a set of reading-interest options and a picker of catalog books.
 3. The Parent selects one or more reading interests.
 4. The Parent selects zero or more favorite books the child has already read.
-5. The system displays the reflection disclosure to the child, and the child acknowledges it.
-6. The system saves the onboarding profile and marks onboarding complete.
+5. The system saves the onboarding profile and marks onboarding complete.
 
 **Extensions:**
 
 - 3a. The Parent selects no interests. The system allows this and continues; the recommender then relies on age and grade alone, per `BR-reading-level-proxy`.
 - 3b. The Parent skips the whole step. Onboarding is saved as incomplete; the child can still request recommendations, which again use age and grade only. The system reminds the Parent on their next login.
 - 4a. The Parent tries to add a favorite book that is not in the seed catalog. The system does not accept it; the picker only offers catalog books, so the recommender can use the entry.
-- 5a. The child does not acknowledge the disclosure. The system keeps the onboarding screen open and does not mark onboarding complete.
-- 6a. The system fails to save the onboarding profile. The system displays an error and keeps every selection the Parent has made so far in the form; onboarding is not marked complete.
+- 5a. The system fails to save the onboarding profile. The system displays an error and keeps every selection the Parent has made so far in the form; onboarding is not marked complete.
 
 **Priority:** High — the recommender's starting profile depends on it, and `FR-ONB-profile` in the SRS places its collection at child account creation.\
 **Frequency of Use:** Once per child profile, at setup; rare after that.\
-**Business Rules:** `BR-parent-creates-kid-account`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`
+**Business Rules:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`
 
 **Associated Information:**
 
 | Property name               | Data type                             | Validation rule                                                  | Security or access concerns                                                                                           | Glossary reference |
 |-----------------------------|---------------------------------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|--------------------|
-| Reading interests           | multi-select from a fixed option list | optional; each value must come from the list (list contents TBD) | Visible to the parent and child; used by the recommender; never visible to the system admin (`BR-admin-limited-view`) | —                  |
+| Reading interests           | multi-select from a fixed option list | optional; each value must come from the list (list contents TBD) | Visible to the parent and child; used by the recommender; the system admin sees it only through the lookup by internal child ID (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`) | —                  |
 | Favorite books already read | list of catalog book references       | optional; each entry must exist in the seed catalog              | Visible to the parent and child; used by the recommender; never visible to the system admin (`BR-admin-limited-view`) | Seed Catalog       |
-| Onboarding complete         | boolean                               | required; set only by step 6                                     | Parent-set; not visible to the admin                                                                                  | —                  |
+| Onboarding complete         | boolean                               | required; set only by step 5                                     | Parent-set; not visible to the admin                                                                                  | —                  |
 
 **Related Use Cases:** `UC-PAR-create-kid-account` (invokes this use case); `UC-REC-recommend-quiz-rules` (consumes the saved profile)\
 **Assumptions:** The Parent, not the child, enters interests and favorite books, consistent with `BR-parent-creates-kid-account`.\
 **Open Issues:**
-- `business-rules.md` §2.1 `BR-kid-data-stored` lists only real name, age, grade, and optional reading level as stored child data. It does not list reading interests or favorite books, yet `vision-and-scope.md` §4.2 `FEAT-onboarding-profile` and `FR-ONB-profile` in the SRS require both. The rule needs updating or the features need dropping.
+- `BR-kid-data-stored` lists reading interests and favorite books, and the interest profile built from them, each with its purpose.
 - `UC-PAR-create-kid-account` and this use case both run at child setup. Whether the profile fields belong in the parent's create-kid form or a separate onboarding step is undecided; the SRS currently puts all of them in the creation step (`FR-ONB-profile`).
 - The reading-interest option list and its contents are not specified anywhere in the requirements.
-- The reflection disclosure's exact wording is not specified, and no rule in `business-rules.md` governs it; it rests on `FR-NOTE-disclosure` in the SRS.
+- The child sees no reflection disclosure, because children write no free text (client answers 2026-10-28, Q8); the parent's privacy prompt in `UC-PAR-create-kid-account` step 2 covers the parent note.
 
 ---
 
@@ -941,7 +945,7 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 1. The child taps "Get recommendations."
 2. The system displays the quiz as button options; no free text is offered.
 3. The child selects one option for each quiz question.
-4. The system filters the active tagged catalog against the child's profile, using age and grade as the primary signal and the reading level as a difficulty input only if one is recorded, per `BR-reading-level-proxy`. It leaves out books the admin has blocked and books excluded for this child by a parent's report (`BR-parent-report-book`).
+4. The system filters the active tagged catalog against the child's profile, using age and grade as the primary signal and the reading level as a difficulty input only if one is recorded, per `BR-reading-level-proxy`. It also uses the child's ratings, decline reasons and shelf history under the internal child ID, and the parent's notes (from child setup and from confirming finished books) if any exist. It leaves out books the admin has blocked, books whose catalog status does not allow recommendation, and books excluded for this child by a parent's report (`BR-parent-report-book`).
 5. The system ranks the matching books and selects the top results.
 6. The system stores the batch as rules-sourced recommendations and hands it to `UC-REC-parent-review`.
 
@@ -957,7 +961,7 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 
 **Priority:** High — this is the core MVP loop.\
 **Frequency of Use:** Several times per active child per week; the most frequent `REC` use case.\
-**Business Rules:** `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-parent-report-book` (per-child exclusions)
+**Business Rules:** `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-parent-report-book` (per-child exclusions), `BR-child-structured-responses`
 
 **Associated Information:**
 
@@ -967,14 +971,14 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 | Batch size            | integer                             | system-defined; exact number TBD (`OI-2`)                              | Not user-set                                                                                                                  | —                  |
 | Recommendation source | enum                                | set to "rules" by this use case                                        | Visible to the parent (source only)                                                                                           | Recommender        |
 
-Quality attributes: the batch should return quickly for a catalog of 30–50 books (`PER-recommendation-latency`; numeric target TBD).
+Quality attributes: the batch should return quickly for the 134-book seed catalog (`PER-recommendation-latency`; numeric target TBD).
 
 **Related Use Cases:** `UC-REC-parent-review` (step 6 hand-off); `UC-REC-kid-onboarding` (provides the starting profile); `UC-REC-kid-review` (runs after parent review)\
 **Assumptions:** The seed catalog is tagged with at least genre/mood/length/age fit (`FEAT-book-tagging`); this use case depends on that tagging being in place.\
 **Open Issues:**
 - The quiz questions, their options, and the number of books per batch are not specified (`OI-2`).
-- The exact matching criteria beyond "age/grade primary, reading level as difficulty input" are not specified (`OI-2`). The 2026-09-24 notes say the rule-based MVP also draws on the child's ratings and reflections and on parent recommendations (`client-interview-2026-09-24.md`, "Initial ideas"); how ratings and reflections enter the rules is not yet specified.
-- The seed catalog source is unconfirmed (`OI-1`); with no catalog, PRE-4 cannot be met.
+- The exact matching criteria beyond "age/grade primary, reading level as difficulty input" are not specified (`OI-2`). The client confirmed on 2026-10-28 that V1 is rules-based (Q7) and that it learns from the child's choices and ratings, the parent's input and optional note, and shelf history over time (overall comment 3). How ratings, decline reasons, notes and history enter the rules is not yet specified.
+- The seed catalog source is the curated 134-book `BookBuddies_Seed_Catalog.xlsx` (client answers 2026-10-28, Q11), which resolves `OI-1`. Only books with a recommendable Status may be offered.
 
 ---
 
@@ -1033,6 +1037,7 @@ Quality attributes: the batch should return quickly for a catalog of 30–50 boo
 **Related Use Cases:** `UC-REC-parent-review`, `UC-REC-kid-review` (both shared with the rules flow); `UC-REC-recommend-quiz-rules` (mutually exclusive — never run for the same request)\
 **Assumptions:** The recommender-mode setting is changed only by a deliberate system-level configuration step, never per child or mid-session.\
 **Open Issues:**
+- The client asked on 2026-10-28 (Q7) for an outline of what adding AI later would need: outside services, infrastructure, data storage and processing, and ongoing cost. That outline is not part of this use case. Any outside AI service would be a third-party disclosure (`BR-coppa-no-third-party-disclosure`), so it needs separate consent and written assurances first.
 - Cold-start behavior (extension 5a) must be decided without falling back to the rules flow.
 - `BR-similarity-signal-weights` is flagged in `business-rules.md`: the "rated highly" weight conflicts with the client's own note to keep rating weight low early on.
 - The "recommended to a peer" signal depends on peer sharing, which was cut from the MVP; it has no data source until social features return.
@@ -1070,7 +1075,7 @@ Quality attributes: the batch should return quickly for a catalog of 30–50 boo
 
 **Extensions:**
 
-- 2a. The Parent does not open the batch. The system releases the batch to the child unchanged. Parent review is non-blocking, per `BR-parent-ultimate-say`. *This default is a team decision awaiting client confirmation, and it is the part of this use case that depends most on the unresolved 24-hour review rule.*
+- 2a. The Parent does not open the batch. The system releases the batch to the child unchanged. Parent review is non-blocking, per `BR-parent-ultimate-say`. *This default is a team decision awaiting client confirmation.*
 - 4a. The Parent removes every book. The system releases an empty batch, and the child sees a message that there are no new picks right now and that they can ask again.
 - 5a. The confirmation fails to save. The system shows an error and keeps the batch pending; nothing is released to the child until the save succeeds.
 - 6a. Release to the child fails. The system retries and does not show the child a partial batch.
@@ -1089,9 +1094,9 @@ Quality attributes: the batch should return quickly for a catalog of 30–50 boo
 **Related Use Cases:** `UC-REC-recommend-quiz-rules` and `UC-REC-recommend-quiz-ai` (upstream, mutually exclusive); `UC-REC-kid-review` (downstream); `UC-PAR-report-book` (the Parent may report a book from step 4 instead of only removing it, so it is never recommended to this child again)\
 **Assumptions:** Parent-suggested books (`UC-PAR-suggest-book`) go straight to the child's recommendation list and do not pass through this review, per `BR-parent-rec-not-forced`.\
 **Open Issues:**
-- **No `FEAT-*` covers this.** `FEAT-parent-review-dashboard` in `vision-and-scope.md` v0.4 covers viewing the child's shelf and reflections and removing a shelf book, not reviewing recommendations. Confirm with the client that this review is wanted before it is built.
+- **No `FEAT-*` covers this.** `FEAT-parent-review-dashboard` in `vision-and-scope.md` v0.4 covers viewing the child's shelf and removing a shelf book, not reviewing recommendations. Confirm with the client that this review is wanted before it is built.
 - Whether the batch is blocked until the parent acts (extension 2a) contradicts nothing in `business-rules.md` as long as it stays non-blocking, but it has not been confirmed.
-- The 24-hour review rule (`BR-24hr-review-window`, `OI-16`) is still unconfirmed. If it applies to recommendations, a missed review would have to suspend the child's account, which would change extension 2a.
+- The 24-hour review rule is dropped (client answers 2026-10-28, Q10), so a missed review never suspends an account and extension 2a stands.
 
 ---
 
@@ -1101,9 +1106,9 @@ Quality attributes: the batch should return quickly for a catalog of 30–50 boo
 **Created By:** _Claude_\
 **Date Created:** _2026-10-04_\
 **Primary Actor:** A Child\
-**Secondary Actors:** A Parent (receives the reflection of a decline reason only if it is later shown to them; see Open Issues)\
+**Secondary Actors:** A Parent (sees the decline reason only if it is later shown to them; see Open Issues)\
 **Trigger:** Books are released to the child by `UC-REC-parent-review`, or a parent-suggested book is added to the child's recommendation list.\
-**Description:** A child decides what to do with each recommended book: accept it (it goes onto the shelf as "Reading Now"), save it for later ("Maybe Later"), or decline it with an optional reason. The child's choice is the only way a recommended book reaches the shelf.
+**Description:** A child decides what to do with each recommended book: accept it (it goes onto the shelf as "Reading Now"), save it for later ("Maybe Later"), or decline it with an optional reason chosen from a fixed list. The child's choice is the only way a recommended book reaches the shelf. Every response is a structured choice; the child types nothing (`BR-child-structured-responses`). Each reaction and reason is recorded under the child's internal ID, so the recommender can learn from them over time.
 
 **Preconditions:**
 
@@ -1136,14 +1141,14 @@ Quality attributes: the batch should return quickly for a catalog of 30–50 boo
 
 **Priority:** High — the child's accept/decline is the step that moves a recommendation onto the shelf.\
 **Frequency of Use:** Several times per active child per week, following each recommendation request.\
-**Business Rules:** `BR-parent-rec-not-forced` (the child may accept or decline any recommendation, including parent suggestions), `BR-kid-no-metrics` (no counts or comparisons shown to the child)
+**Business Rules:** `BR-parent-rec-not-forced` (the child may accept or decline any recommendation, including parent suggestions), `BR-kid-no-metrics` (no counts or comparisons shown to the child), `BR-child-structured-responses`
 
 **Associated Information:**
 
 | Property name  | Data type                                               | Validation rule                              | Security or access concerns                                                        | Glossary reference   |
 |----------------|---------------------------------------------------------|----------------------------------------------|------------------------------------------------------------------------------------|----------------------|
-| Reaction       | enum: yes, maybe later, not for me                      | required; one per book                       | Child-set; visible to the parent as part of the shelf                              | —                    |
-| Decline reason | enum: not interested in topic, too easy / too short, too hard / too long, not my style, other | optional; only when reaction is "not for me" | Parent visibility not yet decided (see Open Issues); never visible to the system admin (`BR-admin-limited-view`) | Decline Reason       |
+| Reaction       | enum: yes, maybe later, not for me                      | required; one per book                       | Child-set; visible to the parent as part of the shelf; recorded under the internal child ID for the recommender | —                    |
+| Decline reason | enum: not interested in topic, too easy / too short, too hard / too long, not my style, other | optional; only when reaction is "not for me"; fixed list, no free text | Parent visibility not yet decided (see Open Issues); the system admin may see it only as child-level usage data under the internal child ID (`BR-admin-limited-view`) | Decline Reason       |
 | Shelf category | enum: Reading Now, Maybe Later                          | set by the reaction                          | Visible to the parent and child                                                    | Shelf (`FEAT-shelf`) |
 
 **Related Use Cases:** `UC-REC-parent-review` (upstream); `UC-REC-recommend-quiz-rules` / `UC-REC-recommend-quiz-ai` (originating flows, mutually exclusive); `UC-SHLF-kid-view-shelf` (where accepted books appear)\
@@ -1159,15 +1164,15 @@ Quality attributes: the batch should return quickly for a catalog of 30–50 boo
 
 _The shelf is the child's record of what they are reading, want to read, or have finished. Books reach the shelf only through the child's own reaction in `UC-REC-kid-review`; a parent can remove a book from the shelf but cannot add one (`BR-parent-rec-not-forced`). The four categories follow `FEAT-shelf` as shown in the 2026-09-25 flowchart, and `FR-SHLF-categories` in the SRS. The shelf shows no counts, streaks, or comparisons to other children (`BR-kid-no-metrics`)._
 
-### UC-SHLF-parent-view-shelf: View a Child's Shelf and Reflections
+### UC-SHLF-parent-view-shelf: View a Child's Shelf and Ratings
 
-**UC ID and Name:** `UC-SHLF-parent-view-shelf`: View a Child's Shelf and Reflections\
+**UC ID and Name:** `UC-SHLF-parent-view-shelf`: View a Child's Shelf and Ratings\
 **Created By:** _Claude_\
 **Date Created:** _2026-10-04_\
 **Primary Actor:** A Parent (Main or Sub Parent)\
 **Secondary Actors:** none\
 **Trigger:** The Parent taps "View Shelf" on a child's dashboard.\
-**Description:** A parent sees everything a linked child has placed on their shelf, grouped by category, with each finished book's rating and reflection. This is the parent's oversight view under `FR-PAR-review`. It changes nothing, and it is the entry point to `UC-SHLF-parent-remove-book`. This corresponds to `FEAT-parent-review-dashboard`.
+**Description:** A parent sees everything a linked child has placed on their shelf, grouped by category, with each finished book's rating. This is the parent's oversight view under `FR-PAR-review`. It changes nothing, and it is the entry point to `UC-SHLF-parent-remove-book`. This corresponds to `FEAT-parent-review-dashboard`.
 
 **Preconditions:**
 
@@ -1176,16 +1181,16 @@ _The shelf is the child's record of what they are reading, want to read, or have
 
 **Postconditions:**
 
-- POST-1. The child's shelf entries, ratings, and reflections have been displayed to the Parent.
-- POST-2. No shelf entry, rating, or reflection has been changed.
+- POST-1. The child's shelf entries and ratings have been displayed to the Parent.
+- POST-2. No shelf entry or rating has been changed.
 
 **Main Success Scenario:**
 
 1. The Parent taps "View Shelf" on the child's dashboard.
-2. The system loads the child's shelf entries, with their ratings and reflections.
+2. The system loads the child's shelf entries, with their ratings.
 3. The system displays the entries grouped under Reading Now, Want to Read, Maybe Later, and Finished, each with its cover and title.
 4. The Parent taps a book.
-5. The system displays the book's rating and any reflection the child wrote, with a flag marker if the reflection was flagged.
+5. The system displays the book's rating.
 6. The Parent leaves the shelf view. Use case ends.
 
 **Extensions:**
@@ -1194,29 +1199,27 @@ _The shelf is the child's record of what they are reading, want to read, or have
 - 2a. The child has no shelf entries. The system displays an empty-state message for the shelf instead of an empty list.
 - 2b. Loading fails. The system displays a retry message and does not show a partial or stale shelf.
 - 2c. The Parent is not linked to the requested child. The system denies the request and returns no shelf data (`SEC-role-authorization`).
-- 5a. A reflection on the book is flagged for violence or self-harm. The system displays the flag marker; the alert itself is issued by `UC-SHLF-kid-add-note`.
-- 5b. The admin blocks the book while the Parent is viewing the shelf. `UC-ADM-block-content` removes the shelf entry and deletes its rating and reflection, so the entry is gone the next time the view loads. Neither the parent nor the child is told (`UC-ADM-block-content` Assumptions).
+- 5a. The book is in Finished and its finish is awaiting confirmation. The system shows "Confirm finished," which invokes `UC-SHLF-par-finish-book`. A book with a confirmed finish shows the confirmed-finished icon and "Edit note," which invokes the same use case.
+- 5b. The admin blocks the book while the Parent is viewing the shelf. `UC-ADM-block-content` removes the shelf entry, so the entry is gone the next time the view loads. Neither the parent nor the child is told (`UC-ADM-block-content` Assumptions).
 
 **Priority:** High — reviewing the child's shelf is the parent's core oversight action.\
 **Frequency of Use:** Several times per week per family (estimate).\
-**Business Rules:** `BR-parent-account-linked`, `BR-notes-visible-to-parent`
+**Business Rules:** `BR-parent-account-linked`
 
 **Associated Information:**
 
 | Property name  | Data type                                              | Validation rule                                                                                                             | Security or access concerns                                                                                | Glossary reference   |
 |----------------|--------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|----------------------|
 | Shelf category | enum: Reading Now, Want to Read, Maybe Later, Finished | required; one value per entry                                                                                               | Visible to the parent and child                                                                            | Shelf (`FEAT-shelf`) |
-| Rating         | enum: Loved it, Liked it, It was okay, Not for me      | optional; only for Finished entries                                                                                         | Parent-visible; never visible to the system admin (`BR-admin-limited-view`)                                | Rating               |
-| Reflection     | string                                                 | optional; see `UC-SHLF-kid-add-note`                                                                                        | Always parent-visible (`BR-notes-visible-to-parent`); the admin sees flagged content only in `UC-ADM-flag-review` (`OI-15`) | —                    |
+| Rating         | enum: Loved it, Liked it, It was okay, Not for me      | optional; only for Finished entries                                                                                         | Parent-visible; the system admin sees it only through the lookup by internal child ID (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`)                                | Rating               |
 | Display order  | system-set                                             | Categories are fixed in the order listed in step 3; entries within a category are most-recently-moved first (team proposal) | Not shown as a number                                                                                      | —                    |
 
 The view runs from a stored shelf and does not recompute anything, so a failed load leaves the child's data untouched. Quality attributes: `USE-parent-light` (the parent reaches the shelf in one tap from the dashboard).
 
-**Related Use Cases:** `UC-SHLF-parent-remove-book` (invoked from step 4); `UC-SHLF-kid-view-shelf` (the child's view of the same shelf); `UC-PAR-report-book` (also invoked from this view); `UC-SHLF-kid-add-note` (produces the reflections shown here); `UC-PAR-view-growth-report` (a separate, qualitative recap, not this view)\
+**Related Use Cases:** `UC-SHLF-parent-remove-book` (invoked from step 4); `UC-SHLF-kid-view-shelf` (the child's view of the same shelf); `UC-PAR-report-book` (also invoked from this view); `UC-SHLF-par-finish-book` (invoked from step 5 to confirm a finish or edit a note); `UC-PAR-view-growth-report` (a separate weekly dashboard, not this view)\
 **Assumptions:** A secondary parent sees the same shelf as the primary parent, per `UC-PAR-create-sub-parent-account`. The parent view shows no counts or totals, a team proposal that keeps this view consistent with `BR-kid-no-metrics`.\
 **Open Issues:**
 - Whether a parent should see when a child moved a book, or any history of moves, is not specified anywhere in the requirements.
-- Whether viewing the shelf counts as the parent's review under `BR-24hr-review-window` is unresolved (`OI-16`).
 
 ---
 
@@ -1238,7 +1241,7 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 **Postconditions:**
 
 - POST-1. The child has seen their shelf entries.
-- POST-2. No shelf entry, rating, or reflection has been changed.
+- POST-2. No shelf entry or rating has been changed.
 
 **Main Success Scenario:**
 
@@ -1246,7 +1249,7 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 2. The system loads the child's shelf entries.
 3. The system displays the entries grouped under Reading Now, Want to Read, Maybe Later, and Finished, each with its cover and title, using large tap targets.
 4. The child taps a book.
-5. The system displays the book's shelf actions: move, remove, and, for Finished books, rate and add a reflection.
+5. The system displays the book's shelf actions: move, remove, and, for books whose finish the parent has confirmed, rate. A book with a confirmed finish carries the confirmed-finished icon in any category.
 6. The child leaves the shelf. Use case ends.
 
 **Extensions:**
@@ -1254,8 +1257,11 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 - 2a. The child has no shelf entries. The system displays a short empty-state message that points the child to get recommendations, not a count or a zero.
 - 2b. Loading fails. The system displays a retry message and does not show a partial shelf.
 - 3a. A category has no entries. The system still shows the category heading with a one-line empty state, so the four-category layout stays the same for every child.
+- 3c. A book is in Finished with its finish awaiting confirmation. The system shows it grayed out, without the confirmed-finished icon and without a rating action.
+- 3d. A parent said a book was not finished (`UC-SHLF-par-finish-book` 4b). The first time the child opens the shelf afterwards, the system shows once: "Whoops! Looks like you didn't finish your book. It went back to where it was." The book is already back in its earlier category, and the notice does not show again.
+- 3e. The child taps "My Dashboard." The system opens `UC-SHLF-kid-dashboard`; leaving it returns the child to the shelf.
 - 3b. The admin blocks a book on the child's shelf. `UC-ADM-block-content` removes the shelf entry, so the book is no longer on the shelf the next time it loads; the child is not told (`UC-ADM-block-content` Assumptions).
-- 5a. The child taps an action that the book's current category does not allow, such as rating a book that is not Finished. The system does not offer the action.
+- 5a. The child taps an action that the book's current state does not allow, such as rating a book whose finish is not confirmed. The system does not offer the action.
 
 **Priority:** High — the shelf is the child's main place in the app after a recommendation is accepted.\
 **Frequency of Use:** Several times per week per active child.\
@@ -1271,9 +1277,77 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 
 The child interface shows no counts, streaks, reading level, or comparisons (`BR-kid-no-metrics`; `UI-kid-no-metrics` in the SRS). Quality attributes: `USE-child-first-run` (a child finds the shelf without adult help).
 
-**Related Use Cases:** `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-add-note` (all invoked from step 5); `UC-REC-kid-review` (the flow that places accepted books here); `UC-SHLF-parent-view-shelf` (the parent's view of the same data)\
+**Related Use Cases:** `UC-SHLF-kid-move-book`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-rate-book` (all invoked from step 5); `UC-SHLF-kid-dashboard` (invoked from extension 3e); `UC-REC-kid-review` (the flow that places accepted books here); `UC-SHLF-parent-view-shelf` (the parent's view of the same data)\
 **Assumptions:** Books reach the shelf through `UC-REC-kid-review` or, with parent approval, through `UC-SHLF-manual-search`. `UC-SHLF-kid-move-book` only changes a book already on the shelf.\
 **Open Issues:**
+
+---
+
+### UC-SHLF-kid-dashboard: View My Reading Dashboard
+
+**UC ID and Name:** `UC-SHLF-kid-dashboard`: View My Reading Dashboard\
+**Created By:** _Claude_\
+**Date Created:** _2026-10-29_\
+**Primary Actor:** A Child\
+**Secondary Actors:** none\
+**Trigger:** The child taps "My Dashboard" on the shelf screen (`UC-SHLF-kid-view-shelf`).\
+**Description:** A child opens a separate screen that shows three things: books recommended for them that a parent has approved, a radar chart of their current reading interests, and their bookshelf activity and history. It is built from the child's own data under the internal child ID and keeps the child engaged between visits to the shelf. It is the child's counterpart of the parent's `UC-PAR-view-growth-report` and follows the client's request for periodic feedback to children (client answers 2026-10-28, Q10). The screen shows only book data, the child's nickname and avatar.
+
+**Preconditions:**
+
+- PRE-1. The child is logged in to their child session.
+- PRE-2. The child profile is linked to a parent account (`BR-parent-account-linked`).
+
+**Postconditions:**
+
+- POST-1. The child has seen the dashboard.
+- POST-2. No shelf entry, rating, interest or recommendation has been changed. Reacting to a recommended book is a separate use case (`UC-REC-kid-review`).
+
+**Main Success Scenario:**
+
+1. The child taps "My Dashboard" on the shelf screen.
+2. The system loads the child's approved recommended books, reading interests and shelf history, leaving out books that are blocked or excluded for this child (`KD-book-exclusion`).
+3. The system displays the dashboard with the child's nickname and avatar and three sections: Recommended for You, My Interests and My Shelf History.
+4. In Recommended for You, the system lists each recommended book that a parent has approved, with its cover and title. A book counts as approved when a parent confirmed its batch in `UC-REC-parent-review`, or when it was recommended after a parent confirmed a finished book (`UC-SHLF-par-finish-book`, `UC-SHLF-kid-rate-book` step 6).
+5. In My Interests, the system draws a radar chart with one axis for each of the child's current reading interests, named in words. The shape shows which interests are stronger, with no numbers, scale marks or percentages, and no comparison with other children.
+6. In My Shelf History, the system lists what the child did with their books, newest first, in plain words and grouped under "Today," "This week" and "Earlier." The entries are: a book added to the shelf, moved to another category, finished (once a parent confirmed it) and rated, with the child's own rating.
+7. The child taps a recommended book. The system opens it with the choices to accept, defer or decline (`UC-REC-kid-review`).
+8. The child taps back to the shelf. Use case ends.
+
+**Extensions:**
+
+- 2a. Loading fails. The system displays a retry message and does not show a partial dashboard.
+- 4a. No approved recommended book exists, including when a batch is still waiting for a parent. The system shows a short message that points the child to ask for recommendations. It does not say that a parent has not yet approved anything.
+- 4b. A book was blocked or reported for this child after it was approved. The system leaves it out, and the child is not told (`UC-ADM-block-content` Assumptions, `UC-PAR-report-book`).
+- 5a. The child has fewer than 3 current interests, so there is no shape to draw. The system lists the interest names, if any, in place of the chart.
+- 5b. The child has no recorded interests, for example the parent chose none. The system shows a short message that the chart fills in as the child picks books, with no empty chart.
+- 5c. The child has more than 6 current interests. The system draws the 6 strongest (team proposal).
+- 6a. The child has no shelf activity yet. The system shows a short empty-state message and no zero or count.
+- 6b. A history entry is about a book that is now blocked or excluded for this child, or removed by a parent. The system leaves the entry out. A parent's removal has its own one-time notice (`BR-parent-shelf-removal`).
+- 7a. The tapped book is no longer available. The system shows a short message and stays on the dashboard.
+
+**Priority:** Medium — an engagement feature the client asked for, not needed for the shelf or the recommendation flow to work.\
+**Frequency of Use:** About weekly per active child (estimate).\
+**Business Rules:** `BR-kid-anonymous-profile`, `BR-kid-no-metrics` (see Open Issues), `BR-parent-account-linked`, `BR-parent-ultimate-say`, `BR-parent-report-book`, `BR-parent-shelf-removal`, `BR-parent-note` (the parent's note is never shown here)
+
+**Associated Information:**
+
+| Property name           | Data type                                                    | Validation rule                                                                                  | Security or access concerns                                         | Glossary reference |
+|-------------------------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|--------------------|
+| Approved recommendations | list of catalog book references                              | each book was approved by a parent as in step 4; none blocked or excluded for this child         | Visible to the child and parent                                     | Recommendation Batch |
+| Reading interests (derived interest profile) | list of interest names, each with a relative strength | names come from the fixed interest list (`UC-REC-kid-onboarding`); the strength is never shown as a number | Visible to the child and parent; never visible to the system admin except by internal child ID (`BR-admin-limited-view`); included in the parent's export and removed by both deletion use cases | —                  |
+| Shelf history entry     | event type (added, moved, finished, rated), book reference, time | finished only once a parent confirmed it; at most one entry per change                      | Visible to the child and parent                                     | Shelf (`FEAT-shelf`) |
+| Time group              | enum: Today, This week, Earlier                              | system-set from the entry's time (UTC stored, shown in the child's local time)                   | Shown in words, not as a date or count                              | —                  |
+
+The dashboard carries book data, the child's nickname and avatar, and nothing else (architecture §8.2.11, `UI-kid-no-metrics` in the SRS). It reads stored data and recomputes nothing that is saved, so a failed load leaves the child's data untouched. Quality attributes: `USE-child-first-run` (a child finds the dashboard from the shelf without adult help).
+
+**Related Use Cases:** `UC-SHLF-kid-view-shelf` (invokes this use case); `UC-REC-parent-review` (the parent's approval of a batch); `UC-REC-kid-review` (invoked from step 7); `UC-SHLF-par-finish-book` and `UC-SHLF-kid-rate-book` (the confirmed finish, the rating and the follow-up books); `UC-REC-kid-onboarding` (the starting interests); `UC-PAR-view-growth-report` (the parent's counterpart)\
+**Assumptions:** The dashboard is read when opened and always current; there is no weekly snapshot. How the interest strengths are worked out from the child's choices, ratings and shelf activity is part of the rules-based recommender and is not yet specified (`OI-2`).\
+**Open Issues:**
+- **Does this screen break the no-metrics rule?** `BR-kid-no-metrics` and architecture §8.2.11 allow no counts, streaks, levels or comparisons on a child's screen. The radar chart and the history are written to show none of those (no numbers, no scale, words and time groups only), but the team or client must confirm they comply (`OI-31`). Architecture §8.2.11 describes this screen.
+- **Approval.** Step 4 shows a book only after a parent explicitly confirmed it. `UC-REC-parent-review` extension 2a still releases an unopened batch to the child unchanged, so such a book reaches `UC-REC-kid-review` but not this list. Confirm that this difference is intended, and whether the follow-up books after a rating also wait for a parent (`OI-32`).
+- The interest list contents, and the cap of 6 axes, are not specified (`UC-REC-kid-onboarding` Associated Information).
+- The screen is `FEAT-kid-dashboard` in `vision-and-scope.md`, and `BR-kid-data-stored` lists reading interests.
 
 ---
 
@@ -1296,7 +1370,7 @@ The child interface shows no counts, streaks, reading level, or comparisons (`BR
 
 - POST-1. The shelf entry's category is the category the child chose.
 - POST-2. The shelf entry is in no other category.
-- POST-3. Moving a book to Finished does not require a rating; the rating step is offered, not forced.
+- POST-3. Moving a book to Finished does not require a rating. Unless the parent confirmed this book's finish before, the finish is awaiting the parent's confirmation (`UC-SHLF-par-finish-book`), the child is told to have a parent confirm their reading, and the book shows grayed out on the Finished shelf without the icon. The rating step is offered only once the finish is confirmed. The category the book came from is kept so it can go back there.
 
 **Main Success Scenario:**
 
@@ -1305,16 +1379,18 @@ The child interface shows no counts, streaks, reading level, or comparisons (`BR
 3. The child selects a different category.
 4. The system validates that the book is still on the shelf and that the chosen category is one of the four.
 5. The system saves the new category and returns the child to the shelf, showing the book in its new place.
-6. If the new category is Finished and the book has no rating, the system offers the optional rating step in `UC-SHLF-kid-rate-book`. Use case ends.
+6. If the new category is Finished and the finish is not already confirmed, the system records the previous category, marks the finish as awaiting confirmation, tells the child to have a parent confirm their reading, shows the book grayed out on the Finished shelf without the icon, and notifies the Parent in-app (`UC-SHLF-par-finish-book`). The child can rate the book once the Parent confirms. Use case ends.
 
 **Extensions:**
 
 - 2a. The book is no longer on the shelf, for example because the parent removed it in `UC-SHLF-parent-remove-book` while the child was viewing it. The system tells the child the book is no longer on their shelf and returns them to the shelf. No move occurs.
 - 3a. The child selects the category the book is already in. The system makes no change and returns to the shelf.
 - 3b. The child closes the category control without selecting. The system makes no change.
+- 3c. The book is in Finished with its finish awaiting confirmation, and the child chooses another category. The system warns: "Your parent hasn't confirmed this yet. Do you want to retract your completion?" On confirm, the system moves the book to the chosen category, clears the awaiting state and withdraws the Parent's prompt. If the child cancels, the book stays in Finished, grayed out.
+- 3d. The book's finish is confirmed. The child may move it freely to Reading Now, Want to Read, Maybe Later or Finished with no warning; the confirmed-finished icon stays wherever it sits on the shelf, and is the proof that a parent confirmed the finish. The icon shows only while the book is on the shelf; removing the book hides it, and adding the book back brings it back (`UC-SHLF-kid-remove-book`).
 - 4a. The chosen category is not one of the four, for example from a tampered request. The system rejects the request and makes no change.
 - 5a. Saving fails. The system shows an error and keeps the book in its previous category; the child's choice is shown as not saved (`ROB-no-data-loss`).
-- 6a. The child declines the rating step. The book stays in Finished, unrated.
+- 6a. The Parent has already confirmed this book's finish, for example when the child is re-reading it. The system does not ask for confirmation again and offers the rating step directly in `UC-SHLF-kid-rate-book`. The book is not grayed out. Moving a confirmed book within the shelf never removes the confirmation or its icon.
 
 **Priority:** High — moving books is how the child's shelf reflects their reading.\
 **Frequency of Use:** A few times per week per active child.\
@@ -1326,10 +1402,11 @@ The child interface shows no counts, streaks, reading level, or comparisons (`BR
 |----------------|--------------------------------------------------------|------------------------------------|------------------------------------------------|----------------------|
 | Shelf category | enum: Reading Now, Want to Read, Maybe Later, Finished | required; must be one of the four  | Child-set; visible to the parent               | Shelf (`FEAT-shelf`) |
 | Last moved at  | timestamp                                              | system-set on each successful move | Not shown to the child; used for display order | —                    |
+| Previous category | enum: Reading Now, Want to Read, Maybe Later        | system-set when a book moves to Finished with an unconfirmed finish | Not shown to anyone; used only by `UC-SHLF-par-finish-book` | —                    |
 
 A failed save changes nothing, so the entry is never left in two categories or in none. Moves do not generate any notice to the parent (no source requires one).
 
-**Related Use Cases:** `UC-SHLF-kid-view-shelf` (invokes this use case from a shelf entry); `UC-SHLF-kid-rate-book` (offered from step 6); `UC-SHLF-parent-remove-book` (can remove the book while the child is moving it)\
+**Related Use Cases:** `UC-SHLF-kid-view-shelf` (invokes this use case from a shelf entry); `UC-SHLF-par-finish-book` (triggered from step 6; the rating follows its confirmation); `UC-SHLF-kid-rate-book`; `UC-SHLF-parent-remove-book` (can remove the book while the child is moving it)\
 **Assumptions:** A child may move a book to Finished without having read it; the system does not verify reading.\
 **Open Issues:**
 - The difference between Want to Read and Maybe Later is not defined in any source. `UC-REC-kid-review` sends a "maybe later" reaction to Maybe Later and never uses Want to Read.
@@ -1355,16 +1432,17 @@ A failed save changes nothing, so the entry is never left in two categories or i
 **Postconditions:**
 
 - POST-1. The shelf entry no longer exists.
-- POST-2. The entry's rating and reflection are kept. The recommender uses them, so removing the shelf entry does not delete them.
+- POST-2. The entry's rating is kept. The recommender uses it, so removing the shelf entry does not delete it.
+- POST-4. The book's confirmed finish and finish note, if any, are kept, like the rating. The confirmed-finished icon is not shown while the book is off the shelf, and returns if the book is added back.
 - POST-3. The book is not added to the child's recommendation list by this use case.
 
 **Main Success Scenario:**
 
 1. The child opens a book on their shelf.
 2. The child chooses "Remove from shelf."
-3. The system asks the child to confirm that the book comes off their shelf, and states that their rating and reflection stay on record.
+3. The system asks the child to confirm that the book comes off their shelf, and states that their rating and any parent-confirmed finish stay on record. The finished icon is hidden until the book is added back.
 4. The child confirms.
-5. The system removes the shelf entry only. The rating and reflection are kept.
+5. The system removes the shelf entry only. The rating is kept.
 6. The system returns the child to the shelf without the book. Use case ends.
 
 **Extensions:**
@@ -1372,26 +1450,25 @@ A failed save changes nothing, so the entry is never left in two categories or i
 - 1a. The book is no longer on the shelf. The system tells the child the book has already been removed and returns them to the shelf.
 - 3a. The child cancels. The system makes no change.
 - 5a. Saving fails. The system shows an error and keeps the shelf entry; removal is all-or-nothing.
-- 5b. The entry's reflection has been safety-flagged (`UC-SHLF-kid-add-note`). Removal does not change the flag or the alert, so the parent and admin can still act on the reflection under `BR-note-safety-flagging`.
 
 **Priority:** Medium — the child can usually leave a book on the shelf without harm, so this is not a blocking flow.\
 **Frequency of Use:** Occasional, about once a month per active child (estimate).\
-**Business Rules:** `BR-note-safety-flagging`, `BR-notes-visible-to-parent`
+**Business Rules:** `BR-child-structured-responses`
 
 **Associated Information:**
 
 | Property name                  | Data type | Validation rule                                                                                             | Security or access concerns                                                                                                              | Glossary reference |
 |--------------------------------|-----------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
 | Confirmation                   | boolean   | required; the child must actively confirm                                                                   | Child-set                                                                                                                                | —                  |
-| Retained rating and reflection | reference | kept after the shelf entry is removed; deleting a reflection is a separate action in `UC-SHLF-kid-add-note` | Rating and reflection stay with the child's record for the recommender; parent-visible; the admin sees a flagged reflection only in `UC-ADM-flag-review` (`OI-15`) | —                  |
+| Retained rating | reference | kept after the shelf entry is removed | The rating stays with the child's record for the recommender; parent-visible | —                  |
 
-Only the shelf entry is deleted, in one save. The rating and reflection are not touched, so a failed save leaves the entry in place (`ROB-no-data-loss`).
+Only the shelf entry is deleted, in one save. The rating is not touched, so a failed save leaves the entry in place (`ROB-no-data-loss`).
 
-**Related Use Cases:** `UC-SHLF-kid-view-shelf` (invokes this use case from a shelf entry); `UC-SHLF-parent-remove-book` (the parent's counterpart, which does notify the child); `UC-SHLF-kid-add-note` (where a reflection can be deleted; this use case never deletes one)\
+**Related Use Cases:** `UC-SHLF-kid-view-shelf` (invokes this use case from a shelf entry); `UC-SHLF-parent-remove-book` (the parent's counterpart, which does notify the child)\
 **Assumptions:** A child-removed book is not put back into the recommendation list automatically; a later recommendation is a new request under `UC-REC-recommend-quiz-rules`.\
 **Open Issues:**
 - No source confirms that a child may remove their own shelf entries (see Description).
-- A rating or reflection whose shelf entry has been removed is not shown on the shelf, so the parent view (`UC-SHLF-parent-view-shelf`) needs a rule for showing it. The recommender still uses it. Whether the parent should be able to see it is not specified.
+- A rating whose shelf entry has been removed is not shown on the shelf, so the parent view (`UC-SHLF-parent-view-shelf`) needs a rule for showing it. The recommender still uses it. Whether the parent should be able to see it is not specified.
 - Whether the parent should see that the child removed a book is not specified.
 - Whether a removed book can be recommended again is not specified (also open for `UC-SHLF-parent-remove-book`).
 
@@ -1404,13 +1481,14 @@ Only the shelf entry is deleted, in one save. The rating and reflection are not 
 **Date Created:** _2026-10-04_\
 **Primary Actor:** A Child\
 **Secondary Actors:** none\
-**Trigger:** The child taps "Rate this book" on a Finished book, or accepts the rating step offered by `UC-SHLF-kid-move-book`.\
+**Trigger:** The child taps "Rate this book" on a Finished book whose finish the parent has confirmed (`UC-SHLF-par-finish-book`), including a confirmed book that the child has moved back into Finished to re-read.\
 **Description:** A child records how they felt about a book they have finished. The rating is the child's own, shown to their parent, and it is not shown to other children in the MVP. This corresponds to `FEAT-ratings`.
 
 **Preconditions:**
 
 - PRE-1. The child is logged in to their child session.
 - PRE-2. The book is on the child's shelf in the Finished category.
+- PRE-3. A parent has confirmed the finish (`UC-SHLF-par-finish-book`).
 
 **Postconditions:**
 
@@ -1423,113 +1501,124 @@ Only the shelf entry is deleted, in one save. The rating and reflection are not 
 2. The system displays the rating options from the current scale, each with a short label and icon.
 3. The child selects one option.
 4. The system validates that the option belongs to the current scale.
-5. The system saves the rating and shows it on the book. Use case ends.
+5. The system saves the rating and shows it on the book.
+6. The system shows the child a follow-up: "Thanks, [nickname]! Since you [loved or saved] \[book\], here are 3 books you might like next." The 3 books come from the rules-based recommender, using the new rating, and are subject to the same exclusions as `UC-REC-recommend-quiz-rules`. The child reacts to them in `UC-REC-kid-review`. Use case ends.
 
 **Extensions:**
 
 - 1a. The book is not in Finished. The system does not offer the rating option.
+- 1b. The book is in Finished but a parent has not yet confirmed the finish. The system does not offer the rating option and shows no reason or status.
 - 2a. The child closes the rating step without selecting. The system records no rating; the book stays unrated.
 - 3a. The child selects a different option from an earlier rating. The system replaces the earlier rating; the earlier value is not kept.
 - 4a. The option is not on the current scale, for example from a tampered request. The system rejects it and records no rating.
 - 5a. Saving fails. The system shows an error, keeps the child's selection on screen so they can retry, and records no rating (`ROB-no-data-loss`).
+- 6a. The rules engine returns fewer than 3 books, or none. The system shows the books it has, or a short thank-you with no recommendations. It does not pad the list.
+- 6b. Generating the follow-up fails. The rating stays saved; the system shows a short thank-you without recommendations.
 
 **Priority:** Medium — `FEAT-ratings` is in the MVP, and ratings are the "child feedback loop" among the client's MVP goals (glossary, "MVP"). A child can still get recommendations without rating anything, so this does not block the core loop.\
 **Frequency of Use:** Once per finished book; roughly one to two per active child per week (estimate).\
-**Business Rules:** `BR-kid-no-metrics`
+**Business Rules:** `BR-kid-no-metrics`, `BR-child-structured-responses`
 
 **Associated Information:**
 
 | Property name | Data type                   | Validation rule                         | Security or access concerns                                                                             | Glossary reference |
 |---------------|-----------------------------|-----------------------------------------|---------------------------------------------------------------------------------------------------------|--------------------|
-| Rating        | enum: Loved it, Liked it, It was okay, Not for me | required when set; must be one of the four | Child-set; visible to the child and parent; never visible to the system admin (`BR-admin-limited-view`) | Rating             |
+| Rating        | enum: Loved it, Liked it, It was okay, Not for me | required when set; must be one of the four | Child-set; visible to the child and parent; the system admin sees it only through the lookup by internal child ID (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`) | Rating             |
 | Rated at      | timestamp                   | system-set on each save                 | Parent-visible                                                                                          | —                  |
 
-**The rating scale is the four options Loved it / Liked it / It was okay / Not for me** (team decision 2026-10-07, following the 2026-09-25 flowchart; `OI-17` resolved; glossary "Rating"; `FR-RATE-rating`). The "community aggregate" rating is not part of the MVP, because `FEAT-ratings` drops the peer and social layer.
+**The rating scale is the four options Loved it / Liked it / It was okay / Not for me** (team decision 2026-10-07, following the 2026-09-25 flowchart; `OI-17` resolved; glossary "Rating"; `FR-RATE-rating`). The "community aggregate" rating is not part of the MVP, because `FEAT-ratings` drops the peer and social layer. The client's Q14 wording "taps their stars" is read as this four-option scale, not a star rating (team decision 2026-10-29).
 
-**Related Use Cases:** `UC-SHLF-kid-move-book` (offers this from step 6); `UC-SHLF-kid-view-shelf` (where the rating shows); `UC-SHLF-parent-view-shelf` (where the parent sees it)\
-**Assumptions:** The 2026-09-24 notes say the rule-based MVP draws on the child's ratings (`client-interview-2026-09-24.md`, "Initial ideas"), with rating weight kept low while the user base is small. How a rating enters the rules is not yet specified (`OI-2`); the later ML stage uses it as a behavioral signal (`FEAT-ai-recommendation`, Stage 2).\
+**Related Use Cases:** `UC-SHLF-par-finish-book` (must confirm the finish first); `UC-SHLF-kid-move-book` (moves the book to Finished); `UC-SHLF-kid-view-shelf` (where the rating shows); `UC-SHLF-parent-view-shelf` (where the parent sees it)\
+**Assumptions:** The 2026-09-24 notes say the rule-based MVP draws on the child's ratings (`client-interview-2026-09-24.md`, "Initial ideas"), with rating weight kept low while the user base is small. How a rating enters the rules is not yet specified (`OI-2`); the later ML stage uses it as a behavioral signal (`FEAT-ai-recommendation`, Stage 2). The client counts the share of weekly check-in notifications that lead to a rating within 7 days, and the share of active families who rated a book in the past 30 days, as V1 success measures (client answers 2026-10-28, Q14), so each rating is recorded with its time and whether it followed a weekly check-in.\
 **Open Issues:**
+- **Weekly check-in notification.** `FR-NOT-weekly-reminder` in the SRS covers the weekly parent-only notification (client answers Q5, Q14), so it needs no use case of its own. Its confirm form opens `UC-SHLF-par-finish-book`, and the rating happens here afterwards; its general form opens the parent's dashboard. The client calls the channel a push notification while the architecture is in-app only (`CI-in-app-alerts`); that is `OI-30`.
+- **Parent review of the follow-up.** Step 6 shows the 3 books immediately, as the client asked. `UC-REC-parent-review` would otherwise hold any batch for the parent. Confirm whether follow-up books skip it (`BR-parent-ultimate-say`).
 - The 2026-09-24 notes say to keep rating weight low early on, which conflicts with the "rated highly" weight in `BR-similarity-signal-weights`. Relevant only to the later ML stage.
 
 ---
 
-### UC-SHLF-kid-add-note: Write a Reflection After Finishing a Book
+### UC-SHLF-par-finish-book: Confirm a Child Finished a Book
 
-**UC ID and Name:** `UC-SHLF-kid-add-note`: Write a Reflection After Finishing a Book\
+**UC ID and Name:** `UC-SHLF-par-finish-book`: Confirm a Child Finished a Book\
 **Created By:** _Claude_\
-**Date Created:** _2026-10-04_\
-**Primary Actor:** A Child\
-**Secondary Actors:** A Parent (receives an in-app alert if the reflection is flagged); the System Admin (receives an alert if the reflection is flagged, and reads the content only in `UC-ADM-flag-review`)\
-**Trigger:** The child taps "Write a reflection" on a Finished book.\
-**Description:** A child optionally writes a short reflection about a finished book: why they liked or disliked it, and who they would recommend it to. The reflection is always visible to the parent, with no private option for this age group. If it contains violent or self-harm content, it is flagged and alerted immediately. This corresponds to `FEAT-kid-reflections`.
+**Date Created:** _2026-10-29_\
+**Primary Actor:** A Parent (Main or Sub Parent)\
+**Secondary Actors:** A Child (can rate the book once the finish is confirmed); the System Admin (receives an alert if the parent's note is flagged, and reads it only in `UC-ADM-flag-review`)\
+**Trigger:** Either (a) the child moves a book to Finished in `UC-SHLF-kid-move-book` and the Parent taps the in-app prompt or the weekly check-in notification that asks them to confirm; (b) the Parent taps "Confirm finished" on a Finished book in `UC-SHLF-parent-view-shelf`; or (c) the Parent taps "Edit note" on a book whose finish is already confirmed.\
+**Description:** A parent confirms whether their child really finished a book the child moved to Finished. If the parent confirms, the child can rate the book (`UC-SHLF-kid-rate-book`) and the book is marked with a confirmed-finished icon for good. The child is told to have a parent confirm, and until then the book is grayed out on the Finished shelf without the icon. If the parent says "not finished yet," the book goes back to the shelf category it came from and the child is told. The child can also retract an unconfirmed completion themselves (`UC-SHLF-kid-move-book`). After confirming, the parent may add a short note, which the recommender can use, and may edit it at any time. The note is screened by the internal word list, and a match is flagged for the admin (`UC-ADM-flag-review`). This corresponds to `FEAT-shelf` and `FEAT-ratings`, and is a team decision of 2026-10-29.
 
 **Preconditions:**
 
-- PRE-1. The child is logged in to their child session.
-- PRE-2. The book is on the child's shelf in the Finished category.
-- PRE-3. The child's onboarding is complete, including the reflection disclosure the child acknowledged (`UC-REC-kid-onboarding`, POST-3). Per `FR-NOTE-disclosure`, the child is told at onboarding that this kind of content is reported.
+- PRE-1. The Parent is logged in.
+- PRE-2. The Parent has a linked child account (`BR-parent-account-linked`).
+- PRE-3. For triggers (a) and (b): the book is on that child's shelf in Finished, and its finish is awaiting confirmation. For trigger (c): the book's finish is confirmed.
 
 **Postconditions:**
 
-- POST-1. One reflection is saved for this child and this book. A later save replaces the earlier text.
-- POST-2. The reflection is visible to the child's linked parent (`BR-notes-visible-to-parent`).
-- POST-3. If the reflection was flagged, an in-app alert has been issued to the parent and to the system admin, and the flag is recorded on the reflection.
+- POST-1. If confirmed: the book's finish is confirmed, with the confirming parent and the time recorded, and the book carries the confirmed-finished icon. The icon and the confirmation stay wherever the child later moves the book on the shelf: Reading Now, Want to Read, Maybe Later or Finished. Removing the book from the shelf hides the icon but keeps the confirmation; the icon returns if the book is added back.
+- POST-2. If confirmed: the child can rate the book (`UC-SHLF-kid-rate-book`).
+- POST-3. If the Parent said "not finished yet": the book is back in the category it was in before the child moved it, its finish is no longer awaiting, and the child has a pending notice that shows the next time they open their shelf.
+- POST-4. If the Parent entered or edited a note, it is saved for this child and this book and is available to the recommender. It is never shown to the child.
+- POST-5. If the note matched the internal word list, it is marked flagged and an in-app alert has been issued to the system admin. The alert carries no note content. No automatic action is taken and nothing is sent to an outside service (`BR-note-safety-flagging`).
+- POST-6. The confirmation (or move back), the note, the flag and the alert were saved together.
 
 **Main Success Scenario:**
 
-1. The child opens a Finished book and taps "Write a reflection."
-2. The system displays a text box, with optional prompts ("Why did you like or not like it?", "Who would you recommend it to?") and the character limit.
-3. The child types a reflection and taps "Save."
-4. The system checks the reflection for violent or self-harm content.
-5. The system saves the reflection, and records a flag on it if the check found such content.
-6. If the reflection is flagged, the system sends an immediate in-app alert to the parent and to the system admin.
-7. The system confirms the reflection is saved and returns the child to the book. Use case ends.
+1. The system notifies the Parent in-app that the child moved one or more books to Finished and asks them to confirm whether the child finished them. If the notification is the weekly check-in, it names the books; tapping it opens this use case.
+2. The Parent opens the prompt.
+3. The system shows the book's cover and title and the child's nickname, with "Confirm finished" and "Not finished yet." If several books are waiting, the system lists them and the Parent handles them one at a time.
+4. The Parent taps "Confirm finished."
+5. The system shows an optional note box with the prompt: "Share anything that may help BookBuddies better understand your child's reading interests and provide more relevant recommendations. Please do not include personal, identifying, sensitive, or confidential information, such as full names, school names, addresses, or contact information." The limit is 250 characters.
+6. The Parent writes a note or skips it, and taps "Save."
+7. The system checks the note, if any, against the internal word list.
+8. The system saves the confirmation, the note, any flag and any admin alert in one save, marks the book with the confirmed-finished icon, and makes the rating step available to the child.
+9. The system confirms to the Parent. Use case ends.
 
 **Extensions:**
 
-- 2a. The book is not in Finished. The system does not offer the reflection option.
-- 2b. The child chooses "Delete reflection" on an unflagged reflection. The system asks the child to confirm. On confirm, the reflection enters pending deletion for 24 hours: it is hidden from the child and the parent, and the child can restore it during that window. After 24 hours with no restore, the reflection is permanently deleted. A flagged reflection shows no delete option.
-- 2c. The child chooses "Restore" on a reflection pending deletion, within 24 hours. The system restores it unchanged and returns it to the parent view.
-- 3a. The child leaves the text box with unsaved text. The system asks whether to discard the reflection; on discard, nothing is saved, and on cancel, the child returns to the text box.
-- 3b. The child saves an empty reflection. The system saves nothing, because a reflection is optional, and returns the child to the book.
-- 3c. The text exceeds the character limit. The system shows an inline error, disables Save, and keeps the text so the child can shorten it. Limit is TBD (see Open Issues).
-- 4a. The content check cannot run, for example because the service is unavailable. The system does not save the reflection, keeps the text on screen, and shows a retry message. The reflection is never saved unchecked.
-- 5a. Saving fails. The system shows an error and keeps the text on screen. Nothing is saved, so no alert is issued (`ROB-no-data-loss`).
-- 6a. The parent cannot receive the alert at once, for example because they are offline. The flag and alert stay pending, the parent sees them at their next login, and the system keeps retrying delivery. An alert is never only a log entry (`SAF-flag-delivery`).
-- 6b. The alert reaches the parent but not the admin. The system retries the admin alert and does not drop it.
+- 1a. The book is no longer in Finished when the Parent acts, for example because the child moved it back, or the book was removed or blocked. The system clears the awaiting state, tells the Parent, and makes no other change. This includes a child retracting an unconfirmed completion (`UC-SHLF-kid-move-book` 3c).
+- 2a. The Parent does not open the prompt. The book stays in Finished and awaiting confirmation, the child cannot rate it, and the prompt stays until the Parent acts. It does not expire.
+- 2b. The request is for a child not linked to the Parent. The system denies it and shows nothing (`SEC-role-authorization`).
+- 3a. The other parent decided first. The system shows the recorded outcome and makes no change.
+- 4a. The Parent leaves without deciding. No change; the book stays awaiting confirmation.
+- 4b. The Parent taps "Not finished yet." The system moves the book back to the category it was in before the child moved it, clears the awaiting state, and offers no note box or rating step. In the same save, the system creates a notice for the child, shown the next time they open their shelf: "Whoops! Looks like you didn't finish your book. It went back to where it was." If the earlier category is no longer known, the book goes to Reading Now (team proposal). Use case ends.
+- 4c. The Parent chose trigger (c) to edit a note. The system shows the book's current note (empty if none); the Parent changes, adds or clears it and taps "Save"; the system continues at step 7. The confirmation and icon are unchanged. The Parent can do this at any time.
+- 6a. The Parent skips the note. The system saves the confirmation with no note.
+- 6b. The note is longer than 250 characters. The system shows an inline error, disables Save and keeps the text.
+- 7a. The word-list check cannot run. The system saves the note unflagged and records that the check did not run, so an admin can re-run it. It does not discard the note or block the confirmation. *Team proposal; confirm with the client.*
+- 8a. Saving fails. The system shows an error and keeps the text on screen. Nothing is saved, so no alert is issued and the child still cannot rate the book (`ROB-no-data-loss`).
+- 8b. The alert cannot reach the admin at once. The flag stays pending and the system retries delivery. An alert is never only a log entry (`SAF-flag-delivery`).
+- 8c. The Parent edits a note that is already flagged and open in `UC-ADM-flag-review`. The system saves the new text and re-screens it, and keeps the original flagged text for the admin's review. An edit does not close the flag.
 
-**Priority:** Medium — an optional feature in the MVP. The safety handling around it is high-stakes, so the flagging path must be built and tested before the reflection itself ships.\
-**Frequency of Use:** Occasional; at most once per finished book, and many books will have none.\
-**Business Rules:** `BR-notes-visible-to-parent`, `BR-note-safety-flagging`, `BR-parent-content-removal`
+**Priority:** Medium — it gates the rating step, and the rating is an input to the recommender. It does not block the core recommendation loop.\
+**Frequency of Use:** Once per finished book; roughly one to two per active child per week (estimate).\
+**Business Rules:** `BR-parent-note`, `BR-note-safety-flagging`, `BR-parent-account-linked`, `BR-parent-ultimate-say`
 
 **Associated Information:**
 
-| Property name   | Data type                               | Validation rule                                                                                                        | Security or access concerns                                                                                                                           | Glossary reference |
-|-----------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
-| Reflection text | string                                  | optional; must not be blank to save; character limit TBD (team proposal: 500)                                          | Always visible to the parent (`BR-notes-visible-to-parent`); never private (`SEC-no-private-notes`); the admin sees it only if flagged, in `UC-ADM-flag-review` (`OI-15`) | —                  |
-| Flag status     | enum: none, flagged                     | system-set by the content check; not editable by the child                                                             | Visible to the parent and the system admin                                                                                                            | —                  |
-| Flag category   | enum: violence, self-harm               | system-set when flagged                                                                                                | Visible to the parent; visible to the admin in the flagged-content list (`UC-ADM-flag-review`)                                                        | —                  |
-| Saved at        | timestamp                               | system-set on each save                                                                                                | Parent-visible                                                                                                                                        | —                  |
-| Deletion state  | enum: active, pending deletion, deleted | system-set; "pending deletion" lasts 24 hours from the child's confirmation; only an unflagged reflection can enter it | Pending-deletion reflections are hidden from the child and parent; only unflagged reflections enter this state, so the admin has no view of them      | —                  |
+| Property name           | Data type                          | Validation rule                                                                                   | Security or access concerns                                                                                                                    | Glossary reference |
+|-------------------------|------------------------------------|---------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
+| Finish status           | enum: none, awaiting, confirmed    | awaiting when the child moves a book to Finished; confirmed only by this use case; once confirmed it stays confirmed, including after the book leaves the shelf | Parent-visible; the child sees only the icon and whether the rating step is available, not the status                               | —                  |
+| Confirmed-finished icon | derived from finish status         | shown on a book whose finish is confirmed, wherever it sits on the shelf; not shown when the book is not on the shelf                          | Visible to the child and the parent; shows no count (`BR-kid-no-metrics`)                                                                      | Shelf (`FEAT-shelf`) |
+| Child notice            | in-app message                     | created only when a parent says "not finished yet"; fixed wording; shown once on the child's next shelf visit | Visible to the child; does not name the parent | —                  |
+| Previous category       | enum: Reading Now, Want to Read, Maybe Later | system-set when the child moves a book to Finished; used only by "Not finished yet"    | Not shown to anyone                                                                                                                            | —                  |
+| Confirmed by            | reference to the parent account    | system-set                                                                                        | Parent-visible; not shown to the child                                                                                                         | —                  |
+| Confirmed at            | timestamp                          | system-set                                                                                        | Parent-visible                                                                                                                                 | —                  |
+| Finish note             | string                             | optional; at most 250 characters; shown with the privacy prompt in step 5; editable at any time  | Parent-visible; used by the recommender; never shown to the child; the system admin sees it only if flagged, in `UC-ADM-flag-review` (`OI-15`) | —                  |
+| Note flag               | enum: none, flagged, check not run | system-set by the internal word list (`BR-note-safety-flagging`)                                  | Admin-visible only through `UC-ADM-flag-review`                                                                                                | —                  |
+| Note saved at           | timestamp                          | system-set on each save                                                                           | Parent-visible                                                                                                                                 | —                  |
 
-A child can delete their own reflection only if it is not flagged. Removing a book from the shelf never deletes a reflection (see `UC-SHLF-kid-remove-book`). The parent may remove flagged content under `BR-parent-content-removal`.
+The confirmation, note, flag and alert are one save (architecture §8.2.8). Only the first decision on a book counts.
 
-**Related Use Cases:** `UC-SHLF-kid-view-shelf` (invokes this use case from a Finished book); `UC-SHLF-parent-view-shelf` (where the parent reads the reflection); `UC-SHLF-kid-remove-book` (keeps the reflection when the book is removed); `UC-REC-kid-onboarding` (the disclosure this use case relies on)\
-**Assumptions:** A child can edit a saved reflection, and the edit replaces it. The reflection is stored for parent review and as a recommender input (see Open Issues).\
+**Related Use Cases:** `UC-SHLF-kid-move-book` (sets the finish to awaiting and records the previous category); `UC-SHLF-kid-rate-book` (available after this use case); `UC-SHLF-parent-view-shelf` (also invokes this use case); `UC-SHLF-kid-view-shelf` (shows the icon); `UC-ADM-flag-review` (reviews a flagged note); `UC-REC-recommend-quiz-rules` (uses the note); `UC-PAR-create-kid-account` (the other place a parent note is entered)\
+**Assumptions:** A Sub Parent may confirm and edit, like the Main Parent. Notification is in-app only (`CI-in-app-alerts`). A rating cannot exist without a confirmed finish; a rating made before this change stays valid. The weekly check-in has two forms: when no book is awaiting, it asks whether the child finished any books since last week and opens the general dashboard (`UC-PAR-view-growth-report`); when a book is awaiting, it asks the Parent to confirm and opens this use case. A confirmed book that moves back into Finished needs no new confirmation. There is no separate re-read action or status: the child moves the book freely to any part of the shelf, and the icon is the proof that a parent confirmed it. If the book is removed from the shelf, the icon is hidden but the confirmation, rating and finish note are kept; if the book is added back, the icon returns, and moving it to Finished needs no new confirmation. A catalog block deletes neither the rating nor the finish confirmation nor the finish note, because a block can be undone (`UC-ADM-unblock-content`). Only if a book is completely removed from the system are its ratings, finish confirmations and finish notes deleted.\
 **Open Issues:**
-- **Admin alert content.** Team position (2026-10-26), for the client to confirm (`OI-15`): the alert in step 6 carries no reflection content and no child details. The admin reads the content, and the flagged child's identifying details, only by opening the entry in `UC-ADM-flag-review`, which records every view (`KD-admin-flag-review`).
-- **Detection method.** How violence and self-harm content is detected, its accuracy, and how false positives are handled are not yet decided (`OI-19`).
-- **Reporting to authorities.** The client's 2026-09-24 wording says flagged content goes to "parents and authorities." This use case covers only the parent and admin. The rest is `OI-18`.
-- **Disclosure wording.** The wording of the onboarding disclosure (`FR-NOTE-disclosure`) is not specified, and no rule in `business-rules.md` governs it.
-- **Free text.** Whether reflections stay free text, given that a child can type personal information into them, is `OI-28`.
-- **Child notification.** Whether the child is told when their reflection is flagged is not specified.
-- **Recommender use.** `FEAT-kid-reflections` and the 2026-09-24 notes say reflections feed the rule-based MVP recommender (`client-interview-2026-09-24.md`, "Initial ideas"). How free text enters a rules engine is not specified (`OI-2`), and any use must stay within `BR-coppa-minimization`.
-- **Pending deletion.** The 24-hour pending-deletion window and restore are the client's rule as now described to the team; no source yet confirms the length or the child's restore right. Also undecided: whether a pending-deletion reflection still feeds the recommender during the window.
-- **Admin review.** Only an unflagged reflection can enter pending deletion, and the admin reads only flagged content (`UC-ADM-flag-review`), so the admin has no view of pending-deletion reflections. Confirm that no admin review of them is needed.
-- **Parent visibility of deletions.** Whether the parent is told when a child deletes a reflection is not specified.
+- **Book removal.** No use case removes a book from the system entirely, so the rule that this deletes its ratings, finish confirmations and finish notes has nothing to attach to yet. It applies when one is written.
+- **Check-in cadence and what it can confirm.** `FR-NOT-weekly-reminder` in the SRS specifies the weekly check-in. As specified today, a parent can confirm only a book the child has moved to Finished (PRE-3); a check-in with no such book opens the dashboard, not a confirmation. The client's example asks about a book in Reading Now and says "tap to let them rate it", which would let the parent unlock a rating for a book the child has not moved to Finished. Schedule, channel (the client says push; the architecture is in-app only), wording and this difference are `OI-30`.
+- Whether a parent who never acts is reminded again is not specified.
+- Whether a parent can delete the note outright, rather than clear it by editing, is not specified.
 
 ---
-
 ### UC-SHLF-parent-remove-book: Remove a Book From a Child's Shelf
 
 **UC ID and Name:** `UC-SHLF-parent-remove-book`: Remove a Book From a Child's Shelf\
@@ -1567,7 +1656,7 @@ A child can delete their own reflection only if it is not flagged. Removing a bo
 - 3b. The book is no longer on the child's shelf, for example because the child removed it first. The system tells the Parent the book is already off the shelf. No notice is created, since nothing was removed.
 - 5a. Saving fails. The system shows an error, leaves the entry on the shelf, and creates no notice. The Parent may retry. Removal and notice are all-or-nothing.
 - 5b. The child is not online. The notice stays pending until the child's next session and does not expire.
-- 5c. The child's rating and reflection for the book are kept, as in `UC-SHLF-kid-remove-book` and `BR-parent-report-book`. How the parent sees a rating or reflection whose shelf entry is gone is open (see `UC-SHLF-kid-remove-book` Open Issues).
+- 5c. The child's rating for the book is kept, as in `UC-SHLF-kid-remove-book` and `BR-parent-report-book`. How the parent sees a rating whose shelf entry is gone is open (see `UC-SHLF-kid-remove-book` Open Issues).
 
 **Priority:** Medium — `BR-parent-shelf-removal` is confirmed, but removal is an occasional correction rather than a routine step.\
 **Frequency of Use:** Occasional; a few times per family per month (estimate).\
@@ -1588,7 +1677,6 @@ Quality attributes: `ROB-no-data-loss` (a failed removal leaves the book on the 
 **Open Issues:**
 - Notice wording, and whether the child sees a reason, are not specified (`BR-parent-shelf-removal` requires only that a notice is shown).
 - Whether a removed book can be recommended again, for example by a later quiz, is not specified.
-- Whether the parent's review under `BR-24hr-review-window` depends on this action is unresolved (`OI-16`).
 
 ---
 
@@ -1673,7 +1761,7 @@ Search matches standard catalog fields only. Whether custom tags (`UC-ADM-add-co
 
 ## [ADM] Admin Feature Area
 
-_The system admin operates the catalog and the system and receives safety alerts. The admin sees no child's details except in flagged-content review: the admin may see parent credentials and the number of child accounts under each parent (`BR-admin-limited-view`), and `UC-ADM-flag-review` is the one exception, with every view recorded. That exception is the team's position (2026-10-26, `KD-admin-flag-review`) and still needs the client's confirmation (`OI-15`). Admin account creation (`UC-ADM-add-admin`) is post-MVP and not written here._
+_The system admin operates the catalog and the system and receives safety alerts. The admin sees no child's identifying details except in flagged-content review: the admin may see parent credentials and the number of child accounts under each parent, and may look at child-level usage data by internal child ID, never with a name (`BR-admin-limited-view`). `UC-ADM-flag-review` is the one exception for identifying details, with every view recorded. That exception is the team's position (2026-10-26, `KD-admin-flag-review`) and still needs the client's confirmation (`OI-15`). Admin account creation (`UC-ADM-add-admin`) is post-MVP and not written here._
 
 ### UC-ADM-add-content: Add a Book to the Seed Catalog
 
@@ -1683,7 +1771,7 @@ _The system admin operates the catalog and the system and receives safety alerts
 **Primary Actor:** A System Admin\
 **Secondary Actors:** none\
 **Trigger:** The admin taps "Add Book" in catalog management.\
-**Description:** An admin adds one book, with its tags, to the seed catalog so the recommender can offer it. Bulk loading from the approved dataset is a separate import (`SI-book-dataset`) and is not covered here. This corresponds to `FEAT-book-tagging` and `FR-ADM-catalog`.
+**Description:** An admin adds one book, with its tags, to the seed catalog so the recommender can offer it. Bulk loading of the curated seed catalog (`BookBuddies_Seed_Catalog.xlsx`, 134 tagged books) is a separate hand-run import (`SI-book-dataset`, `KD-catalog-import-offline`) and is not covered here; the catalog is structured so it can later grow to thousands of titles through Open Library without being rebuilt (client answers 2026-10-28, Q11). This corresponds to `FEAT-book-tagging` and `FR-ADM-catalog`.
 
 **Preconditions:**
 
@@ -1698,8 +1786,8 @@ _The system admin operates the catalog and the system and receives safety alerts
 **Main Success Scenario:**
 
 1. The admin taps "Add Book."
-2. The system displays the book form: title, author, ISBN, tag fields for genre, mood, format, themes, length, age fit, and reading level, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
-3. The admin enters the book's details, chooses standard tags, and adds custom tags by choosing an existing custom tag or typing a new one.
+2. The system displays the book form: title, author, ISBN, Open Library ID, series name, series number, tag fields for genre, mood, format, themes, length, age fit, and reading level, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
+3. The admin enters the book's details (the system assigns an internal book ID on save), chooses standard tags, and adds custom tags by choosing an existing custom tag or typing a new one.
 4. The system validates the required fields, checks each standard tag value against its approved list, and normalizes each custom tag (trims spaces and ignores letter case).
 5. The system checks that the book is not already in the catalog.
 6. The system saves the book.
@@ -1717,8 +1805,8 @@ _The system admin operates the catalog and the system and receives safety alerts
 - 6a. Saving fails. The system shows an error and saves nothing; no partial book is left behind.
 - 6b. The book is saved without all required tags. The system saves it as not yet recommendable, so no child is offered a book that lacks the tags the rules engine needs (team proposal; the required tag set is TBD).
 
-**Priority:** Medium — `FEAT-book-tagging` is in the MVP per `vision-and-scope.md` v0.4. Building it is blocked until the seed-catalog source and tag lists are settled (`OI-1`).\
-**Frequency of Use:** Heavy during the initial catalog load of about 30–50 books, then occasional.\
+**Priority:** Medium — `FEAT-book-tagging` is in the MVP per `vision-and-scope.md` v0.4. The seed-catalog source is settled (the client's curated 134-book spreadsheet, Q11); the approved tag lists still have to be taken from it.\
+**Frequency of Use:** Occasional; the 134-book seed catalog is loaded by the import script, not through this use case.\
 **Business Rules:** None in `business-rules.md` governs catalog content directly. Age-appropriate catalog content is required by `SAF-child-content` in the SRS.
 
 **Associated Information:**
@@ -1727,17 +1815,20 @@ _The system admin operates the catalog and the system and receives safety alerts
 |-----------------------------------------------------------------------------|------------------------------|------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|--------------------|
 | Title                                                                       | string                       | required                                                                                                                     | Admin-set; visible to children and parents                                 | Seed Catalog       |
 | Author                                                                      | string                       | required                                                                                                                     | Admin-set; visible to children and parents                                 | Seed Catalog       |
-| ISBN                                                                        | string                       | optional; must be a valid ISBN-10 or ISBN-13 when given (team proposal)                                                      | Admin-set                                                                  | —                  |
-| Standard tags (genre, mood, format, themes, length, age fit, reading level) | enum each                    | each value must come from its approved list; lists TBD (`OI-1`)                                                              | Admin-set; used by the recommender                                         | —                  |
+| Internal book ID                                                            | opaque identifier            | system-generated; unique; never reused; the key every other record uses                                                     | System-set; the ISBN and Open Library ID are only for matching to outside records | —                  |
+| ISBN                                                                        | string                       | optional; must be a valid ISBN-10 or ISBN-13 when given (team proposal)                                                      | Admin-set; used for external matching                                      | —                  |
+| Open Library ID                                                             | string                       | optional; unique when given                                                                                                  | Admin-set; used for external matching and later catalog expansion          | —                  |
+| Series name, series number                                                  | string, integer              | optional; series number only with a series name                                                                              | Admin-set; visible to children and parents                                 | —                  |
+| Standard tags (genre, mood, format, themes, length, age fit, reading level) | enum each                    | each value must come from its approved list; lists still to be extracted from the seed spreadsheet                                                              | Admin-set; used by the recommender                                         | —                  |
 | Custom tags                                                                 | list of strings              | optional; each entry trimmed and case-normalized; 1–30 characters; must not duplicate an existing custom tag (team proposal) | Admin-created; shared across the catalog; whether children see them is TBD | —                  |
-| Catalog status                                                              | enum: draft, active, blocked | system-set; new books are draft until tagged, then active                                                                    | Admin-visible; see `UC-ADM-block-content`                                  | —                  |
+| Catalog status                                                              | enum: draft, active, blocked | system-set; new books are draft until tagged, then active; only active books can be recommended (maps to the seed spreadsheet's Status field; mapping TBD) | Admin-visible; see `UC-ADM-block-content`                                  | —                  |
 
 Only the admin role may write catalog data (`SEC-role-authorization`). A failed save leaves the catalog unchanged.
 
 **Related Use Cases:** `UC-ADM-block-content` (the reverse action); `UC-PAR-suggest-book` (requires the book to exist in the catalog); `UC-REC-recommend-quiz-rules` (draws only from active, tagged books)\
-**Assumptions:** The seed catalog is loaded in bulk from the approved dataset, and this use case handles single additions and corrections of new entries only. Custom tags are free-form labels for the admin's own use. They are shared across the catalog, they do not replace standard tags, and the rules engine does not use them unless the client says so.\
+**Assumptions:** The seed catalog is loaded in bulk from the client's spreadsheet, and the spreadsheet's "Kid Testing Reaction" column is test-profile data, not catalog data (Q11). This use case handles single additions and corrections of new entries only. Custom tags are free-form labels for the admin's own use. They are shared across the catalog, they do not replace standard tags, and the rules engine does not use them unless the client says so.\
 **Open Issues:**
-- The catalog's source dataset is not chosen (`OI-1`), so there is no approved tag list to validate against.
+- The source is now the curated seed spreadsheet (`OI-1` resolved by the client, Q11), but the approved tag lists still have to be extracted from it, and how its Status values map to draft, active and blocked is not specified.
 - Whether custom tags such as "Cute," "Scary but Warming," and "Friends" are shown to children, used by the rules-based recommender, or used only for admin browsing is not specified.
 - Who may create custom tags, rename them, or delete them is not specified. This use case allows any admin to create one.
 - The normalization rule (case, spacing, and whether plurals such as "Friend" and "Friends" are merged) and the 30-character limit are team proposals that need client input.
@@ -1765,13 +1856,13 @@ Only the admin role may write catalog data (`SEC-role-authorization`). A failed 
 
 - POST-1. The book's details and tags are the edited values, with the admin and the time recorded.
 - POST-2. The book's status matches its tags: a draft book with all required tags becomes active, and an active book that loses a required tag returns to draft. A blocked book stays blocked.
-- POST-3. Shelf entries, ratings, reflections and per-child exclusions that refer to the book are unchanged; they refer to the book, not to its details.
+- POST-3. Shelf entries, ratings and per-child exclusions that refer to the book are unchanged; they refer to the book, not to its details.
 - POST-4. The edit is recorded in the audit log (architecture §8.2.9).
 
 **Main Success Scenario:**
 
 1. The admin opens a book and taps "Edit."
-2. The system displays the same form as `UC-ADM-add-content`, filled in with the book's current title, author, ISBN, standard tags and custom tags, and shows its status.
+2. The system displays the same form as `UC-ADM-add-content`, filled in with the book's current title, author, ISBN, Open Library ID, series name and number, standard tags and custom tags, and shows its status.
 3. The admin changes one or more values.
 4. The system validates them as in `UC-ADM-add-content` steps 4–5: required fields, standard tags against their approved lists, normalized custom tags, and no duplicate of another book.
 5. The system saves the changes and sets the status by POST-2.
@@ -1802,7 +1893,7 @@ Fields and validation are those of `UC-ADM-add-content`, plus:
 A change to a book's tags affects only future recommendations. Batches already generated are not recomputed.
 
 **Related Use Cases:** `UC-ADM-add-content` (the form and its rules); `UC-ADM-block-content` and `UC-ADM-unblock-content` (the other status changes); `UC-ADM-view-audit-log` (where edits are recorded)\
-**Assumptions:** Status follows the tags automatically; the admin cannot set a book active by hand. Editing a blocked book does not unblock it.\
+**Assumptions:** Status follows the tags automatically; the admin cannot set a book active by hand. Editing a blocked book does not unblock it. The internal book ID never changes.\
 **Open Issues:**
 - Whether the next catalog import may overwrite an admin's edits is not specified (`KD-catalog-import-offline`).
 - Renaming or deleting a custom tag across the whole catalog is not covered (`UC-ADM-add-content` Open Issues).
@@ -1817,7 +1908,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 **Primary Actor:** A System Admin\
 **Secondary Actors:** none\
 **Trigger:** The admin opens the list of reported books, or taps "Block book" on a catalog book.\
-**Description:** An admin removes a catalog book from every child's view and from every recommendation list. This is the admin's content-safety control under `SAF-child-content`. Parents' reports (`UC-PAR-report-book`) arrive in a list of reported books, where the admin can block a book or discard its reports with one tap and a confirmation. The admin may also open any book in the catalog and block it without going through the list. If a single report looks false, the admin can warn that parent not to send false reports. Blocking deletes every child's rating and reflection for the book, and the admin is told so before confirming.
+**Description:** An admin removes a catalog book from every child's view and from every recommendation list. This is the admin's content-safety control under `SAF-child-content`. Parents' reports (`UC-PAR-report-book`) arrive in a list of reported books, where the admin can block a book or discard its reports with one tap and a confirmation. The admin may also open any book in the catalog and block it without going through the list. If a single report looks false, the admin can warn that parent not to send false reports. Blocking removes the book from every shelf but keeps ratings, finish confirmations and finish notes, so unblocking loses only the shelf entries.
 
 **Preconditions:**
 
@@ -1829,7 +1920,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 
 - POST-1. If blocked: the book's status is blocked, with the reason, the admin, and the time recorded.
 - POST-2. If blocked: the book does not appear in any recommendation, quiz result, or keyword search result (`FEAT-manual-search`), and is removed from every child's recommendation list.
-- POST-3. If blocked: every shelf entry for the book is removed, and every child's rating and reflection for it is deleted.
+- POST-3. If blocked: every shelf entry for the book is removed. Ratings, finish confirmations and finish notes are kept.
 - POST-4. If blocked from the list: every open report for the book is marked blocked.
 - POST-5. If discarded: the open reports for the book are marked discarded and the book stays in the catalog. The per-child exclusions that parents created are not changed.
 - POST-6. If a parent was warned: that report is marked discarded, the parent has an in-app warning, and the book's other reports are unchanged.
@@ -1840,9 +1931,9 @@ A change to a book's tags affects only future recommendations. Batches already g
 2. The system displays every book with at least one open report, newest first. Each row shows the title, the number of open reports, and the reasons given. It shows no child or parent name.
 3. The admin selects a book and reads its reports: the reasons, any comments, and the opaque account references.
 4. The admin taps "Block book" on the row or on the book's page.
-5. The system tells the admin that blocking deletes every child's rating and reflection for this book and removes it from every shelf, shows how many shelf entries, ratings, and reflections are affected, and asks the admin to choose a reason and confirm.
+5. The system tells the admin that blocking removes it from every shelf (ratings and finish notes are kept), shows how many shelf entries are affected, and asks the admin to choose a reason and confirm.
 6. The admin chooses a reason and confirms.
-7. The system sets the book to blocked, removes it from recommendation lists and search results, deletes the shelf entries, ratings, and reflections, and marks the book's open reports as blocked, in one save.
+7. The system sets the book to blocked, removes it from recommendation lists and search results, removes the shelf entries, and marks the book's open reports as blocked, in one save.
 8. The system shows the book as blocked and returns the admin to the list. Use case ends.
 
 **Extensions:**
@@ -1854,9 +1945,8 @@ A change to a book's tags affects only future recommendations. Batches already g
 - 4b. The book is already blocked, for example by another admin. The system shows its status and the recorded reason and marks the open reports blocked; no other change.
 - 5a. The admin cancels. No change; the report stays open.
 - 6a. No reason is chosen. The system does not allow confirmation.
-- 7a. Removing the book from lists, shelves, or ratings fails part way. The system does not commit the block, shows an error, and the admin may retry. The book is never left half-blocked.
+- 7a. Removing the book from lists or shelves fails part way. The system does not commit the block, shows an error, and the admin may retry. The book is never left half-blocked.
 - 7b. A child has the book open when it is blocked. The book is hidden the next time the child's screen loads; the system does not force-close the child's session.
-- 7c. A reflection the block would delete is safety-flagged. In the same save, the system first copies it to the dangerous content list with its flag category, then deletes it with the rest; an entry already on the list is not changed. Team decision 2026-10-15, for the client to confirm (`OI-24`).
 
 **Priority:** High — this is the admin's safety control over what children see.\
 **Frequency of Use:** Rare; only when content is reported or an error is found.\
@@ -1873,13 +1963,13 @@ A change to a book's tags affects only future recommendations. Batches already g
 | Reported book        | catalog book with its open reports                                          | system-set; one row per book, not per report                                                | Admin-only; no child or parent name; account references are opaque (`BR-admin-limited-view`)                    | —                  |
 | Report status        | enum: open, blocked, discarded                                              | set only by blocking, discarding, or warning, each with confirmation                        | Admin-visible; a discarded report does not undo any parent's per-child exclusion                                | —                  |
 | False-report warning | in-app message                                                              | sent only by the admin, one report at a time; fixed wording; never names the book's outcome | Visible to the reporting parent only; the admin sees the account only as an opaque reference                    | —                  |
-| Affected counts      | integers: shelf entries, ratings, reflections                               | system-computed before confirmation                                                         | Admin-only; shown only as numbers, never the child's content                                                    | —                  |
+| Affected counts      | integers: shelf entries                                        | system-computed before confirmation                                                         | Admin-only; shown only as numbers, never the child's content                                                    | —                  |
 
-**Related Use Cases:** `UC-PAR-report-book` (creates the reports in the list); `UC-ADM-suspend-parent-account` (the admin's manual punishment for a repeated false report); `UC-ADM-add-content` (the book was added there); `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` (how a blocked book appears); `UC-SHLF-kid-rate-book` and `UC-SHLF-kid-add-note` (the ratings and reflections deleted by a block); `UC-REC-recommend-quiz-rules` (no longer offers blocked books)\
-**Assumptions:** Blocking is reversed by `UC-ADM-unblock-content`, which does not bring back what the block deleted. Discarding a report closes it in the list only; it does not give the book back to the child it was reported for. Neither the child nor the parent is told when a block deletes a rating or reflection. The reporting parent is not told whether a report was acted on, except for the false-report warning.\
+**Related Use Cases:** `UC-PAR-report-book` (creates the reports in the list); `UC-ADM-suspend-parent-account` (the admin's manual punishment for a repeated false report); `UC-ADM-add-content` (the book was added there); `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` (how a blocked book appears); `UC-SHLF-kid-rate-book` (ratings are kept when a book is blocked); `UC-REC-recommend-quiz-rules` (no longer offers blocked books)\
+**Assumptions:** Blocking is reversed by `UC-ADM-unblock-content`, which does not bring back the shelf entries the block removed. Discarding a report closes it in the list only; it does not give the book back to the child it was reported for. Neither the child nor the parent is told when a block removes a book from a shelf. The reporting parent is not told whether a report was acted on, except for the false-report warning.\
 **Open Issues:**
 - The reason list is a team proposal and needs client input.
-- Keeping a flagged reflection on a block (7c) is a team decision awaiting the client (`OI-24`). The retention statements in `UC-SHLF-kid-remove-book` and `UC-SHLF-kid-add-note` cover the child's own removal and deletion, not a block.
+- `OI-24` (keeping a flagged reflection on a block) no longer applies, because reflections were removed on 2026-10-28; a flagged parent note is not tied to a book.
 - Unblocking is `UC-ADM-unblock-content`.
 - When a Sub Parent's report is warned about, whether the Main Parent also gets the warning is not specified.
 - The warning's exact wording and whether a count of warnings leads to suspension are not specified.
@@ -1905,7 +1995,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 
 - POST-1. The book's status is active, or draft if it lacks the required tags (`UC-ADM-add-content` 6b), with the reason, the admin and the time recorded. The block's own record is kept.
 - POST-2. The book can appear in new recommendations and search results again, except for children with a per-child exclusion for it (`BR-parent-report-book`).
-- POST-3. The shelf entries, ratings and reflections the block deleted stay deleted, and the reports it closed stay closed.
+- POST-3. The shelf entries the block removed stay removed; ratings, finish confirmations and finish notes were never deleted and are still there, and the reports it closed stay closed.
 - POST-4. Dangerous content list entries made when the book was blocked are unchanged.
 
 **Main Success Scenario:**
@@ -1954,7 +2044,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 **Primary Actor:** A System Admin\
 **Secondary Actors:** A Parent (is notified of the suspension)\
 **Trigger:** The admin taps "Suspend account" on a child account.\
-**Description:** An admin suspends a child's account so the child can no longer sign in or request recommendations, while keeping the account's data. The admin has the authority to suspend accounts (team decision, 2026-10-26: the client is, in practice, the system admin). The suspension that follows a flagged reflection is covered by `UC-ADM-flag-review`; this use case is a suspension on any other ground. The automatic 24-hour review suspension (`BR-24hr-review-window`) is unconfirmed (`OI-16`) and is not part of this use case.
+**Description:** An admin suspends a child's account so the child can no longer sign in or request recommendations, while keeping the account's data. The admin has the authority to suspend accounts (team decision, 2026-10-26: the client is, in practice, the system admin). The suspension that follows a flagged parent note is covered by `UC-ADM-flag-review`; this use case is a suspension on any other ground. The automatic 24-hour review suspension was dropped by the client (answers 2026-10-28, Q10) and is not part of the product.
 
 **Preconditions:**
 
@@ -1988,20 +2078,20 @@ A change to a book's tags affects only future recommendations. Batches already g
 
 **Priority:** Medium — the admin's authority is settled; the list of grounds is still a team proposal (see Open Issues).\
 **Frequency of Use:** Rare.\
-**Business Rules:** `BR-24hr-review-window` (flagged for reconfirmation; applies only if it stands), `BR-admin-limited-view`
+**Business Rules:** `BR-admin-limited-view`
 
 **Associated Information:**
 
 | Property name     | Data type                                                                              | Validation rule                                        | Security or access concerns                             | Glossary reference |
 |-------------------|----------------------------------------------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------|--------------------|
 | Account status    | enum: active, suspended                                                                | required; changed only by this use case or its reverse | Admin-visible; parent-visible                           | —                  |
-| Suspension reason | enum: safety flag, review non-compliance, multiple spam reports, other (team proposal) | required when suspending                               | Admin-visible; parent-visible                           | —                  |
+| Suspension reason | enum: safety flag, multiple spam reports, other (team proposal) | required when suspending                               | Admin-visible; parent-visible                           | —                  |
 | Account reference | opaque identifier                                                                      | required; never derived from the child's name          | Admin-visible; the only child identifier the admin sees | —                  |
 
-**Related Use Cases:** `UC-ADM-reinstate-account` (the reverse action); `UC-ADM-flag-review` (the suspension that follows a flagged reflection); `UC-ADM-block-content` (the other admin control); `UC-REC-parent-review` (a suspended child receives no recommendations)\
+**Related Use Cases:** `UC-ADM-reinstate-account` (the reverse action); `UC-ADM-flag-review` (the suspension that follows a flagged parent note); `UC-ADM-block-content` (the other admin control); `UC-REC-parent-review` (a suspended child receives no recommendations)\
 **Assumptions:** Suspension is not deletion; the child's data stays on record. Reinstatement is `UC-ADM-reinstate-account`.\
 **Open Issues:**
-- **Grounds:** The reason list is a team proposal. Whether an unreviewed 24-hour window can suspend an account depends on `OI-16`.
+- **Grounds:** The reason list is a team proposal. "Review non-compliance" was removed with the 24-hour review rule (client answers 2026-10-28, Q10).
 - **Parent accounts:** suspending a parent account, for example for repeated false reports, is `UC-ADM-suspend-parent-account`.
 - **Notification channel:** in-app only. The 2026-09-24 notes rule out SMS and push for the web app (`client-interview-2026-09-24.md` §5; `CI-in-app-alerts`).
 
@@ -2142,7 +2232,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 **Primary Actor:** A System Admin\
 **Secondary Actors:** none\
 **Trigger:** The admin opens the recommender statistics page.\
-**Description:** An admin sees aggregate figures on how the recommender is performing, such as how many quiz requests were made and how often recommendations were accepted, deferred, or declined. The admin sees totals only, never a per-child row. The contents are not yet decided (SRS §7.3).
+**Description:** An admin sees aggregate figures on how the recommender is performing, such as how many quiz requests were made, how often recommendations were accepted, deferred, or declined, and the V1 rating measures: the share of weekly check-in notifications that led to a rating within 7 days (client target 30% or more) and the share of active families who rated at least one book in the past 30 days (target 30% or more) (client answers 2026-10-28, Q14). The admin sees totals only, never a per-child row. The rest of the contents are not yet decided (SRS §7.3).
 
 **Preconditions:**
 
@@ -2180,12 +2270,12 @@ A change to a book's tags affects only future recommendations. Batches already g
 | Aggregate figures    | counts and rates    | each figure must meet the small-cell threshold in 3b | Admin-only; no child identifiers, names, ages, or grades | Recommender        |
 | Small-cell threshold | integer             | 5 (team proposal; client to confirm)                 | Not shown to the admin                                   | —                  |
 
-The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
+The two rating measures are set by the client (Q14); the rest of the figure list is TBD (SRS §7.3). They are reported from aggregate or de-identified data. The AI-mode figures are post-MVP.
 
 **Related Use Cases:** `UC-ADM-view-usage-stats` (sister page); `UC-REC-recommend-quiz-rules` and `UC-REC-kid-review` (the source of the figures)\
 **Assumptions:** The figures are computed from stored data on demand and do not need a live feed.\
 **Open Issues:**
-- The figure list and the small-cell threshold need client input.
+- The figure list beyond the two rating measures, and the small-cell threshold, need client input. The notification measure depends on the weekly check-in notification (`FR-NOT-weekly-reminder`).
 - Whether book-level figures (for example, how often a book is declined across all children) are acceptable under `BR-admin-limited-view` is undecided.
 
 ---
@@ -2198,7 +2288,7 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 **Primary Actor:** A System Admin\
 **Secondary Actors:** none\
 **Trigger:** The admin opens the usage statistics page.\
-**Description:** An admin sees aggregate usage figures for the system, such as the number of parent accounts, the number of child accounts per parent, and how many accounts were active in a period. The admin sees totals only. Contents are not yet decided (SRS §7.3).
+**Description:** An admin sees aggregate usage figures for the system, such as the number of parent accounts, the number of child accounts per parent, and how many accounts were active in a period. It also reports the client's V1 engagement measures: day-30 retention (the share of families who return within 30 days of sign-up; target 25% or more) and weekly active families (the share of families with at least one meaningful action in a week: a rating, a shelf save, or a "not for me" response) (client answers 2026-10-28, Q14). The aggregate figures are totals only, from aggregate or de-identified data. The admin can also look up one child by internal child ID to see that child's usage data over time (reading interests, recommendation responses, shelf activity and ratings), never a name or other identifying detail, so the admin can understand how the product is used (client answers 2026-10-28, Q5, Q14). Each lookup is recorded in the audit log. The rest of the contents are not yet decided (SRS §7.3).
 
 **Preconditions:**
 
@@ -2207,7 +2297,8 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 **Postconditions:**
 
 - POST-1. The aggregate figures for the chosen date range have been displayed.
-- POST-2. No data has been changed.
+- POST-2. No usage or account data has been changed.
+- POST-3. Each child lookup has added one entry to the audit log (`UC-ADM-view-audit-log`).
 
 **Main Success Scenario:**
 
@@ -2215,7 +2306,11 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 2. The system selects the last 30 days as the default date range (team proposal).
 3. The system computes the figures from stored account and activity records.
 4. The system displays each figure with its date range.
-5. The admin changes the date range, and the system recomputes the figures. Use case ends when the admin leaves the page.
+5. The admin changes the date range, and the system recomputes the figures.
+6. The admin enters one child's internal child ID in the child lookup.
+7. The system checks the ID, records the lookup in the audit log (the admin's account, the child ID and the time), and loads that child's usage data for the date range.
+8. The system displays that data under the internal child ID only: reading interests over time, recommendation responses (accepted, deferred or declined, with the decline reasons), shelf activity, and ratings, each with its date.
+9. The admin returns to the aggregate figures or enters another ID. Use case ends when the admin leaves the page.
 
 **Extensions:**
 
@@ -2223,10 +2318,15 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 - 3b. A figure would describe fewer than 5 accounts (team proposal). The system shows "not enough data" for that figure.
 - 3c. The computation fails. The system shows an error and no partial figures.
 - 5a. The admin enters an invalid range. The system rejects it and keeps the previous range.
+- 7a. The ID is not in the valid format. The system rejects it and records nothing.
+- 7b. No child has that ID, the child's data was deleted (`UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account`, retention), or the parent revoked consent for the child (`UC-PAR-revoke-consent`, which stops all use of the data). The system shows the same "no data for this ID" message in both cases, so the page does not confirm which IDs exist. The lookup is still recorded.
+- 7c. The audit entry cannot be written. The system does not show the child's data (the record and the view are one step).
+- 8a. The child has no activity in the date range. The system shows an empty-state message.
+- 8b. The lookup never shows the child's nickname, avatar, username, age, grade, reading level, parent note or anything about the parent. The small-number rule in 3b does not apply to a single child.
 
 **Priority:** Low — needed for operating the system, not for the child or parent experience.\
 **Frequency of Use:** Occasional; about once a week per admin (estimate).\
-**Business Rules:** `BR-admin-limited-view` (the admin may see the number of child accounts under each parent, and nothing else about a child)
+**Business Rules:** `BR-admin-limited-view` (the admin may see the number of child accounts under each parent and, by internal child ID, a child's usage data, and nothing else about a child)
 
 **Associated Information:**
 
@@ -2235,12 +2335,17 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 | Date range            | start and end dates | required; end not before start                                 | Admin-only                                        | —                  |
 | Account counts        | integers            | parent accounts overall; child accounts per parent             | Admin-only; parent credentials are not shown here | —                  |
 | Active account counts | integers            | a figure below 5 is shown as "not enough data" (team proposal) | Admin-only                                        | —                  |
+| Day-30 retention      | percentage          | families who return within 30 days of sign-up, over all families who signed up in the range | Admin-only; aggregate only | —                  |
+| Weekly active families | percentage         | families with at least one meaningful action in the week (rating, shelf save, "not for me") | Admin-only; aggregate only | —                  |
+| Internal child ID      | opaque identifier  | required for the child lookup; must match the system's ID format                              | Admin-only; never shown with a name; each lookup is audit-logged | —  |
+| Child usage data       | records by date    | reading interests, recommendation responses and decline reasons, shelf activity, ratings; nothing identifying | Admin-only; shown only under the internal child ID | —  |
 
-**Related Use Cases:** `UC-ADM-view-recommender-stats` (sister page); `UC-PAR-onboarding` and `UC-PAR-create-kid-account` (the source of account records)\
-**Assumptions:** "Active" means a session in the date range; the definition is a team proposal.\
+**Related Use Cases:** `UC-ADM-view-recommender-stats` (sister page); `UC-ADM-view-audit-log` (shows each child lookup); `UC-PAR-onboarding` and `UC-PAR-create-kid-account` (the source of account records)\
+**Assumptions:** "Active" means a session in the date range for the general figures; the definition is a team proposal. The V1 measure "weekly active families" is stricter: a rating, a shelf save or a "not for me" response (client answers 2026-10-28, Q14). The admin learns a child's ID from outside this page, for example from a test-profile list or the client's own records; this use case does not list IDs. Usage data is a stored record of what the child did, not child details.\
 **Open Issues:**
-- The figure list, and the definition of "active," need client input.
-- The success metrics in `vision-and-scope.md` §2.3 have no targets yet, so this page has no thresholds to report against.
+- The figure list beyond the two measures above, and the definition of "active," need client input.
+- The client set targets for two measures (Q14) but said other success metrics may stay open; `vision-and-scope.md` §2.3 records them.
+- **Child-level lookup.** `BR-admin-limited-view` allows it, and architecture `KD-admin-usage-lookup` names the path (usage data under an opaque ID, no identifying fields). The client's list of usage data (Q5) is the field list above; whether more is wanted is open.
 
 ---
 
@@ -2252,7 +2357,7 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 **Primary Actor:** A System Admin\
 **Secondary Actors:** none\
 **Trigger:** The admin opens the audit log.\
-**Description:** An admin looks up who did what, to which record, and when: for example, who removed a book from a child's shelf, whether a parent was alerted about a flag, or who viewed a flagged child's details. The log is append-only and holds IDs, never child details or reflection text (architecture §8.2.9). It also supports the yearly review the COPPA security program requires (`SEC-coppa-program`). This corresponds to `FEAT-admin-pii-segregation`.
+**Description:** An admin looks up who did what, to which record, and when: for example, who removed a book from a child's shelf, whether a parent was alerted about a flag, or who viewed a flagged child's details. The log is append-only and holds IDs, never child details or parent note text (architecture §8.2.9). It also supports the yearly review the COPPA security program requires (`SEC-coppa-program`). This corresponds to `FEAT-admin-pii-segregation`.
 
 **Preconditions:**
 
@@ -2288,9 +2393,9 @@ The figure list is TBD (SRS §7.3). The AI-mode figures are post-MVP.
 
 | Property name    | Data type                                         | Validation rule                          | Security or access concerns                                                        | Glossary reference |
 |------------------|---------------------------------------------------|------------------------------------------|------------------------------------------------------------------------------------|--------------------|
-| Audit entry      | record: time, actor reference and role, action, record reference | system-set; append-only; never edited | Admin-only; holds IDs only, never child-identifying fields or reflection text   | —                  |
+| Audit entry      | record: time, actor reference and role, action, record reference | system-set; append-only; never edited | Admin-only; holds IDs only, never child-identifying fields or parent note text    | —                  |
 | Action type      | enum of the actions in architecture §8.2.9        | fixed list                               | —                                                                                  | —                  |
-| Filters          | date range, action type, actor, account reference | end not before start                     | Filtering by a child's real name is not possible, because names are not in the log | —                  |
+| Filters          | date range, action type, actor, account reference | end not before start                     | Filtering by a child's name is not possible, because names are not in the log | —                  |
 
 Entries carry account references, which the admin resolves to a child only through flagged-content review (`UC-ADM-flag-review`), so the log never becomes a second route to child details (`KD-admin-flag-review`).
 
@@ -2298,19 +2403,20 @@ Entries carry account references, which the admin resolves to a child only throu
 **Assumptions:** There is no export of the log in the MVP (team proposal).\
 **Open Issues:**
 - **Who checks the admin.** The client is, in practice, the only admin, so the person whose actions are logged is the one reading the log. Whether someone else should review admin actions, for example views of child details in flag review, is not specified (`SEC-coppa-program`, `OI-20`).
+- The client asked whether a basic access log is appropriate and feasible for V1 (Q5, answers 2026-10-28). This log is that access log: it already records every view of a flagged note and its account details, and records each child-level usage lookup in `UC-ADM-view-usage-stats` (admin account, internal child ID and time).
 - How long audit entries are kept is not set; it belongs in the retention policy (`BR-coppa-retention`, `OI-22`).
 
 ---
 
-### UC-ADM-flag-review: Review Flagged Reflections
+### UC-ADM-flag-review: Review Flagged Parent Notes
 
-**UC ID and Name:** `UC-ADM-flag-review`: Review Flagged Reflections\
+**UC ID and Name:** `UC-ADM-flag-review`: Review Flagged Parent Notes\
 **Created By:** _Claude_\
 **Date Created:** _2026-10-06_\
 **Primary Actor:** A System Admin\
 **Secondary Actors:** A Parent (is notified if the account is suspended)\
-**Trigger:** The admin opens the flagged content list, or taps an in-app alert about a flagged reflection (`UC-SHLF-kid-add-note` step 6).\
-**Description:** An admin views a list of reflections the system has flagged, opens an entry to see the flagged content with the detected passages highlighted, and sees the account behind it. The admin then either suspends the account or unflags the content, and each choice needs a further confirmation. **This is the only use case in which `BR-admin-limited-view` does not apply.** For security and safety reasons, the admin sees the child's real name and account details here, and nowhere else, and every view is recorded. This is the team's position (2026-10-26, `KD-admin-flag-review`), for the client to confirm (`OI-15`). A suspension saves the content to a list of dangerous content and notifies the parent. The suspension confirmation asks whether the content breaks only the app's conduct rules or also breaks the law and should be marked for escalation.
+**Trigger:** The admin opens the flagged content list, or taps an in-app alert about a flagged parent note (`UC-PAR-create-kid-account` step 5.1 or `UC-SHLF-par-finish-book` step 8).\
+**Description:** An admin views a list of parent notes that the internal word list has flagged, whether entered at child setup or after confirming a finished book, opens an entry to see the note with the matched passages highlighted, and sees enough of the account behind it to judge it. The admin then either suspends the account or unflags the content, and each choice needs a further confirmation. Nothing happens automatically and nothing is sent to an outside party or service (client answers 2026-10-28, Q4 and Q6). **This is the only use case in which `BR-admin-limited-view` does not apply.** For security and safety reasons, the admin sees the child's nickname, internal child ID and account details here, and nowhere else, and every view is recorded. The system holds no real name for the child. This is the team's position (2026-10-26, `KD-admin-flag-review`), for the client to confirm (`OI-15`). A suspension saves the content to a list of dangerous content and notifies the parent. The suspension confirmation asks whether the content breaks only the app's conduct rules or also breaks the law and should be marked for escalation.
 
 **Preconditions:**
 
@@ -2327,10 +2433,10 @@ Entries carry account references, which the admin resolves to a child only throu
 **Main Success Scenario:**
 
 1. The admin opens the flagged content list.
-2. The system displays the open flagged reflections, newest first. Each row shows the flag category, and the date flagged. It does not show the child's name or any content in the list.
+2. The system displays the open flagged parent notes, newest first. Each row shows the flag category, and the date flagged. It does not show the child's name or any content in the list.
 3. The admin taps an entry.
 4. The system displays the flagged content in full, with the passages that triggered the flag highlighted, and the flag category.
-5. The system displays information about the account: the child's real name, age, grade, and username, the account status, the parent's name and email, and the number of earlier flags on the account. The system records the access (POST-4).
+5. The system displays information about the account: the child's nickname, internal child ID, age, grade, and username, the account status, the parent's name and email, and the number of earlier flags on the account. The system records the access (POST-4).
 6. The admin taps "Suspend account."
 7. The system displays a suspension confirmation screen. It asks the admin to choose one of two classifications: the content breaks only the app's conduct rules, or the content broke the law and should be marked for further escalation.
 8. The admin chooses a classification and confirms the suspension.
@@ -2344,8 +2450,8 @@ Entries carry account references, which the admin resolves to a child only throu
 - 2a. There is no open flagged content. The system shows an empty-list message.
 - 2b. The list cannot load. The system shows a retry message and no partial list.
 - 3a. The entry was resolved by another admin since the list loaded. The system tells the admin, shows the recorded outcome, and returns to the list.
-- 4a. The parent has already removed the content from the child's view (`BR-parent-content-removal`). The system still shows its retained copy to the admin and says it was removed by the parent.
-- 4b. No passage can be highlighted, for example because the flag came from the category check alone. The system shows the content without highlights and the flag category.
+- 4a. The parent has since changed or removed the note (`BR-parent-content-removal`). The system still shows its retained copy to the admin and says it was changed or removed by the parent.
+- 4b. No passage can be highlighted. The system shows the content without highlights and the flag category.
 - 5a. The account is already suspended. The system shows its status and does not offer "Suspend account." The admin may still unflag the content (6b) or return to the list.
 - 6a. The admin leaves the entry without choosing. No change; the entry stays open.
 - 6b. The admin taps "Unflag content." The system displays a confirmation asking the admin to confirm that the content does not break the rules. On confirm, the system removes the flag, records the admin, the time, and the decision, marks the entry resolved, and returns to the list. If the admin cancels, no change is made. Use case ends.
@@ -2358,35 +2464,32 @@ Entries carry account references, which the admin resolves to a child only throu
 
 **Priority:** High — flagged content involves violence or self-harm, and the admin needs a way to act on it. Blocked in part by the open issues below.\
 **Frequency of Use:** Rare; only when the content check flags something.\
-**Business Rules:** `BR-note-safety-flagging`, `BR-parent-content-removal`, `BR-notes-visible-to-parent`; `BR-admin-limited-view` is **suspended for this use case only** (see Open Issues)
+**Business Rules:** `BR-note-safety-flagging`, `BR-parent-content-removal`, `BR-parent-note`; `BR-admin-limited-view` is **suspended for this use case only** (see Open Issues)
 
 **Associated Information:**
 
 | Property name                | Data type                                                                                            | Validation rule                                          | Security or access concerns                                                                                        | Glossary reference |
 |------------------------------|------------------------------------------------------------------------------------------------------|----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|--------------------|
-| Flagged entry                | record: reflection content, flag category, detected passages, flagged at, status | status is open or resolved                               | Admin-visible only through this use case; the list shows no content                                                | —                  |
-| Flag category                | enum: violence, self-harm                                                                            | system-set by the content check (`UC-SHLF-kid-add-note`) | Admin-visible here                                                                                                 | —                  |
+| Flagged entry                | record: parent note content, flag category, detected passages, detection method and version, flagged at, status, decision | status is open or resolved                               | Admin-visible only through this use case; the list shows no content                                                | —                  |
+| Flag category                | enum: violence, self-harm                                                                            | system-set by the word-list check (`UC-PAR-create-kid-account`, `UC-SHLF-par-finish-book`) | Admin-visible here                                                                                                 | —                  |
 | Detected passages            | list of character ranges in the content                                                              | system-set; may be empty (4b)                            | Admin-visible here                                                                                                 | —                  |
-| Account information          | child's real name, age, grade, username; account status; parent's name and email; earlier flag count | read-only                                                | Child PII shown to the admin **only** in this use case; each view is recorded; never shown on any other admin page | —                  |
+| Account information          | child's nickname, internal child ID, age, grade, username; account status; parent's name and email; earlier flag count | read-only                                                | Child PII shown to the admin **only** in this use case; each view is recorded; never shown on any other admin page | —                  |
 | Classification               | enum: conduct only, breaks the law (escalate)                                                        | required when suspending                                 | Admin-visible                                                                                                      | —                  |
-| Dangerous content list entry | record: content, flag category, classification, account reference, saved at, saved by                | created by a suspension here, or by a block that deletes a flagged reflection (`UC-ADM-block-content` 7c, `OI-24`); never edited | Admin-only; holds child content and must be protected like the child's data                                        | —                  |
+| Dangerous content list entry | record: content, flag category, classification, account reference, saved at, saved by                | created by a suspension here; never edited | Admin-only; holds child content and must be protected like the child's data                                        | —                  |
 
 Unflagging is the only way an admin clears a flag. An unflagged entry is not saved to the dangerous content list.
 
-**Related Use Cases:** `UC-SHLF-kid-add-note` (raises the flag and the alert that leads here); `UC-ADM-suspend-account` (the same suspension, but this use case adds the content review, classification, and dangerous content list); `UC-SHLF-parent-view-shelf` (where the parent sees the flag marker)\
-**Assumptions:** Only reflections are screened and flagged (`UC-SHLF-kid-add-note`); a rating is one of four fixed options and carries no text, so it cannot be flagged. A flag stays open until an admin resolves it. Any admin may resolve an entry.\
+**Related Use Cases:** `UC-PAR-create-kid-account` and `UC-SHLF-par-finish-book` (raise the flag and the alert that leads here); `UC-ADM-suspend-account` (the same suspension, but this use case adds the content review, classification, and dangerous content list)\
+**Assumptions:** Only parent notes are screened and flagged (`UC-PAR-create-kid-account` and `UC-SHLF-par-finish-book`); children enter no free text, and a rating is one of four fixed options, so neither can be flagged. A flag stays open until an admin resolves it. Any admin may resolve an entry.\
 **Open Issues:**
-- **Exception to `BR-admin-limited-view`:** `business-rules.md` now records this use case as the rule's one exception, as the team's position (2026-10-26). The client still has to confirm it (`OI-15`). The alert in `UC-SHLF-kid-add-note` step 6 carries no content; the admin reads it only here.
+- **Exception to `BR-admin-limited-view`:** `business-rules.md` now records this use case as the rule's one exception, as the team's position (2026-10-26). The client still has to confirm it (`OI-15`). The alerts in `UC-PAR-create-kid-account` step 5.1 and `UC-SHLF-par-finish-book` step 8 carry no content; the admin reads it only here.
 - **Authority:** settled; the admin may suspend accounts (team decision 2026-10-26).
 - **Escalation:** what "further escalation" means, who receives a law-breaking item, and how, is not specified (`OI-18`).
 - **Dangerous content list:** retention period and whether it can be exported are not specified (`OI-27`; the team decided only the admin may view it).
 - **Notifications:** whether the parent is told the reason or the classification, and whether the child is told anything, are not specified. Whether the parent is notified when content is unflagged is also open.
 - **Reinstatement:** `UC-ADM-reinstate-account`. Whether reinstating an account suspended here needs any extra step is open there.
-- **Detection:** how passages are detected and highlighted is not specified; the flag categories are only violence and self-harm.
-
----
-
-_**Gap:** reflections pending deletion (`UC-SHLF-kid-add-note`) have no admin use case.
+- **Detection:** V1 uses an internal word list and human review, with no outside service (client answers 2026-10-28, Q6). The word list and the flag categories (violence, self-harm) are not yet written, and the client may want more categories for parent notes, such as personal information. For later growth, each flag is stored with its detection method and version and the admin's decision, so a better detector or a review queue can be added without reshaping the data.
+- **Reporting outside:** the client wants no report to authorities or anyone else in V1, and wants to learn from testing what parents actually enter before seeking legal advice (Q4). `OI-18` stays open for broader release.
 
 ---
 

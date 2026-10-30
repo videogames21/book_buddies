@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets live in Vercel environment variables and an untracked .env.local (CLAUDE.md)
+.env
+.env*.local
+
+test-results/
+playwright-report/
+tests/e2e/.mongo-uri

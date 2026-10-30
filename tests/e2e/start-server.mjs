@@ -24,8 +24,18 @@ const server = spawn(process.execPath, [nextBin, "dev", "--port", port], {
   },
 });
 
+function stopServer() {
+  // On Windows, kill() stops only the `next` launcher and leaves the server it started
+  // holding the port, so stop the whole process tree.
+  if (process.platform === "win32" && server.pid) {
+    spawn("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
+  } else {
+    server.kill();
+  }
+}
+
 async function shutdown() {
-  server.kill();
+  stopServer();
   await replSet.stop();
   process.exit(0);
 }

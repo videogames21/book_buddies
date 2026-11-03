@@ -176,4 +176,4 @@ On regulation specifically, when asked directly "is there any laws or regulation
 - `OI-account-hierarchy` — must a parent account exist before a child account can be created, and is a later "invite a parent" flow acceptable instead?
 - `OI-next-meeting-date` — no firm next meeting was set; close this immediately by email rather than letting it drift.
 
-_All of the above except `OI-next-meeting-date` (a scheduling item, not a requirements question) are filed in [OPEN-ISSUES.md](OPEN-ISSUES.md) under their numeric IDs (`OI-1` through `OI-14`); each row there cross-references the slug used here._
+_All of the above except `OI-next-meeting-date` (a scheduling item, not a requirements question) are filed in [OPEN-ISSUES.md](../requirements/OPEN-ISSUES.md) under their numeric IDs (`OI-1` through `OI-14`); each row there cross-references the slug used here._

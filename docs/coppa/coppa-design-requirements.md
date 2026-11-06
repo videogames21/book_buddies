@@ -167,7 +167,7 @@ IDs follow the repo's slug style. "Rule" is the controlling provision.
 | Which consent method for a broader release? | `OI-21` | Email-plus accepted for V1 (client answers Q13); still open for release. |
 | Retention period N and the consent-confirmation time. | `OI-22` | Placeholders accepted (12 months, 14 days), configurable; the lawyer sets the real values. |
 | Does the system need the child's real name? | `OI-23` | **Closed 2026-10-28:** no real name is stored (client answers Q3). |
-| Do age and grade both stay as stored fields? | `OI-29` | Open. Touches `COPPA-minimize`. |
+| Do age and grade both stay as stored fields? | `OI-29` | **Resolved 2026-11-05:** both stay and both are required. They are collected only after verified parental consent, for the purpose in `BR-reading-level-proxy` (the team's reading of the rule, not legal advice, `OI-20`). |
 
 ### 6.2 Open issues from other requirements files that change the COPPA design
 

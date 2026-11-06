@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang, Research Scientist, IBR/Knight D Research
-**Version:** 0.9
+**Version:** 0.10
 
 ---
 
@@ -43,6 +43,7 @@ _[These are slugs, like every other identifier in your project, so an inserted d
 | 0.7 | 2026-10-26 | Team 05 (cleanup with Claude) | Cited `SEC-signin-throttling`; marked outside content moderation as waiting on the client (`OI-19`); added the parent's data rights, account deletion and shelf-request approval to Accounts & Family, and unblocking and reinstatement to Administration; admin authority to suspend is settled |
 | 0.8 | 2026-10-26 | Team 05 (cleanup with Claude) | Administration now owns editing books, parent-account suspension and the audit log view (`UC-ADM-edit-content`, `UC-ADM-suspend-parent-account`, `UC-ADM-view-audit-log`) |
 | 0.9 | 2026-10-29 | Team 05 (with Claude) | Aligned with the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`), use cases v0.14, business rules v0.8, SRS v0.9 and vision and scope v0.9: no child real name and an internal child ID; children write no free text, so reflections, their pending deletion and the 24-hour review are gone and flagging applies to the parent note (word list, human review, no outside party); parent-confirmed finishes, the child and parent dashboards and the weekly check-in; the curated seed catalog replaces the Kaggle or GitHub dataset; added `KD-admin-usage-lookup` (proposed), the lookup of one child's usage data by internal child ID, and the risks `RISK-usage-lookup-leaks-identity` and `RISK-weekly-checkin-delivery`; retired `RISK-block-deletes-safety-evidence` and `RISK-24h-rule-revived`; retention and consent settings are configuration. `design/par.md` is not touched here and still needs its own pass for the dropped real name |
+| 0.10 | 2026-11-05 | Team 05 (with Claude) | `design/par.md` rewritten for `UC-PAR-create-kid-account` against this version: no child real name, the parent note owned by Accounts & Family, a flag written in the same transaction as the note and listed for flag review. `OI-29` resolved (age and grade stay, required); `OI-33` filed (note edit or delete) |
 
 ---
 
@@ -227,7 +228,7 @@ _BookBuddies' components:]_
 
 | Use case area | Component | Responsibility | Depends on | Status |
 |---|---|---|---|---|
-| `PAR` | Accounts & Family | Owns parent accounts (primary and sub parents, including the sub-parent invitation and setup), child accounts (each with an internal child ID) and their onboarding answers, the parent note and its flag (proposed owner; confirm in the design-of-record), consent records, parent book suggestions, the parent's weekly dashboard (`UC-PAR-view-growth-report`), and parent book reports with the per-child exclusions they create, the parent's data rights (review and export, revoking consent, deleting a child's data or account), and, through Shelf, the parent's decisions on shelf requests | Identity & Access, Child Identity Store, Recommendation, Shelf, Notification | provisional |
+| `PAR` | Accounts & Family | Owns parent accounts (primary and sub parents, including the sub-parent invitation and setup), child accounts (each with an internal child ID) and their onboarding answers, the parent note and its text and state (`design/par.md`), with the flag record owned by Safety Flagging, consent records, parent book suggestions, the parent's weekly dashboard (`UC-PAR-view-growth-report`), and parent book reports with the per-child exclusions they create, the parent's data rights (review and export, revoking consent, deleting a child's data or account), and, through Shelf, the parent's decisions on shelf requests | Identity & Access, Child Identity Store, Recommendation, Shelf, Notification | provisional |
 | `REC` | Recommendation | Owns each child's reading profile (interests, favorite books, reading-level input) and derived interest profile, the system-wide recommender mode, rules-based batch generation that honors blocked books and per-child exclusions and learns from the child's choices and ratings, the parent note and shelf history, the 3 follow-up books after a rating, parent review and release of batches, and the child's reactions | Catalog, Child Identity Store, Shelf, Accounts & Family | provisional |
 | `SHLF` | Shelf | Owns each child's shelf in four categories (Reading Now, Want to Read, Maybe Later, Finished), finish confirmations (a parent confirms a finish before the child can rate), ratings, shelf history, the child dashboard (`UC-SHLF-kid-dashboard`), keyword search that honors exclusions, shelf requests and their parent approval, and parent removal with its notice | Catalog, Accounts & Family, Safety Flagging, Notification, Identity & Access | provisional |
 | `ADM` | Administration | Owns catalog management (add, edit, tag, block, unblock), the reported-books list and its decisions (block, discard, warn), child and parent account suspension and reinstatement, the dangerous content list, the audit log view, aggregate statistics including the V1 engagement measures, the lookup of one child's usage data by internal child ID (`KD-admin-usage-lookup`), and flagged-content review, which is the only admin path to child details (`KD-admin-flag-review`) | Catalog, Accounts & Family, Shelf, Recommendation (usage lookup only), Safety Flagging, Child Identity Store (flagged-content review only), Identity & Access, Notification | provisional |
@@ -490,7 +491,6 @@ _Added 2026-10-15. Each needs a decision from the client, or confirmation of a t
 - **`OI-26` (team decision, 2026-10-15; client to confirm):** The parent can reset a child's password and sees the new one once; the child cannot change it. Whether the parent can see the current password is still open.
 - **`OI-27` (team decision, 2026-10-15, on who may view it; client to set the period):** The dangerous content list is admin-only, and each entry is deleted after a retention period the client has yet to set. Whether it can be exported is still open. The period blocks any build of `UC-ADM-flag-review` that stores entries.
 - **Reading interests and favorite books (team, closed 2026-10-29):** `BR-kid-data-stored` v0.8 now lists them and the interest profile. This design stores them with Recommendation under the internal child ID rather than in the Child Identity Store, because they are not identifying.
-- **`OI-29` (client):** Do age and grade stay as stored child fields? They are the recommender's main signal and the only content of the Child Identity Store, so a "no" would remove that component's reason to exist.
 - **`OI-30`, `OI-31`, `OI-32` (client):** the weekly check-in's channel and schedule (`RISK-weekly-checkin-delivery`), whether the dashboards comply with the no-metrics rules (section 8.2.11), and whether follow-up books after a rating skip parent review.
 - **Owner of the parent note (team):** this document proposes Accounts & Family as the owner, called from `UC-PAR-create-kid-account` and `UC-SHLF-par-finish-book`. The design-of-record for each area confirms it.
 
@@ -500,7 +500,6 @@ _Found while writing v0.4 (2026-10-15). Each belongs to the document named, not 
 
 - **Use cases:** `UC-PAR-create-sub-parent-account` has no business rule behind it (`OI-25`).
 - **Business rules:** no rule covers the parent approval of manual-search shelf requests (`UC-SHLF-manual-search`), or sub-parent permissions.
-- **Design-of-record `design/par.md`:** still collects and stores a real name, a Child Identity Store record that includes it, an `OI-23` open item and a `BR-24hr-review-window` mention, and has no internal child ID or parent note. It needs its own pass; this revision does not touch it.
 
 ---
 

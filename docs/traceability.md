@@ -132,7 +132,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 |---|---|---|---|---|---|---|
 | `UC-PAR-onboarding` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-create-sub-parent-account` |  | ❌ Not started |  |  |  |  |
-| `UC-PAR-create-kid-account` | MVP | 📐 Designed | [design/par.md](../design/par.md#uc-par-create-kid-account-create-a-linked-child-account) |  |  |  |
+| `UC-PAR-create-kid-account` | MVP | 🟡 In progress | [design/par.md](../design/par.md) | [action](../src/app/(parent)/parent/children/new/actions.ts), [transaction](../src/server/accounts-family/child-accounts.ts) | [verification map](implementation/child-account.md#tests): units, MongoDB integration, production Playwright | 🟡 Partial: creation slice verified; real parent onboarding and REC POST-6 remain dependencies |
 | `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
 | `UC-PAR-report-book` |  | ❌ Not started |  |  |  |  |

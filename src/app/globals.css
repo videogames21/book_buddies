@@ -1,0 +1,32 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  color: #243735;
+  background: #f7f5ed;
+  font-family: system-ui, sans-serif;
+  line-height: 1.6;
+}
+body > main {
+  max-width: 48rem;
+  margin: 3rem auto;
+  padding: 1.5rem;
+}
+a {
+  color: #225e54;
+  text-underline-offset: 0.2em;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 3px solid #b17721;
+  outline-offset: 4px;
+}

@@ -11,6 +11,11 @@ import {
 import { resetDatabase } from "../../../../../../tests/integration/db";
 
 vi.mock("@/server/identity-access/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/server/identity-access/passwords", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/server/identity-access/passwords")>();
+  return { ...actual, hashPassword: vi.fn(actual.hashPassword) };
+});
 vi.mock("@/server/child-identity/child-identity", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -62,7 +67,8 @@ const { insertChildIdentity } =
   await import("@/server/child-identity/child-identity");
 const { insertChildCredential, generateChildPassword } =
   await import("@/server/identity-access/child-credentials");
-const { verifyPassword } = await import("@/server/identity-access/passwords");
+const { hashPassword, verifyPassword } =
+  await import("@/server/identity-access/passwords");
 const { getDb } = await import("@/server/lib/db");
 const { createChildAccount } = await import("./actions");
 
@@ -117,6 +123,7 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
     vi.mocked(appendNoteFlagAudit).mockReset();
     vi.mocked(insertChildCredential).mockReset();
     vi.mocked(generateChildPassword).mockReset();
+    vi.mocked(hashPassword).mockReset();
   });
 
   afterEach(() => {
@@ -221,6 +228,30 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
     );
     await expectNothingStored();
   });
+
+  it.each([
+    [{ ...child, username: "ab" }, "INVALID_USERNAME"],
+    [{ ...child, age: 2 }, "INVALID_AGE"],
+  ])("returns a non-nickname field error for %j", async (input, code) => {
+    signInAs((await insertConsentedMainParent()).userId);
+    expect(await createChildAccount(input)).toMatchObject({
+      ok: false,
+      error: { code },
+    });
+    await expectNothingStored();
+  });
+
+  it.each([null, undefined, [], "not an object"].map((input) => ({ input })))(
+    "refuses malformed payload %j with a generic validation error",
+    async ({ input }) => {
+      signInAs((await insertConsentedMainParent()).userId);
+      expect(await createChildAccount(input)).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_INPUT" },
+      });
+      await expectNothingStored();
+    },
+  );
 
   it("4g: a username used by another child or a Sub Parent, in any letter case, is USERNAME_TAKEN and nothing new is stored", async () => {
     signInAs((await insertConsentedMainParent()).userId);
@@ -347,13 +378,14 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
 
   it("authorization: no session, a child session and an admin session are refused, and nothing is stored", async () => {
     signInAs(null);
-    expect(await createChildAccount(child)).toMatchObject({
+    const invalid = { ...child, nickname: " " };
+    expect(await createChildAccount(invalid)).toMatchObject({
       ok: false,
       error: { code: "NOT_SIGNED_IN" },
     });
     for (const role of ["child", "admin"] as const) {
       signInAs((await insertUserWithRole(role)).userId);
-      expect(await createChildAccount(child)).toMatchObject({
+      expect(await createChildAccount(invalid)).toMatchObject({
         ok: false,
         error: { code: "NOT_A_PARENT" },
       });
@@ -373,7 +405,17 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
     }
     signInAs((await insertConsentedMainParent()).userId);
 
-    const success = await createChildAccount(child);
+    vi.mocked(screenNote).mockReturnValueOnce({
+      state: "flagged",
+      passages: [{ start: 0, end: 10, category: "fixture" }],
+      version: "test-1",
+    });
+    const success = await createChildAccount({
+      ...child,
+      note: "zzmarkerzz moon stories",
+    });
+    expect(success.ok).toBe(true);
+    expect((await stored()).flags).toHaveLength(1);
     await createChildAccount({ ...child, nickname: "Comet" }); // USERNAME_TAKEN
     vi.mocked(insertChildCredential).mockRejectedValueOnce(
       Object.assign(new Error('write failed for username "other_reader"'), {
@@ -383,9 +425,11 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
     await createChildAccount({ ...child, username: "other_reader" }); // SAVE_FAILED
 
     const logged = lines.join("\n").toLowerCase();
+    expect(lines.length).toBeGreaterThan(0);
+    expect(logged).not.toMatch(/"(?:age|grade)"\s*:/);
     const secrets = [
       "likes moon stories.",
-      "invented child",
+      "zzmarkerzz",
       "starfish",
       "star_reader",
       "other_reader",
@@ -467,6 +511,8 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
       noteId: records.notes[0]._id,
       detectorVersion: "test-1",
       categories: ["fixture"],
+      passages: [{ start: 6, end: 10, category: "fixture" }],
+      detectorMethod: "word-list",
     });
     expect(records.flags[0]).not.toHaveProperty("text");
     expect(records.audits[0]).toMatchObject({
@@ -483,6 +529,9 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
       "occurredAt",
       "recordId",
     ]);
+    const flagSession = vi.mocked(insertNoteFlag).mock.calls[0][0];
+    expect(flagSession).toBeDefined();
+    expect(vi.mocked(appendNoteFlagAudit).mock.calls[0][0]).toBe(flagSession);
   });
 
   it.each(["flag", "audit"])(
@@ -540,12 +589,12 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
     signInAs((await insertConsentedMainParent()).userId);
     expect(
       await createChildAccount({
-        nickname: "",
+        ...child,
         age: -1,
         grade: "bad",
         username: "",
       }),
-    ).toMatchObject({ ok: false, error: { code: "NICKNAME_REQUIRED" } });
+    ).toMatchObject({ ok: false, error: { code: "INVALID_AGE" } });
     await expectNothingStored();
   });
   it("1c: a revoked consent record cannot authorize creation", async () => {
@@ -557,6 +606,28 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
         { familyId: new ObjectId(parent.familyId) },
         { $set: { revokedAt: new Date() } },
       );
+    expect(await createChildAccount(child)).toMatchObject({
+      ok: false,
+      error: { code: "CONSENT_NOT_CONFIRMED" },
+    });
+    await expectNothingStored();
+  });
+  it("refuses consent revoked after access checks but before the transaction", async () => {
+    const parent = await insertConsentedMainParent();
+    signInAs(parent.userId);
+    const actual = await vi.importActual<
+      typeof import("@/server/identity-access/passwords")
+    >("@/server/identity-access/passwords");
+    vi.mocked(hashPassword).mockImplementationOnce(async (password) => {
+      const hashed = await actual.hashPassword(password);
+      await getDb()
+        .collection("consentRecords")
+        .updateOne(
+          { familyId: new ObjectId(parent.familyId) },
+          { $set: { revokedAt: new Date() } },
+        );
+      return hashed;
+    });
     expect(await createChildAccount(child)).toMatchObject({
       ok: false,
       error: { code: "CONSENT_NOT_CONFIRMED" },

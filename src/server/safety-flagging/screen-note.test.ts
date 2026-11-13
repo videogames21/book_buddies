@@ -27,4 +27,10 @@ describe("local note screening", () => {
       screenNote("anything", [{ word: " ", category: "test" }]),
     ).toThrow();
   });
+  it("orders passages by their position rather than word-list order", () => {
+    expect(screenNote("a+b then fixture", entries).passages).toEqual([
+      { start: 0, end: 3, category: "literal" },
+      { start: 9, end: 16, category: "test" },
+    ]);
+  });
 });

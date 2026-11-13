@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createChildSchema, fieldErrorsOf } from "./schema";
+import { GRADES } from "@/server/accounts-family/grades";
 
 const valid = {
   nickname: "Starfish",
@@ -30,6 +31,9 @@ describe("createChildSchema", () => {
   });
 
   it("4a: accepts letters and digits only, never collects a real name", () => {
+    for (const nickname of ["Star7", "123"]) {
+      expect(errorsFor({ ...valid, nickname })).toEqual({});
+    }
     expect(errorsFor({ ...valid, nickname: " " }).nickname).toBe(
       "NICKNAME_REQUIRED",
     );
@@ -64,6 +68,7 @@ describe("createChildSchema", () => {
   });
 
   it("4h: refuses contact information and the nickname anywhere in the username", () => {
+    expect(errorsFor({ ...valid, username: "reader123456" })).toEqual({});
     for (const username of [
       "reader@example.test",
       "reader.name",
@@ -100,7 +105,9 @@ describe("createChildSchema", () => {
     for (const grade of ["13", "Pre-K", "", undefined]) {
       expect(errorsFor({ ...valid, grade }).grade).toBe("INVALID_GRADE");
     }
-    expect(errorsFor({ ...valid, grade: "kindergarten" })).toEqual({});
+    for (const grade of GRADES) {
+      expect(errorsFor({ ...valid, grade }), grade).toEqual({});
+    }
   });
 
   it("4f: refuses an empty username", () => {
@@ -113,6 +120,9 @@ describe("createChildSchema", () => {
   });
 
   it("4h: refuses a username breaking the format rules", () => {
+    for (const username of ["abc", "a".repeat(20)]) {
+      expect(errorsFor({ ...valid, username })).toEqual({});
+    }
     for (const username of [
       "ab",
       "a".repeat(21),

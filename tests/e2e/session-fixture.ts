@@ -55,7 +55,7 @@ export async function signInParent(
   });
   await context.addCookies([
     {
-      name: "authjs.session-token",
+      name: "next-auth.session-token",
       value: sessionToken,
       domain: "localhost",
       path: "/",

@@ -4,7 +4,11 @@ import { z } from "zod";
 // The validated environment (architecture §8.2.6). Read lazily, so a build
 // without database variables still compiles.
 const configSchema = z.object({
-  PRIVACY_NOTICE_URL: z.url().optional(),
+  AUTH_SECRET: z.string().min(1),
+  PRIVACY_NOTICE_URL: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.url().optional(),
+  ),
   MONGODB_URI: z.string().min(1),
   MONGODB_DB: z.string().min(1).default("bookbuddies"),
 });

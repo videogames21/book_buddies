@@ -17,17 +17,22 @@ writeFileSync(fileURLToPath(new URL("./.mongo-uri", import.meta.url)), uri);
 const nextBin = fileURLToPath(
   new URL("../../node_modules/next/dist/bin/next", import.meta.url),
 );
-const server = spawn(process.execPath, [nextBin, "start", "--port", port], {
-  stdio: "inherit",
-  env: {
-    ...process.env,
-    PRIVACY_NOTICE_URL: `http://localhost:${port}/privacy-notice`,
-    MONGODB_URI: uri,
-    MONGODB_DB: "bookbuddies_e2e",
-    AUTH_SECRET: randomBytes(32).toString("hex"),
-    AUTH_TRUST_HOST: "true",
+const server = spawn(
+  process.execPath,
+  [nextBin, "start", "--hostname", "127.0.0.1", "--port", port],
+  {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      PRIVACY_NOTICE_URL: `http://localhost:${port}/privacy-notice`,
+      MONGODB_URI: uri,
+      MONGODB_DB: "bookbuddies_e2e",
+      AUTH_SECRET: randomBytes(32).toString("hex"),
+      AUTH_TRUST_HOST: "true",
+      NEXTAUTH_URL: `http://localhost:${port}`,
+    },
   },
-});
+);
 
 function stopServer() {
   // On Windows, kill() stops only the `next` launcher and leaves the server it started

@@ -17,6 +17,7 @@ import {
 export type CreateChildAccountCode =
   | CreateChildAccessCode
   | ValidationErrorCode
+  | "INVALID_INPUT"
   | "USERNAME_TAKEN"
   | "SAVE_FAILED";
 
@@ -33,8 +34,12 @@ export async function createChildAccount(
 
     const parsed = createChildSchema.safeParse(input);
     if (!parsed.success) {
-      const code =
-        Object.values(fieldErrorsOf(parsed.error))[0] ?? "NICKNAME_REQUIRED";
+      const code = Object.values(fieldErrorsOf(parsed.error)).at(0);
+      if (!code)
+        return fail(
+          "INVALID_INPUT",
+          "Check the account details and try again.",
+        );
       return fail(code, VALIDATION_MESSAGES[code]);
     }
 

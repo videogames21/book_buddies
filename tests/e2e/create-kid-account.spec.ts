@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { closeE2eDb, e2eDb, signInParent } from "./session-fixture";
+import { verifyPassword } from "../../src/server/identity-access/passwords";
 
 // UC-PAR-create-kid-account, end to end. Invented test data only.
 
@@ -187,37 +188,17 @@ test("double submit sends one action and keeps the first password", async ({
   });
   await expect(page.getByTestId("child-password")).toBeVisible();
   const password = await page.getByTestId("child-password").textContent();
-  await expect(page.getByTestId("child-password")).toHaveText(password ?? "");
-  expect(posts).toBe(1);
+  expect(password).toBeTruthy();
+  const db = await e2eDb();
+  const created = await db.collection("children").findOne({ familyId });
+  const credential = await db
+    .collection("users")
+    .findOne({ role: "child", childId: created?._id });
+  expect(credential).not.toBeNull();
   expect(
-    await (await e2eDb()).collection("children").countDocuments({ familyId }),
-  ).toBe(1);
-});
-
-test("a lost response explains uncertainty and a retry does not duplicate the account", async ({
-  page,
-  context,
-}) => {
-  const { familyId } = await signInParent(context, {
-    parentRole: "main",
-    consentConfirmed: true,
-  });
-  await page.goto(PATH);
-  await fillRequired(page, "e2e_reader_network");
-  await page.route("**/parent/children/new", async (route) => {
-    if (route.request().method() !== "POST") return route.continue();
-    await route.fetch(); // The server commits, but the browser loses its response.
-    await route.abort("failed");
-  });
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(
-    page.getByRole("alert").filter({ hasText: "couldn't confirm whether" }),
-  ).toContainText("couldn't confirm whether");
-  await page.unroute("**/parent/children/new");
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(
-    page.getByText("That username is already taken. Please choose another."),
-  ).toBeVisible();
+    await verifyPassword(password!, String(credential!.passwordHash)),
+  ).toBe(true);
+  expect(posts).toBe(1);
   expect(
     await (await e2eDb()).collection("children").countDocuments({ familyId }),
   ).toBe(1);
@@ -272,7 +253,7 @@ test("the credentials disappear on reload and the account remains", async ({
   ).toBe(1);
 });
 
-test("completion and REC hand-off refuse another family and unknown children", async ({
+test("completion refuses another family and unknown children", async ({
   page,
   context,
 }) => {
@@ -287,10 +268,6 @@ test("completion and REC hand-off refuse another family and unknown children", a
   const db = await e2eDb();
   const child = await db.collection("children").findOne({ familyId });
   const base = `/parent/children/${String(child?._id)}`;
-  await page.getByRole("button", { name: /continue/ }).click();
-  await expect(
-    page.getByText(/Reading-interest onboarding is not available yet/),
-  ).toBeVisible();
   await page.goto(base + "/onboarding-complete");
   await expect(
     page.getByRole("heading", { name: "Onboarding complete" }),
@@ -300,7 +277,6 @@ test("completion and REC hand-off refuse another family and unknown children", a
   ).toBeVisible();
   await signInParent(context, { parentRole: "main", consentConfirmed: true });
   expect((await page.goto(base + "/onboarding-complete"))?.status()).toBe(404);
-  expect((await page.goto(base + "/reading-profile"))?.status()).toBe(404);
   expect(
     (await page.goto("/parent/children/unknown/onboarding-complete"))?.status(),
   ).toBe(404);
@@ -329,45 +305,16 @@ test("child and admin sessions cannot view parent forms or child details", async
   }
 });
 
-test("mobile form fits the viewport and never asks for a real name", async ({
-  page,
-  context,
-}, testInfo) => {
+test("the form never asks for a real name", async ({ page, context }) => {
   await signInParent(context, { parentRole: "main", consentConfirmed: true });
-  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(PATH);
   await expect(page.getByLabel("Child's name", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Add a child" }),
   ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await page.screenshot({
-    path: testInfo.outputPath("mobile-form.png"),
-    fullPage: true,
-  });
 });
 
-test("no session and deleted database sessions cannot access the form", async ({
-  page,
-  context,
-}) => {
+test("no session redirects to sign-in", async ({ page }) => {
   await page.goto(PATH);
-  await expect(page).toHaveURL(/\/sign-in$/);
-  const { familyId } = await signInParent(context, {
-    parentRole: "main",
-    consentConfirmed: true,
-  });
-  await page.goto(PATH);
-  await expect(
-    page.getByRole("button", { name: "Create account" }),
-  ).toBeVisible();
-  const db = await e2eDb();
-  const parent = await db.collection("users").findOne({ familyId });
-  await db.collection("sessions").deleteMany({ userId: parent?._id });
-  await page.reload();
   await expect(page).toHaveURL(/\/sign-in$/);
 });

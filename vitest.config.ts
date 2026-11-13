@@ -34,6 +34,17 @@ export default defineConfig({
           hookTimeout: 120_000,
         },
       },
+      {
+        extends: true,
+        test: {
+          name: "infrastructure",
+          include: ["tests/infrastructure/**/*.int.test.ts"],
+          globalSetup: ["tests/integration/global-setup.ts"],
+          setupFiles: ["tests/integration/setup.ts"],
+          testTimeout: 30_000,
+          hookTimeout: 120_000,
+        },
+      },
     ],
   },
 });

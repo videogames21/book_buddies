@@ -33,6 +33,8 @@ const CHILDREN = "children";
 // confirmed (DI-consent-record; design/par.md, Open questions).
 const CONSENT_RECORDS = "consentRecords";
 
+class ConsentNotConfirmedError extends Error {}
+
 export type NewChild = {
   nickname: string;
   age: number;
@@ -71,12 +73,17 @@ export async function isConsentConfirmed(familyId: string): Promise<boolean> {
 export async function createChild(
   parent: ParentSession,
   child: NewChild,
-): Promise<ActionResult<CreatedChild, "USERNAME_TAKEN" | "SAVE_FAILED">> {
+): Promise<
+  ActionResult<
+    CreatedChild,
+    "USERNAME_TAKEN" | "SAVE_FAILED" | "CONSENT_NOT_CONFIRMED"
+  >
+> {
   try {
     const password = generateChildPassword();
     const passwordHash = await hashPassword(password);
     const childId = randomUUID();
-    const text = child.note?.trim();
+    const text = child.note;
     let screening: ScreenResult | undefined;
     let state: NoteState = "none";
     if (text) {
@@ -89,6 +96,21 @@ export async function createChild(
     }
 
     await withTransaction(async (tx) => {
+      // Write the same record revocation updates. Snapshot reads alone would allow
+      // a revoke/create write skew; a conflicting write makes MongoDB retry, then
+      // this conditional update refuses revoked or missing consent.
+      const consent = await getDb()
+        .collection(CONSENT_RECORDS)
+        .updateOne(
+          {
+            familyId: new ObjectId(parent.familyId),
+            confirmedAt: { $type: "date" },
+            revokedAt: { $exists: false },
+          },
+          { $inc: { childCreationVersion: 1 } },
+          { session: tx },
+        );
+      if (consent.matchedCount !== 1) throw new ConsentNotConfirmedError();
       await getDb()
         .collection<{
           _id: string;
@@ -129,6 +151,12 @@ export async function createChild(
 
     return ok({ childId, username: child.username, password });
   } catch (err) {
+    if (err instanceof ConsentNotConfirmedError) {
+      return fail(
+        "CONSENT_NOT_CONFIRMED",
+        "Your family's consent must be confirmed before adding a child.",
+      );
+    }
     if (err instanceof UsernameTakenError) {
       return fail(
         "USERNAME_TAKEN",

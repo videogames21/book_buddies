@@ -1,5 +1,3 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../../../tests/integration/db";
 import { getDb, withTransaction } from "./db";
@@ -45,19 +43,5 @@ describe("username index", () => {
     await expect(
       users.insertOne({ role: "parent", username: "invented_kid" }),
     ).rejects.toMatchObject({ code: 11000 });
-  });
-});
-
-describe("deployment schema setup", () => {
-  it("runs the actual setup command twice without duplicate-index failures", async () => {
-    const run = promisify(execFile);
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const { stdout } = await run(
-        process.execPath,
-        ["--conditions=react-server", "scripts/ensure-indexes.mjs"],
-        { env: process.env },
-      );
-      expect(stdout).toContain("collections and indexes are ready");
-    }
   });
 });

@@ -132,7 +132,7 @@ export function NewChildForm({
     } catch {
       inFlight.current = false;
       setSubmitError(
-        "We couldn't confirm whether the account was saved. Retry with the same username; a saved account will not be duplicated.",
+        "The account may have been created, but we didn't receive its password. The password cannot be recovered on this page. Contact the team before trying again.",
       );
     } finally {
       setSubmitting(false);

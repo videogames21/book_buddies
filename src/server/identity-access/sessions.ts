@@ -30,7 +30,7 @@ export async function requireParent(): Promise<
   ActionResult<ParentSession, SessionErrorCode>
 > {
   const session = await auth();
-  const userId = session?.user?.id;
+  const userId = session?.user.id;
   if (!userId || !ObjectId.isValid(userId)) {
     return fail("NOT_SIGNED_IN", "Please sign in.");
   }

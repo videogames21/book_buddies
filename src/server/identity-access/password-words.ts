@@ -2,7 +2,8 @@ import "server-only";
 
 // Short, common, child-friendly words for generated child passwords
 // (UC-PAR-create-kid-account data table). 160 words, three per password, plus two
-// digits: about 4 million × 100 combinations, with sign-in throttling (SEC-signin-throttling).
+// digits: about 4 million × 100 combinations. SEC-signin-throttling must be
+// implemented with UC-PAR-onboarding before real child sign-in is available.
 export const PASSWORD_WORDS = [
   "ant",
   "apple",

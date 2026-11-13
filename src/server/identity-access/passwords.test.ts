@@ -3,6 +3,14 @@ import { hashPassword, verifyPassword } from "./passwords";
 
 // scrypt at OWASP cost is slow when the integration suite runs alongside.
 describe("password hashing", { timeout: 20_000 }, () => {
+  it("stores the required cost, block size, parallelism and 16-byte salt", async () => {
+    const [scheme, n, r, p, salt] = (await hashPassword("x")).split("$");
+    expect(scheme).toBe("scrypt");
+    expect(Number(n)).toBeGreaterThanOrEqual(2 ** 17);
+    expect(r).toBe("8");
+    expect(p).toBe("1");
+    expect(Buffer.from(salt, "base64")).toHaveLength(16);
+  });
   it("verifies the password it hashed and rejects another", async () => {
     const stored = await hashPassword("otter-maple-sun-42");
     expect(await verifyPassword("otter-maple-sun-42", stored)).toBe(true);

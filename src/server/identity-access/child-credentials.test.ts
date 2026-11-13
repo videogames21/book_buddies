@@ -1,12 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { randomInt } from "node:crypto";
 import { generateChildPassword } from "./child-credentials";
 import { PASSWORD_WORDS } from "./password-words";
 import { hashPassword, verifyPassword } from "./passwords";
+
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return { ...actual, randomInt: vi.fn(actual.randomInt) };
+});
 
 describe(
   "generateChildPassword (UC-PAR-create-kid-account main, password)",
   { timeout: 20_000 },
   () => {
+    beforeEach(() => {
+      vi.mocked(randomInt).mockClear();
+    });
+    it("uses cryptographic randomness for each word and the suffix", () => {
+      generateChildPassword();
+      expect(vi.mocked(randomInt).mock.calls).toEqual([
+        [PASSWORD_WORDS.length],
+        [PASSWORD_WORDS.length],
+        [PASSWORD_WORDS.length],
+        [100],
+      ]);
+    });
     it("is three listed words and two digits, joined by hyphens", () => {
       for (let i = 0; i < 50; i++) {
         const parts = generateChildPassword().split("-");

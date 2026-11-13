@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/53-create-child-revised
 
 permissions:
   contents: read
@@ -112,3 +113,5 @@ jobs:
         run: npm run build
       - name: Playwright against production application
         run: npm run test:e2e
+      - name: Demo launch and shutdown
+        run: npm run test:demo

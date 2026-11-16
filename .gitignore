@@ -1,3 +1,12 @@
 .idea/
 node_modules/
 dist/
+
+.next/
+.env*
+!.env.example
+playwright-report/
+test-results/
+*.tsbuildinfo
+next-env.d.ts
+tests/e2e/.mongo-uri

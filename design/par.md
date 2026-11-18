@@ -894,7 +894,7 @@ For `UC-PAR-onboarding`, edited in `architectural-design.md` in this pull reques
 
 _[What this design could not settle and who can, and what could go wrong that you are accepting. A question for the client also goes in [`OPEN-ISSUES.md`](../docs/requirements/OPEN-ISSUES.md).]_
 
-What this design had to assume, and where each answer belongs. `DI-field-tables` says not to invent values for TBD fields, so these are **proposals**: `/implement` must not build the checks below until the team has written the agreed values into the use case's data table.
+What this design had to assume, and where each answer belongs. `DI-field-tables` says not to invent values for TBD fields. The developer approved the values on 2026-11-17, and they are recorded in [`par-field-values.md`](par-field-values.md) and the use case's data table; `/implement` builds the checks from those tables. The note word list is the exception: it waits for the client (`OI-34`).
 
 - **Username format (team; the use case, 4h).** Proposed: 3–20 characters, letters, digits and underscores, stored lowercase, no run of seven or more digits, not containing the nickname. Belongs in the use case's data table and §8.2.5.
 - **Generated password rules (team; the use case and `FR-ACCT-credentials`).** Proposed: three short common words and two digits from a cryptographically random source, so a 6–11-year-old can type it.
@@ -921,7 +921,7 @@ Other open items:
 - **Age and grade (`OI-29`).** Resolved here on the reading that collecting them with verified parental consent, for the purpose in `BR-reading-level-proxy`, is within the minimization rule. That is the team's reading of the rule text, not legal advice (`OI-20`).
 - **`UC-PAR-onboarding` supplies the family.** It is designed below (2026-11-17); the family ID, Main Parent session and Consent Record this use case needs come from it, in the shape the child-account code already reads. Until onboarding is built, tests keep their fixtures. A family whose consent is later revoked (`UC-PAR-revoke-consent`) must make `isConsentConfirmed` false (`OI-36`, `OI-38`).
 
-`UC-PAR-onboarding`, what this design had to assume. Values are proposals in [`par-field-values.md`](par-field-values.md) until the team fills them in; `/implement` builds the checks only from those tables.
+`UC-PAR-onboarding`, what this design had to assume. The developer approved the values below on 2026-11-17; they are recorded in [`par-field-values.md`](par-field-values.md), and `/implement` builds the checks only from those tables.
 
 - **Sign-in, sign-out and password reset have no use case (team, `OI-37`).** The developer chose on 2026-11-17 to design them here, because steps 6 and 8a assume a sign-in and 4a offers a reset link. They cover Main Parents only. Sub Parent sign-in and reset come with `UC-PAR-create-sub-parent-account`; a child's sign-in, and the parent-run child password reset, are `OI-26`. A use case for them would let `/implement` trace these flows to the specification.
 - **Reset link lifetime and email spacing (team).** Proposed: the link works for 1 hour, and at most one reset email per account every 5 minutes. Tables in `par-field-values.md`.

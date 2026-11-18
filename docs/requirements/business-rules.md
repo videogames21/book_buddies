@@ -51,7 +51,7 @@ This version covers rules that could be attributed to Yang Yang's concept brief,
 | Username, password (stored only as a salted hash) | The child's sign-in (`KD-auth-sessions`) | Parent sees the username; the password is never readable |
 | Age, grade | The main signal for recommendations (`BR-reading-level-proxy`); see Flagged | Parent |
 | Reading level (optional, parent-entered) | An optional difficulty input (`BR-reading-level-parent-entered`) | Parent only, never the child |
-| Reading interests, favorite books already read | The recommender's starting profile (`UC-REC-kid-onboarding`) | Parent only; the child sees only the derived interest profile; admin sees totals across all accounts, never one child's |
+| Reading interests, favorite books already read | The recommender's starting profile (`UC-REC-kid-onboarding`) | Parent only; the child sees only the derived interest profile; admin only through the lookup. |
 | Interest profile (derived) | The strength of each interest, built from the child's choices, ratings and shelf activity; drives recommendations and the child's dashboard (`UC-SHLF-kid-dashboard`) | Child, as a chart with no numbers; parent; admin only through the lookup |
 | Recommendation batches, reactions, decline reasons | The recommender learns from them; the parent reviews them (`UC-REC-parent-review`, `UC-REC-kid-review`) | Child, parent; admin only through the lookup |
 | Shelf entries and shelf history (adds, moves, confirmed finishes, with times) | The shelf and the dashboard history; parent oversight (`UC-SHLF-kid-view-shelf`, `UC-SHLF-parent-view-shelf`) | Child, parent; admin only through the lookup |

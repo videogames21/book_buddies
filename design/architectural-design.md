@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang, Research Scientist, IBR/Knight D Research
-**Version:** 0.10
+**Version:** 0.11
 
 ---
 
@@ -403,7 +403,7 @@ _BookBuddies' decisions. Accepted ones were made by the team; Proposed ones were
 **`KD-admin-usage-lookup`: the admin sees one child's usage data by internal child ID, through read-only projections.** _Proposed, 2026-10-29._
 
 - **Driving requirements:** `BR-admin-limited-view`, `UC-ADM-view-usage-stats`, `SEC-pii-boundary`, `DI-child-id`, `DI-usage-records`.
-- **Context:** The client wants an authorized admin to pull up one child by internal ID to see recommendations and responses, shelf activity, ratings and usage patterns over time, without a name or other identifying detail (client answers 2026-10-28, Q5, Q14). `KD-pii-segregation` says admin code never reads child details except in flag review, so this path has to be named and bounded before it is built.
+- **Context:** The client wants an authorized admin to pull up one child by internal ID to see reading interests, recommendations and responses, shelf activity, ratings and usage patterns over time, without a name or other identifying detail (client answers 2026-10-28, Q5, Q14). `KD-pii-segregation` says admin code never reads child details except in flag review, so this path has to be named and bounded before it is built.
 - **Decision:** One admin function takes an internal child ID, writes the audit record (admin, ID, time) before reading anything, and then calls read-only usage functions that Recommendation, Shelf and Identity & Access each export. Each returns only dated usage records and never the nickname, avatar, username, age, grade, reading level, parent note or anything about the parent. An unknown ID, a deleted child and a child whose parent revoked consent all return the same "no data" answer, so the page does not reveal which IDs exist. The admin never queries the child collections directly.
 - **Rejected:** (a) Giving admin code direct query access to the child collections, which turns one forgotten projection into a leak of child details. (b) A separate analytics copy of usage data, which would be a second store of child data to keep in sync, export and delete (`FR-DATA-removal`), against `BR-coppa-minimization`.
 - **Trade-off:** Each owning component must keep its usage projection free of identifying fields, and the audit write must succeed before the data is shown (`UC-ADM-view-usage-stats` 7c). Section 8.2.10 tests the field list.

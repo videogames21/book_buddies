@@ -1777,33 +1777,36 @@ _The system admin operates the catalog and the system and receives safety alerts
 **Preconditions:**
 
 - PRE-1. The admin is logged in with the admin role.
-- PRE-2. No catalog book has the same ISBN, or the same title and author, as the book being added.
 
 **Postconditions:**
 
 - POST-1. The book is in the catalog with all its tags saved.
 - POST-2. The book is eligible for recommendation only once it has its required tags (see 6b).
+- POST-3. The add is recorded in the audit log with the admin, the book's internal book ID and the time (architecture §8.2.9).
 
 **Main Success Scenario:**
 
 1. The admin taps "Add Book."
-2. The system displays the book form: title, author, ISBN, Open Library ID, series name, series number, tag fields for genre, mood, format, themes, length, age fit, and reading level, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
+2. The system displays the book form: title, author, year, ISBN, tag fields for genre, subjects, mood, format, length, suggested age min, suggested age max, reading challenge and an optional reading level, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
 3. The admin enters the book's details (the system assigns an internal book ID on save), chooses standard tags, and adds custom tags by choosing an existing custom tag or typing a new one.
 4. The system validates the required fields, checks each standard tag value against its approved list, and normalizes each custom tag (trims spaces and ignores letter case).
-5. The system checks that the book is not already in the catalog.
-6. The system saves the book.
+5. The system checks that the book is not already in the catalog: no book, in any status, has the same ISBN, or the same title and author (ignoring letter case and extra spaces).
+6. The system saves the book and records the add in the audit log.
 7. The system shows the book in the catalog list. Use case ends.
 
 **Extensions:**
 
+- 1a. The user is not an admin. The system refuses the request and shows nothing.
 - 3a. The admin cancels. No book is saved.
 - 4a. A required field is empty. The system shows an inline error and returns to step 3.
 - 4b. A standard tag value is not on its approved list. The system rejects the value, names the list, and returns to step 3. Custom tags are not checked against the approved list.
 - 4d. A new custom tag matches an existing custom tag after normalization (for example, "Friend" and "friends" if the normalization treats them as one). The system offers the existing tag instead of creating a new one.
 - 4e. A custom tag is empty or longer than the length limit (team proposal: 30 characters). The system shows an inline error and returns to step 3.
-- 4c. The reading level is not on an accepted scale (Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range). The system shows an inline error and returns to step 3.
-- 5a. A matching book already exists. The system shows the existing entry and offers to open it instead. No new record is created.
-- 6a. Saving fails. The system shows an error and saves nothing; no partial book is left behind.
+- 4c. The year is not a four-digit year, is in the future, the suggested age min is greater than the suggested age max, or a given reading level is not on an accepted scale. The system shows an inline error and returns to step 3.
+- 4f. The ISBN is not a valid ISBN-10 or ISBN-13. The system shows an inline error and returns to step 3.
+- 4g. More custom tags are given than the limit (team proposal: 10). The system shows an inline error and returns to step 3.
+- 5a. A matching book already exists, whatever its status, including a blocked book. The system shows the existing entry and offers to open it instead. No new record is created.
+- 6a. Saving fails. The system shows an error and saves nothing; no partial book and no audit entry is left behind.
 - 6b. The book is saved without all required tags. The system saves it as not yet recommendable, so no child is offered a book that lacks the tags the rules engine needs (team proposal; the required tag set is TBD).
 
 **Priority:** Medium — `FEAT-book-tagging` is in the MVP per `vision-and-scope.md` v0.4. The seed-catalog source is settled (the client's curated 134-book spreadsheet, Q11); the approved tag lists still have to be taken from it.\
@@ -1812,21 +1815,28 @@ _The system admin operates the catalog and the system and receives safety alerts
 
 **Associated Information:**
 
-| Property name                                                               | Data type                    | Validation rule                                                                                                              | Security or access concerns                                                | Glossary reference |
-|-----------------------------------------------------------------------------|------------------------------|------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|--------------------|
-| Title                                                                       | string                       | required                                                                                                                     | Admin-set; visible to children and parents                                 | Seed Catalog       |
-| Author                                                                      | string                       | required                                                                                                                     | Admin-set; visible to children and parents                                 | Seed Catalog       |
-| Internal book ID                                                            | opaque identifier            | system-generated; unique; never reused; the key every other record uses                                                     | System-set; the ISBN and Open Library ID are only for matching to outside records | —                  |
-| ISBN                                                                        | string                       | optional; must be a valid ISBN-10 or ISBN-13 when given (team proposal)                                                      | Admin-set; used for external matching                                      | —                  |
-| Open Library ID                                                             | string                       | optional; unique when given                                                                                                  | Admin-set; used for external matching and later catalog expansion          | —                  |
-| Series name, series number                                                  | string, integer              | optional; series number only with a series name                                                                              | Admin-set; visible to children and parents                                 | —                  |
-| Standard tags (genre, mood, format, themes, length, age fit, reading level) | enum each                    | each value must come from its approved list; lists still to be extracted from the seed spreadsheet                                                              | Admin-set; used by the recommender                                         | —                  |
-| Custom tags                                                                 | list of strings              | optional; each entry trimmed and case-normalized; 1–30 characters; must not duplicate an existing custom tag (team proposal) | Admin-created; shared across the catalog; whether children see them is TBD | —                  |
-| Catalog status                                                              | enum: draft, active, blocked | system-set; new books are draft until tagged, then active; only active books can be recommended (maps to the seed spreadsheet's Status field; mapping TBD) | Admin-visible; see `UC-ADM-block-content`                                  | —                  |
+| Property name       | Data type                    | Validation rule                                                                                                                                            | Security or access concerns                                                                                                        | Glossary reference |
+|---------------------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------|
+| Title               | string                       | required                                                                                                                                                   | Admin-set; visible to children and parents                                                                                         | Seed Catalog       |
+| Author              | string                       | required                                                                                                                                                   | Admin-set; visible to children and parents                                                                                         | Seed Catalog       |
+| Year                | integer                      | required; the year the book came out; a four-digit year, not in the future (team proposal)                                                                 | Admin-set; visible to children and parents                                                                                         | —                  |
+| Genre (one or more) | list of enums                | required; at least one; each value from the approved genre list, still to be extracted from the seed spreadsheet                                           | Admin-set; used by the recommender                                                                                                 | —                  |
+| Subjects            | list of enums                | optional; each value from the approved subject list, still to be extracted from the seed spreadsheet                                                       | Admin-set; used by the recommender                                                                                                 | —                  |
+| Mood (one or more)  | list of enums                | required; at least one; each value from the approved mood list, still to be extracted from the seed spreadsheet                                            | Admin-set; used by the recommender                                                                                                 | —                  |
+| Format              | enum                         | required; from the approved format list (for example, picture book)                                                                                        | Admin-set; used by the recommender                                                                                                 | —                  |
+| Length              | string                       | required; free text such as "quick read"; checked against the approved length list if the team adopts one (TBD)                                            | Admin-set; used by the recommender                                                                                                 | —                  |
+| Suggested age min   | integer                      | required; a whole number; not greater than suggested age max                                                                                               | Admin-set; used by the recommender                                                                                                 | —                  |
+| Suggested age max   | integer                      | required; a whole number; not less than suggested age min                                                                                                  | Admin-set; used by the recommender                                                                                                 | —                  |
+| Reading challenge   | enum                         | required; from the approved reading challenge list (for example, read aloud together)                                                                      | Admin-set; used by the recommender                                                                                                 | —                  |
+| Reading level       | string                       | optional; if given, a value on an accepted scale (Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range)                                      | Admin-set; used by the recommender as a difficulty input (`BR-reading-level-proxy`); never shown to children (`BR-kid-no-metrics`) | Reading Level      |
+| Custom tags         | list of strings              | optional; each entry trimmed and case-normalized; 1–30 characters; at most 10 per book (team proposal); must not duplicate an existing custom tag (team proposal)                               | Admin-created; shared across the catalog; whether children see them is TBD                                                         | —                  |
+| ISBN                | string                       | optional; must be a valid ISBN-10 or ISBN-13 when given (team proposal)                                                                                    | Admin-set; used for external matching                                                                                              | —                  |
+| Internal book ID    | opaque identifier            | system-generated; unique; never reused; the key every other record uses                                                                                    | System-set; the ISBN is only for matching to outside records                                                                       | —                  |
+| Catalog status      | enum: draft, active, blocked | system-set; new books are draft until tagged, then active; only active books can be recommended (maps to the seed spreadsheet's Status field; mapping TBD) | Admin-visible; see `UC-ADM-block-content`                                                                                          | —                  |
 
 Only the admin role may write catalog data (`SEC-role-authorization`). A failed save leaves the catalog unchanged.
 
-**Related Use Cases:** `UC-ADM-block-content` (the reverse action); `UC-PAR-suggest-book` (requires the book to exist in the catalog); `UC-REC-recommend-quiz-rules` (draws only from active, tagged books)\
+**Related Use Cases:** `UC-ADM-block-content` (the reverse action); `UC-ADM-view-audit-log` (where the add is recorded); `UC-PAR-suggest-book` (requires the book to exist in the catalog); `UC-REC-recommend-quiz-rules` (draws only from active, tagged books)\
 **Assumptions:** The seed catalog is loaded in bulk from the client's spreadsheet, and the spreadsheet's "Kid Testing Reaction" column is test-profile data, not catalog data (Q11). This use case handles single additions and corrections of new entries only. Custom tags are free-form labels for the admin's own use. They are shared across the catalog, they do not replace standard tags, and the rules engine does not use them unless the client says so.\
 **Open Issues:**
 - The source is now the curated seed spreadsheet (`OI-1` resolved by the client, Q11), but the approved tag lists still have to be extracted from it, and how its Status values map to draft, active and blocked is not specified.
@@ -1863,7 +1873,7 @@ Only the admin role may write catalog data (`SEC-role-authorization`). A failed 
 **Main Success Scenario:**
 
 1. The admin opens a book and taps "Edit."
-2. The system displays the same form as `UC-ADM-add-content`, filled in with the book's current title, author, ISBN, Open Library ID, series name and number, standard tags and custom tags, and shows its status.
+2. The system displays the same form as `UC-ADM-add-content`, filled in with the book's current title, author, year, ISBN, standard tags (genre, subjects, mood, format, length, suggested ages, reading challenge and reading level) and custom tags, and shows its status.
 3. The admin changes one or more values.
 4. The system validates them as in `UC-ADM-add-content` steps 4–5: required fields, standard tags against their approved lists, normalized custom tags, and no duplicate of another book.
 5. The system saves the changes and sets the status by POST-2.

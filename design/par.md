@@ -41,7 +41,7 @@ _[One paragraph: what this area does, which components of your [architecture-of-
 
 The Parent area owns families: Main and Sub Parents, consent, child accounts, the parent's book suggestions and reports, and the parent's data rights. It is the Accounts & Family component of the Application container ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-PAR-create-kid-account`, the first use case designed here, lets the Main Parent create a child once the family's consent is confirmed. The system holds **no real name** for the child; the child is a nickname, an avatar and an internal child ID (`DI-child-id`). One transaction writes the child account (nickname and avatar) in Accounts & Family, the child's age, grade and optional reading level in the Child Identity Store, and the child's username and password hash in Identity & Access (`KD-pii-segregation`, architecture §5.2). If the parent gave a note, the same transaction also writes the note (Accounts & Family) and, when the internal word list matches, its flag (Safety Flagging) and an audit entry. A flagged note needs no alert: it appears in the flag-review list of `UC-ADM-flag-review`. The plaintext password exists only in the response that shows it to the parent. After the parent acknowledges the credentials, the parent is sent into `UC-REC-kid-onboarding`, and returns to a completion message when that use case finishes.
 
-`UC-PAR-onboarding` creates the family that every child hangs off. One transaction writes the Main Parent's user document and database session (Identity & Access) and the family's **Consent Record** (Accounts & Family); the confirmation email goes out through Notification after the commit. A family is identified by its `familyId`; there is no separate family collection, as the child-account code already assumes. "Awaiting confirmation" is not a status field: it is a Consent Record with no confirmation date and a stored `confirmBy` deadline, which every read compares against `now()` (`KD-time-rules-on-read`), and the Scheduled Cleanup cron route only purges what has already expired (6a). The confirmation link carries a single-use token that confirms consent without needing a session. An onboarding gate in Accounts & Family tells every parent entry point where a signed-in Main Parent belongs: awaiting confirmation (6), expired (6a), first child still needed (8a), or done. Because 6 and 8a both assume a parent can sign in again and no use case covers sign-in, this design also includes, for Main Parents only, an email-and-password sign-in with throttling, sign-out, and a password reset through an emailed link (`SEC-signin-throttling`, `OI-41`; developer decision 2026-11-17). Email is sent over SMTP: Mailpit outside production, Resend in production (developer decision 2026-11-17, `DE-email-provider`, `SI-email-provider`). This design refines `KD-auth-sessions` and two lines of the architecture-of-record; see "Changes to the architecture-of-record".
+`UC-PAR-onboarding` creates the family that every child hangs off. One transaction writes the Main Parent's user document and database session (Identity & Access) and the family's **Consent Record** (Accounts & Family); the confirmation email goes out through Notification after the commit. A family is identified by its `familyId`; there is no separate family collection, as the child-account code already assumes. "Awaiting confirmation" is not a status field: it is a Consent Record with no confirmation date and a stored `confirmBy` deadline, which every read compares against `now()` (`KD-time-rules-on-read`), and the Scheduled Cleanup cron route only purges what has already expired (6a). The confirmation link carries a single-use token that confirms consent without needing a session. An onboarding gate in Accounts & Family tells every parent entry point where a signed-in Main Parent belongs: awaiting confirmation (6), expired (6a), first child still needed (8a), or done. Sign-in, sign-out and password reset are **not part of this use case**. They are supporting flows with no use case of their own (`OI-41`), designed here for Main Parents at the developer's request (2026-11-17), with sign-in throttled (`SEC-signin-throttling`). Onboarding depends on only two of them: sign-in, so a parent who stops before finishing can come back and resume at 8a, and the password-reset link that 4a offers. They never decide onboarding state; the gate does. Email is sent over SMTP: Mailpit outside production, Resend in production (developer decision 2026-11-17, `DE-email-provider`, `SI-email-provider`). This design refines `KD-auth-sessions` and two lines of the architecture-of-record; see "Changes to the architecture-of-record".
 
 ## Components & classes
 
@@ -114,7 +114,7 @@ classDiagram
         /sign-up
     }
     class SignInPage {
-        <<new, UC-PAR-onboarding 8a, OI-41>>
+        <<new, supporting flow, OI-41>>
         /sign-in
     }
     class ConfirmConsentPage {
@@ -434,7 +434,53 @@ sequenceDiagram
     ACT-->>UI: ok, back to step 6
 ```
 
-#### Signing in again, and the onboarding gate (8a)
+#### Resuming onboarding: the gate (8a)
+
+```mermaid
+sequenceDiagram
+    actor P as Main Parent
+    participant UI as /parent page
+    participant IA as Identity & Access
+    participant AF as Accounts & Family
+    P->>UI: Comes back still signed in, or after signing in (supporting flow, OI-41)
+    UI->>IA: requireParent()
+    UI->>AF: getOnboardingStep(session)
+    alt awaiting confirmation (6)
+        UI-->>P: Redirect to check-email
+    else expired, unconfirmed (6a)
+        UI-->>P: Redirect to check-email, which says to start again
+    else confirmed, no child yet (8a)
+        UI-->>P: Redirect to /parent/children/new, before anything else
+    else done
+        UI-->>P: Parent home with "Add a Child"
+    end
+```
+
+#### Purge an unconfirmed account (6a)
+
+```mermaid
+sequenceDiagram
+    participant CRON as Vercel Cron
+    participant R as /api/cron/cleanup
+    participant AF as Accounts & Family
+    participant DB as Database
+    CRON->>R: GET with the cron secret (daily)
+    alt secret missing or wrong
+        R-->>CRON: 401, nothing read
+    end
+    R->>AF: purgeExpiredUnconfirmed()
+    loop each Consent Record with no confirmedAt and confirmBy before now() (6a)
+        AF->>DB: In one transaction, delete the user (name, email), sessions, throttle state, any password reset record and Consent Record, and append an audit entry (IDs only)
+    end
+    R->>AF: purgeExpiredResets() (password reset records past their expiry)
+    R-->>CRON: ok, number purged
+```
+
+### Supporting flows (`OI-41`): sign-in, sign-out, password reset
+
+These are **not steps of `UC-PAR-onboarding`**, and no use case covers them yet (`OI-41`). The developer chose to design them here, for Main Parents only. Onboarding relies on two of them: sign-in, so a parent who stops before finishing can return to the gate (8a), and the password-reset link 4a offers. None of them reads or decides onboarding state; after sign-in, the gate on `/parent` does.
+
+#### Sign in
 
 ```mermaid
 sequenceDiagram
@@ -442,8 +488,7 @@ sequenceDiagram
     participant UI as Web UI
     participant ACT as signInParent
     participant IA as Identity & Access
-    participant AF as Accounts & Family
-    P->>UI: Email and password on /sign-in (OI-41, needed by 6 and 8a)
+    P->>UI: Email and password on /sign-in
     UI->>ACT: signInParent(fields)
     ACT->>IA: checkAllowed(email)
     alt waiting after repeated failures (SEC-signin-throttling)
@@ -454,23 +499,12 @@ sequenceDiagram
         ACT->>IA: recordFailure(email)
         ACT-->>UI: INVALID_CREDENTIALS
     end
-    ACT->>AF: getOnboardingStep
-    alt expired, unconfirmed (6a)
-        ACT-->>UI: SIGN_UP_EXPIRED
-    end
     ACT->>IA: clear(email), createDatabaseSession(userId)
-    ACT-->>UI: ok, go to /parent
-    UI->>AF: getOnboardingStep (the /parent page)
-    alt awaiting confirmation (6)
-        UI-->>P: Redirect to check-email
-    else confirmed, no child yet (8a)
-        UI-->>P: Redirect to /parent/children/new, before anything else
-    else done
-        UI-->>P: Parent home with "Add a Child"
-    end
+    ACT-->>UI: ok
+    UI-->>P: Redirect to /parent, where the gate decides the rest (8a)
 ```
 
-#### Sign out (`OI-41`)
+#### Sign out
 
 ```mermaid
 sequenceDiagram
@@ -485,7 +519,7 @@ sequenceDiagram
     UI-->>P: Redirect to /sign-in
 ```
 
-#### Reset a forgotten password (`OI-41`)
+#### Reset a forgotten password
 
 ```mermaid
 sequenceDiagram
@@ -499,7 +533,7 @@ sequenceDiagram
     UI->>ACT: requestPasswordReset(email)
     ACT->>ACT: Validate the email format
     ACT->>IA: findParentByEmail(email)
-    alt no Main Parent, an expired unconfirmed account, or a reset email sent too recently
+    alt no Main Parent with that email, or a reset email sent too recently
         Note over ACT: Nothing is sent
     else account found
         ACT->>IA: issueResetToken(userId), storing the hash and expiry in place of any earlier token
@@ -525,26 +559,6 @@ sequenceDiagram
     UI-->>P: Redirect to /sign-in, "password changed"
 ```
 
-#### Purge an unconfirmed account (6a)
-
-```mermaid
-sequenceDiagram
-    participant CRON as Vercel Cron
-    participant R as /api/cron/cleanup
-    participant AF as Accounts & Family
-    participant DB as Database
-    CRON->>R: GET with the cron secret (daily)
-    alt secret missing or wrong
-        R-->>CRON: 401, nothing read
-    end
-    R->>AF: purgeExpiredUnconfirmed()
-    loop each Consent Record with no confirmedAt and confirmBy before now() (6a)
-        AF->>DB: In one transaction, delete the user (name, email), sessions, throttle state, any password reset record and Consent Record, and append an audit entry (IDs only)
-    end
-    R->>AF: purgeExpiredResets() (password reset records past their expiry)
-    R-->>CRON: ok, number purged
-```
-
 ## API contract
 
 _[One row per endpoint, scheduled job, or message this area adds or changes, appended per use case. **This section is never dropped**: before the code exists it is the only thing the person (or agent session) building the front end and the one building the back end both read. Name the caller and who may call it, the request fields, the success response, and the error each extension returns. Leave field types and exact JSON to the agent unless a wrong guess would break something, such as a format another system depends on. Use the error shape your architecture-of-record's section 8.2 fixes; do not invent one here._
@@ -562,14 +576,14 @@ _Pages change data through server actions (§8.2.3), and every result uses the `
 | Server action `resendConsentEmail` (UC-PAR-onboarding 6b) | A signed-in Main Parent whose consent is awaiting confirmation; the family comes from the session | None | `ok`; the earlier link no longer works; the deadline is unchanged | `NOT_MAIN_PARENT`. `ALREADY_CONFIRMED`. 6a: `SIGN_UP_EXPIRED`. `SEND_FAILED` (the new token is kept, so the parent can try again). Not signed in: refused (§8.1). |
 | Page `/consent/confirm` (UC-PAR-onboarding step 7) | Anyone holding the link | The token, in the URL fragment, never sent to the server by the page load | The "Confirm" button | None at load: the page confirms nothing on its own. |
 | Server action `confirmConsent` (UC-PAR-onboarding step 7) | Anyone holding the token; no session needed | The token | `ok` with where to continue: `/parent/children/new` when the caller's session belongs to that family (step 8), otherwise `/sign-in` | `LINK_INVALID` for an unknown or replaced token (6b), with no hint which. 6a: `LINK_EXPIRED`. The same link used again after it confirmed: `ok`, nothing changes. |
-| Server action `signInParent` (UC-PAR-onboarding 6 and 8a; `OI-41`) | Anyone | Email, password | `ok`; a database session and its cookie; the page redirects to `/parent` | `INVALID_CREDENTIALS`, the same for an unknown email and a wrong password. `TOO_MANY_ATTEMPTS` with the wait in seconds (`SEC-signin-throttling`). 6a: `SIGN_UP_EXPIRED`. A child or admin account signing in here: `INVALID_CREDENTIALS`. |
 | Page `/parent` (UC-PAR-onboarding 8a) | A signed-in parent | None | Redirect by onboarding step: awaiting to check-email (6), first child needed to `/parent/children/new` (8a), done to the parent home | No session: redirect to `/sign-in`. Expired: as check-email. |
-| Server action `signOutParent` (`OI-41`) | A signed-in Main Parent | None | `ok`; this session's document is deleted and the cookie cleared; the page redirects to `/sign-in` | Not signed in: `NOT_SIGNED_IN` (nothing to end). |
-| Page `/forgot-password` (`OI-41`; offered by 4a and the sign-in page) | Anyone | None | The email form | None. |
-| Server action `requestPasswordReset` (`OI-41`) | Anyone | Email | `ok`, the same answer whether or not an account exists and whether or not an email was sent | `INVALID_EMAIL` for a malformed address only. A send failure is logged and still answers `ok`, so the answer reveals nothing. |
-| Page `/reset-password` (`OI-41`) | Anyone holding the link | The token, in the URL fragment | The new-password form | None at load: nothing changes until the form is submitted. |
-| Server action `resetPassword` (`OI-41`) | Anyone holding the token; no session needed | Token, new password | `ok`; the password is replaced, every session of that parent is ended, and the page redirects to `/sign-in` | `RESET_LINK_INVALID` for an unknown, used, replaced or expired token, with no hint which. `WEAK_PASSWORD` (the 4c rule), with the token still usable. `SAVE_FAILED` with an error ID, nothing changed. |
 | Route `GET /api/cron/cleanup` (UC-PAR-onboarding 6a) | Vercel Cron only, with `Authorization: Bearer <CRON_SECRET>` | None | `{ ok: true, data: { purged } }` | Missing or wrong secret: 401 with `{ ok: false, error: { code: "UNAUTHORIZED" } }`, nothing read. Unexpected failure: `{ ok: false, error: { code: "CLEANUP_FAILED", errorId } }`; the next run tries again. |
+| Server action `signInParent` (supporting flow, `OI-41`; lets a parent come back to resume at 8a) | Anyone | Email, password | `ok`; a database session and its cookie; the page redirects to `/parent`, where the gate decides the rest | `INVALID_CREDENTIALS`, the same for an unknown email and a wrong password. `TOO_MANY_ATTEMPTS` with the wait in seconds (`SEC-signin-throttling`). A child or admin account signing in here: `INVALID_CREDENTIALS`. No onboarding check: an expired, unconfirmed parent signs in and the gate tells them to start again. |
+| Server action `signOutParent` (supporting flow, `OI-41`) | A signed-in Main Parent | None | `ok`; this session's document is deleted and the cookie cleared; the page redirects to `/sign-in` | Not signed in: `NOT_SIGNED_IN` (nothing to end). |
+| Page `/forgot-password` (supporting flow, `OI-41`; linked from 4a and the sign-in page) | Anyone | None | The email form | None. |
+| Server action `requestPasswordReset` (supporting flow, `OI-41`) | Anyone | Email | `ok`, the same answer whether or not an account exists and whether or not an email was sent | `INVALID_EMAIL` for a malformed address only. A send failure is logged and still answers `ok`, so the answer reveals nothing. |
+| Page `/reset-password` (supporting flow, `OI-41`) | Anyone holding the link | The token, in the URL fragment | The new-password form | None at load: nothing changes until the form is submitted. |
+| Server action `resetPassword` (supporting flow, `OI-41`) | Anyone holding the token; no session needed | Token, new password | `ok`; the password is replaced, every session of that parent is ended, and the page redirects to `/sign-in` | `RESET_LINK_INVALID` for an unknown, used, replaced or expired token, with no hint which. `WEAK_PASSWORD` (the 4c rule), with the token still usable. `SAVE_FAILED` with an error ID, nothing changed. |
 
 The password reset email goes only to the Main Parent's own address. It holds the link and when it expires, says to ignore it if the parent did not ask, and holds no child data.
 
@@ -627,7 +641,7 @@ _A decision that affects the whole system rather than this area is an architectu
 
 **The link confirms without a session.** A parent who signs up on a laptop often opens the email on a phone. The token proves control of the email address, which is the point of the email step, and it grants no session and nothing beyond setting `confirmedAt` on its own family's record. Rejected: requiring sign-in on the device that opens the link, which strands the parent on the phone.
 
-**An expired, unconfirmed account is treated as gone the moment its deadline passes; the cron only deletes it.** Sign-up replaces it inside its own transaction, and sign-in, confirmation and the check-email page refuse it as expired. The daily purge deletes the user (the name and email held only to obtain consent), its sessions, its throttle state and the Consent Record in one transaction, and appends an audit entry with IDs only (§8.2.9, data deletions). Rejected: relying on the cron, which runs at most daily on the free plan and would be the only thing enforcing the window (`KD-time-rules-on-read`).
+**An expired, unconfirmed account is treated as gone the moment its deadline passes; the cron only deletes it.** Sign-up replaces it inside its own transaction; confirmation and resend refuse it; and the gate sends a parent who is still signed in, or signs in again, to check-email, which says to start again. The daily purge deletes the user (the name and email held only to obtain consent), its sessions, its throttle state and the Consent Record in one transaction, and appends an audit entry with IDs only (§8.2.9, data deletions). Rejected: relying on the cron, which runs at most daily on the free plan and would be the only thing enforcing the window (`KD-time-rules-on-read`).
 
 **Email uniqueness is a unique index on the lowercased email, across every user.** A duplicate key inside the sign-up transaction becomes `EMAIL_TAKEN` (4a). The index covers every user with an email, so an address already used by a Sub Parent or an admin is also taken. Rejected: check-then-insert, which lets two sign-ups with one email both succeed.
 
@@ -637,9 +651,13 @@ _A decision that affects the whole system rather than this area is an architectu
 
 **The onboarding gate is a function every parent entry point calls, not middleware or a layout.** `getOnboardingStep` decides where a signed-in Main Parent goes; `/parent` and every later parent page that is not part of onboarding call it first, so 8a's "before allowing access to anything else" holds wherever a parent lands. Rejected: middleware, which §8.1 says is never the check; and a redirect in the `(parent)` layout, which cannot see the path and would redirect the onboarding pages to themselves. The gate is routing; the data rule is still the consent check inside `createChild`.
 
-**Sign-in is throttled per account and never locks out.** Failures are counted per lowercased email, unknown ones included, and after repeated failures each attempt must wait a growing delay. Unknown email and wrong password give the same answer. Rejected: a lockout, which `SEC-signin-throttling` warns would let anyone lock a parent out on purpose; and counting per IP address, which keeps an identifier `BR-kid-data-stored` asks to minimize and is useless behind shared networks.
-
 **The sign-up form says when an email is already registered (4a).** The use case asks for it, which lets anyone test whether an address has an account. Accepted for V1: sign-in does not reveal it, and the throttle limits guessing. Rejected: always showing "check your email", which would contradict 4a; a change for the client to decide.
+
+### Supporting flows (`OI-41`)
+
+**Sign-in knows nothing about onboarding.** It checks the throttle and the password, creates the session and sends the parent to `/parent`; the gate there decides awaiting, expired, first child or done. Password reset likewise treats every Main Parent alike. Rejected: checking the onboarding step inside sign-in and reset (the first draft), which duplicated the gate and tied flows that are not part of `UC-PAR-onboarding` to its states.
+
+**Sign-in is throttled per account and never locks out.** Failures are counted per lowercased email, unknown ones included, and after repeated failures each attempt must wait a growing delay. Unknown email and wrong password give the same answer. Rejected: a lockout, which `SEC-signin-throttling` warns would let anyone lock a parent out on purpose; and counting per IP address, which keeps an identifier `BR-kid-data-stored` asks to minimize and is useless behind shared networks.
 
 **Sign-out deletes the session document, not just the cookie.** With database sessions, deleting the document ends the session on the server at once. Rejected: clearing only the cookie, which leaves a session anyone holding the token could still use.
 
@@ -856,24 +874,24 @@ _[One row per flow: the main success scenario and **every** extension of every u
 | UC-PAR-onboarding 5a | integration | When the Consent Record insert or the session insert fails, no user, record or session remains, no cookie is set, and the result is `SAVE_FAILED` with an error ID |
 | UC-PAR-onboarding 5b | integration | When the transport fails, the account, record and session stay, the result is `ok` with `emailSent` false, and the check-email page shows the could-not-send notice |
 | UC-PAR-onboarding 6 | integration | Before confirmation, `/parent` and `/parent/children/new` redirect to check-email, and `createChildAccount` returns `CONSENT_NOT_CONFIRMED` |
-| UC-PAR-onboarding 6a, on read | integration | With the clock past `confirmBy`: `confirmConsent` returns `LINK_EXPIRED`, `signInParent` returns `SIGN_UP_EXPIRED`, `resendConsentEmail` returns `SIGN_UP_EXPIRED`, and check-email says to start again; nothing is confirmed |
+| UC-PAR-onboarding 6a, on read | integration | With the clock past `confirmBy`: `confirmConsent` returns `LINK_EXPIRED`, `resendConsentEmail` returns `SIGN_UP_EXPIRED`, and check-email says to start again; a parent who signs in with the right password is let in and `/parent` sends them to that message; nothing is confirmed |
 | UC-PAR-onboarding 6a, purge | integration | The cleanup route with the secret deletes every expired unconfirmed user, its sessions, throttle state and Consent Record, appends one audit entry per account with IDs only, and leaves confirmed families and unexpired unconfirmed ones untouched; without the secret, or with a wrong one, it returns 401 and deletes nothing |
 | UC-PAR-onboarding 6b | integration | A resend replaces the token: the old link returns `LINK_INVALID`, the new one confirms, and `confirmBy` is unchanged; a confirmed family gets `ALREADY_CONFIRMED`; a Sub Parent gets `NOT_MAIN_PARENT` |
 | UC-PAR-onboarding 7 | integration | A valid token sets `confirmedAt` once; the same link used again returns `ok` and changes nothing; an unknown token returns `LINK_INVALID`; with no session the result continues to `/sign-in`, with this family's session to `/parent/children/new` |
 | UC-PAR-onboarding 7, no click | end-to-end | Loading the confirmation page, without tapping Confirm, leaves the family unconfirmed |
 | UC-PAR-onboarding 8 | integration | After confirmation, `checkCreateChildAccess` lets the Main Parent create a child, and `createChild` accepts the Consent Record sign-up wrote (the `childCreationVersion` contract); setting `revokedAt` on it makes both refuse |
 | UC-PAR-onboarding 8a | integration and end-to-end | A confirmed Main Parent with no child who signs in again is sent to `/parent/children/new` from `/parent`; with a child, to the parent home |
-| Sign-in (`OI-41`) | integration | A correct email and password create a database session that `auth()` and `requireParent()` read back; an unknown email and a wrong password both return `INVALID_CREDENTIALS`; a child or admin user is refused the same way |
-| Sign-in throttling | integration | Under a fixed clock, after the agreed number of failures the next attempt returns `TOO_MANY_ATTEMPTS` with the wait, the wait grows to the agreed cap and never becomes a lockout, unknown emails are throttled the same way, and a success clears the count |
+| Supporting flow: sign-in (`OI-41`) | integration | A correct email and password create a database session that `auth()` and `requireParent()` read back; an unknown email and a wrong password both return `INVALID_CREDENTIALS`; a child or admin user is refused the same way |
+| Supporting flow: sign-in throttling (`OI-41`) | integration | Under a fixed clock, after the agreed number of failures the next attempt returns `TOO_MANY_ATTEMPTS` with the wait, the wait grows to the agreed cap and never becomes a lockout, unknown emails are throttled the same way, and a success clears the count |
 | Confirmation email | unit | The message holds the link with the token in the fragment, the notice version, the deadline and how to revoke, and no child data |
 | Email transport | unit | In production with no `SMTP_URL`, `sendEmail` refuses without trying to send; elsewhere it uses the configured URL |
 | UC-PAR-onboarding logging | integration | After a sign-up, a 5b failure, a 5a failure, a confirmation, a refused sign-in and a purge, the logs contain no name, email, password, confirmation token or session token |
-| Sign-out (`OI-41`) | integration | `signOutParent` deletes the caller's session document and clears the cookie; the old session token no longer passes `auth()`; other sessions of the same parent are untouched |
-| Password reset request (`OI-41`) | integration | For a Main Parent, one reset record with a hash and expiry is stored and one email with the link is sent; for an unknown email, an expired unconfirmed account, a child or an admin, nothing is stored or sent; all return the same `ok`; a second request within the spacing sends nothing more, and one after it replaces the earlier token |
-| Password reset (`OI-41`) | integration | A valid token and an acceptable password replace the hash, delete every session of that parent, clear the throttle and append one audit entry with the user ID only, in one transaction; the old password no longer signs in and the new one does; the token cannot be used twice |
-| Password reset refusals (`OI-41`) | integration | An unknown, replaced, used or expired token (fixed clock) returns `RESET_LINK_INVALID` and changes nothing; a password breaking the 4c rule returns `WEAK_PASSWORD` and leaves the token usable |
-| Password reset, no click | end-to-end | Loading `/reset-password` from the link, without submitting, changes nothing; the token never appears in a request URL |
-| Reset purge | integration | The cleanup route removes reset records past their expiry and leaves unexpired ones |
+| Supporting flow: sign-out (`OI-41`) | integration | `signOutParent` deletes the caller's session document and clears the cookie; the old session token no longer passes `auth()`; other sessions of the same parent are untouched |
+| Supporting flow: password reset request (`OI-41`) | integration | For a Main Parent, one reset record with a hash and expiry is stored and one email with the link is sent, whatever the family's onboarding state; for an unknown email, a child or an admin, nothing is stored or sent; all return the same `ok`; a second request within the spacing sends nothing more, and one after it replaces the earlier token |
+| Supporting flow: password reset (`OI-41`) | integration | A valid token and an acceptable password replace the hash, delete every session of that parent, clear the throttle and append one audit entry with the user ID only, in one transaction; the old password no longer signs in and the new one does; the token cannot be used twice |
+| Supporting flow: password reset refusals (`OI-41`) | integration | An unknown, replaced, used or expired token (fixed clock) returns `RESET_LINK_INVALID` and changes nothing; a password breaking the 4c rule returns `WEAK_PASSWORD` and leaves the token usable |
+| Supporting flow: password reset, no click (`OI-41`) | end-to-end | Loading `/reset-password` from the link, without submitting, changes nothing; the token never appears in a request URL |
+| Supporting flow: reset purge (`OI-41`) | integration | The cleanup route removes reset records past their expiry and leaves unexpired ones |
 | UC-PAR-onboarding admin boundary | integration | No function an admin session can call returns a Consent Record's fields beyond whether one exists (`DI-consent-record`) |
 
 ## Changes to the architecture-of-record
@@ -923,7 +941,7 @@ Other open items:
 
 `UC-PAR-onboarding`, what this design had to assume. The developer approved the values below on 2026-11-17; they are recorded in [`par-field-values.md`](par-field-values.md), and `/implement` builds the checks only from those tables.
 
-- **Sign-in, sign-out and password reset have no use case (team, `OI-41`).** The developer chose on 2026-11-17 to design them here, because steps 6 and 8a assume a sign-in and 4a offers a reset link. They cover Main Parents only. Sub Parent sign-in and reset come with `UC-PAR-create-sub-parent-account`; a child's sign-in, and the parent-run child password reset, are `OI-26`. A use case for them would let `/implement` trace these flows to the specification.
+- **Sign-in, sign-out and password reset have no use case (team, `OI-41`).** They are supporting flows, not steps of `UC-PAR-onboarding`. The developer chose on 2026-11-17 to design them here, because 8a assumes a parent can sign in again and 4a offers a reset link; step 6 needs no sign-in, since the parent is signed in at step 5. They cover Main Parents only. Sub Parent sign-in and reset come with `UC-PAR-create-sub-parent-account`; a child's sign-in, and the parent-run child password reset, are `OI-26`. A use case for them would let `/implement` trace these flows to the specification.
 - **Reset link lifetime and email spacing (team).** Proposed: the link works for 1 hour, and at most one reset email per account every 5 minutes. Tables in `par-field-values.md`.
 - **No "your password was changed" email (team).** Not asked for; the parent who reset it is the one who sees the confirmation. Add one only if the team wants it.
 - **Parent password (team, 4c).** Developer decision 2026-11-17, NIST-style: 8 to 128 characters, no character-class rules, not equal to the email. A check against a list of common or breached passwords is left out; it would need a list or an outside service nobody has chosen.

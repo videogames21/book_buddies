@@ -54,8 +54,8 @@ dependency and binary downloads; no external account is used.
 | Parent note   | `Likes moon stories.`                      |
 | Character     | Any provided character                     |
 
-The working demo ends at **Account created**. Continuing opens an unfinished
-reading-interest page. Parent sign-in, password reset, the parent dashboard
+The working demo continues from **Account created** to the reading-interest form,
+then to **Onboarding complete**. Parent sign-in, password reset, the parent dashboard
 (including Cancel's destination), recommendations and shelves are separate,
 unfinished features. A second creation needs a different username, such as
 `moon_reader_02`, or restart the demo for a fresh family.
@@ -133,7 +133,7 @@ separate checkouts because they share the build directory.
 
 ## Review and release dependencies
 
-The [review notes](docs/implementation/child-account.md) list settings and test coverage. Before release, the team must approve the field values, avatar set and moderation word list, supply the privacy notice, and implement parent sign-in and reading-interest onboarding. The current reading-interest page shows a pending message.
+The [review notes](docs/implementation/child-account.md) list settings and test coverage. Before release, the team must approve the field values, avatar set and moderation word list, supply the privacy notice, and implement parent sign-in. The reading-interest form (`/parent/children/[childId]/reading-profile`) is built; its book picker lists only active catalog books, so it is empty until the catalog import exists (`UC-ADM-add-content`). Its privacy notice paragraph is a placeholder that links to the same notice as the Add a child form.
 
 ## Child data inventory
 
@@ -145,5 +145,6 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `parentNotes`               | Child UUID, optional trimmed note, screening state, save time                       | Accounts & Family insert only; never returned to child/admin |
 | `noteFlags`                 | Note/child IDs, categories, character offsets, detector method/version, state, time | Safety Flagging insert only; no duplicated note text         |
 | `auditLog`                  | Actor/record/child IDs, event/role, time                                            | Append only; no child details or note text                   |
+| `readingProfiles`           | Child UUID, reading interests (fixed list), favorite catalog book IDs, save time    | Recommendation only; parent-entered; never returned to child/admin |
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.

@@ -52,8 +52,3 @@ export async function requireOwnChildWithConsent(
   }
   return access;
 }
-
-// The completion page (UC-PAR-create-kid-account step 10). The path template is fixed
-// here; the child ID in it comes from the route, never from a request field.
-export const onboardingCompletePath = (childId: string) =>
-  `/parent/children/${childId}/onboarding-complete`;

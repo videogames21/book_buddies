@@ -6,6 +6,10 @@ export default function PrivacyNoticePendingPage() {
         This development preview uses invented test data. The client must supply
         BookBuddies’ privacy notice before this feature is released.
       </p>
+      <p>
+        The notice opens in a new tab so nothing you chose is lost. Close this
+        tab to go back to where you were.
+      </p>
     </main>
   );
 }

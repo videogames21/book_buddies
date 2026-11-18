@@ -13,7 +13,7 @@ vi.mock("@/server/identity-access/auth", () => ({ auth: vi.fn() }));
 const { auth } = await import("@/server/identity-access/auth");
 const { getDb } = await import("@/server/lib/db");
 const { saveReadingProfile } = await import("./actions");
-const { onboardingCompletePath } = await import("./access");
+const { onboardingCompletePath } = await import("./paths");
 
 const mockedAuth = vi.mocked(
   auth as unknown as () => Promise<{ user: { id: string } } | null>,

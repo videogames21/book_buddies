@@ -4,11 +4,11 @@
 **Team:** Team 05
 **Area:** `UC-PAR`
 
-> **Realizes:** `UC-PAR-review-child-data` (proposed), `FR-DATA-review`, `UC-PAR-create-kid-account`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent-confirm` (PRE-3), `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`
+> **Realizes:** `UC-PAR-review-child-data` (design proposal), `FR-DATA-review`, `UC-PAR-create-kid-account`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent-confirm` (PRE-3), `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`
 > **Depends on:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`
 > **See:** [use cases, PAR area](../docs/requirements/use-cases.md#par-parent-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [COPPA design requirements](../docs/coppa/coppa-design-requirements.md), [team decisions](../docs/Team_Decisions.md), [architecture-of-record](architectural-design.md)
-> **Designed against:** child creation: `3493672`; review/export proposal: `d8beec62e9bd8b631ae2b522726397c44c24f1b5` (2026-11-16).
-> **Review/export status:** Proposed design for `UC-PAR-review-child-data`, issue #63. No implementation or teammate approval. Depends on `BR-coppa-parent-rights`, `BR-parent-account-linked`, `BR-parent-note`, `FR-DATA-review`, `SEC-role-authorization` and `SEC-signin-throttling`.
+> **Designed against:** child creation: `3493672`; child-data review: `8f27e55ec2032c5be43442c1feda2e0a52b5b1e1`.
+> **Child-data review:** design only, refs #63. Parent rights and password checks: `BR-coppa-parent-rights`, `BR-parent-account-linked`, `BR-parent-note`, `SEC-role-authorization`, `SEC-signin-throttling`.
 
 ---
 
@@ -44,19 +44,20 @@ The Parent area owns families: Main and Sub Parents, consent, child accounts, th
 
 ## Components & classes
 
-Review/export extends Accounts & Family with a parent-only read coordinator. Each component owns its reader; no PAR page queries another component's collections. Review uses linkage and password confirmation, not the create-child consent gate: a parent must still be able to review retained data after revoking consent. Account settings and parent sign-in do not exist on the pinned commit. The demo is not a substitute for either.
+Review/export extends Accounts & Family with a parent-only read coordinator. Each component owns its reader; no PAR page queries another component's collections. Review uses linkage and password confirmation, not the create-child consent gate: a parent must still be able to review retained data after revoking consent. Account settings and real parent sign-in are not implemented on this baseline. PR #98 proposes the Main Parent credential and sign-in contract; it is an integration dependency, not merged code. This design adds the narrow reauthentication contract below for both parent roles. The demo session cannot stand in for password confirmation.
 
-### Review/export additions (proposed)
+### Child-data review components
 
 | File / component | Reuse or change |
 |---|---|
 | `src/app/(parent)/parent/settings/page.tsx` | New minimal account-settings entry, linked from the parent area, with the UC step 1 link. No unrelated settings. |
 | `src/app/(parent)/parent/settings/child-data/page.tsx`, `review-child-data.tsx`, `actions.ts`, `schema.ts` | New selector, password prompt, category view, download control and action boundaries. |
 | `src/server/accounts-family/child-data.ts` | New coordinator; family-scoped reads of child summaries, consent and notes. |
-| `src/server/identity-access/sessions.ts`, `passwords.ts` | Reuse session and hash verification. Shared account-attempt handling must be agreed with the onboarding owner first. |
+| `src/server/identity-access/sessions.ts`, `passwords.ts` | Reuse session and hash verification. Add `verifyParentPassword` in Identity & Access. Use the caller’s stored credential and the shared attempt policy below; never accept an email, username, hash or account key from the request. |
 | `src/server/identity-access/child-credentials.ts`, `src/server/child-identity/child-identity.ts`, `src/server/safety-flagging/note-flags.ts` | Extend with parent-authorized inclusion-projection readers. Each reader verifies family membership through Accounts & Family within the read transaction. |
 | `src/server/audit/audit-log.ts` | Extend append-only audit and validator. The existing validator accepts only `parent-note-flagged`; it cannot record review/export unchanged. |
-| Future REC, Shelf, Notification and usage readers | Not built. Their owners supply scoped projections before collecting those categories. Do not invent their collection names. |
+| `src/server/recommendation/reading-profiles.ts` | PR #102 proposes this module. Extend its eventual merged version with a scoped parent-data reader; include `savedAt` and the stored onboarding fields. Do not copy its unmerged implementation into this change. |
+| Shelf, Notification and usage readers | Not built. Their owners supply scoped projections before collecting those categories. Do not invent their collection names. |
 
 ```mermaid
 classDiagram
@@ -254,7 +255,7 @@ sequenceDiagram
     UI-->>P: "Onboarding complete" message, use case ends (step 10)
 ```
 
-### Review/export sequence (proposed)
+### UC-PAR-review-child-data: review and export
 
 ```mermaid
 sequenceDiagram
@@ -274,16 +275,16 @@ sequenceDiagram
   UI->>Action: 6–7: Child ID and fresh password confirmation
   Action->>IAM: 7: Recheck session and shared attempt policy
   Action->>Data: 7: Read and serialize complete snapshot
-  Data->>Data: 8: Commit export audit before release
+  Data->>Data: 8: Commit refreshed-view and export audits
   Data-->>UI: 7: Same snapshot for display and file
   UI-->>Parent: 7: Offer file download
 ```
 
-The second password prompt is proposed, not settled; see decisions below. Audit means data was released/offered, not proof the browser displayed or saved it. Step 8 occurs before each release so leaving without downloading still records the view.
+This proposal confirms the password separately for each action; no reusable authorization grant is created. Audit means data was released/offered, not proof the browser displayed or saved it. Step 8 occurs before each release so leaving without downloading still records the view.
 
 ## API contract
 
-### Review/export API rows (proposed)
+### Child-data review API contract
 
 Every action independently checks current session and parent role before input validation (§8.2.3). Acting user and family come only from that session. Use the shared §8.2.1 result shape.
 
@@ -291,7 +292,11 @@ Every action independently checks current session and parent role before input v
 |---|---|---|---|
 | Page `/parent/settings/child-data` | Main or Sub Parent; no password in URL | Linked-child summaries only. Preselect one child; otherwise require selection. No private data in initial HTML/RSC before confirmation. | No session: sign-in; wrong role: refusal; no linked children: explanation without review form. |
 | Action `reviewChildData` | Parent; child UUID and own current password | Complete category DTO after password confirmation, scoped snapshot and committed view audit | 2a: `CHILD_NOT_FOUND`, identical for missing/unlinked IDs. 4a: `PASSWORD_INCORRECT`. 4b: `TOO_MANY_ATTEMPTS` with shared retry deadline. 5b or audit failure: `LOAD_FAILED`, no DTO. Malformed input: `INVALID_INPUT`. Missing parent credential: unavailable, never bypass confirmation. |
-| Action `exportChildData` | Parent; child UUID and fresh own-password confirmation (proposal) | Serialized complete document and same snapshot for the page; export audit committed first | Same session, role, linkage, validation and password refusals. 7a, reader, serialization or audit failure: `EXPORT_FAILED`, no file bytes. Caller-provided category data is never trusted. |
+| Action `exportChildData` | Parent; child UUID and fresh own-password confirmation | Serialized complete document and same snapshot for the page; refreshed-view and export audits committed first | Same session, role, linkage, validation and password refusals. 7a, reader, serialization or audit failure: `EXPORT_FAILED`, no file bytes. Caller-provided category data is never trusted. |
+
+For both actions: session/role first, validate the child UUID and password bounds, check the child belongs to the session’s family, then confirm the password. Repeat the family check inside the data snapshot. A missing/unlinked child is `CHILD_NOT_FOUND` before checking its data. Password input is 1–128 characters and is never trimmed; accept an existing password shorter than the new sign-up minimum. Missing or unsupported parent credentials return `REAUTH_UNAVAILABLE`, not success.
+
+The page is dynamic and uncached; no reader uses a shared data cache. Clear revealed data on child changes, navigation/pagehide and restored-history pageshow, requiring confirmation again after returning. A revoked/deleted session is checked again on every action; never reveal a restored payload merely because a button was previously unlocked.
 
 Clear passwords after attempts; never retain them for export. Changing child clears previous data. Render notes as text, never HTML. Errors receive keyboard focus and an announced status. Failed reads clear stale data; duplicate submissions are disabled while pending. No emailed export, public URL, download API route, object storage or scheduled job.
 
@@ -345,11 +350,11 @@ _A decision that affects the whole system rather than this area is an architectu
 
 **Waiting for the child's onboarding is a redirect and a return, not a state.** After step 8 the page sends the parent to `UC-REC-kid-onboarding`; that use case ends on its step 5 by redirecting to the completion page (step 10). No polling and no status field belong to this use case; whether onboarding is complete is already REC's own flag (`UC-REC-kid-onboarding` POST-3). Rejected: the create page staying open and polling for completion, which keeps the password on screen for the whole of onboarding and adds a status nobody asked for.
 
-### Review/export decisions for teammate approval
+### Child-data review decisions for approval
 
-- **One screen/download schema.** Proposed first format: pretty-printed UTF-8 JSON, stable category keys, plain purpose text, UTC timestamps and format version. Rejected: raw database dumps (secrets/unrelated fields) and a new PDF/ZIP dependency. The UC's readable-document-plus-machine-file suggestion remains unsettled; JSON is a proposal, not an accepted specification change.
-- **Password confirmation per action.** Proposed: enter it to review and again to export, without retaining plaintext. Rejected: trusting a hidden button or client `verified` flag. A server-side grant could reduce friction but needs an agreed lifetime and binding to the parent, database session and child. Reviewers must choose before implementation; no arbitrary lifetime is invented.
-- **Snapshot, audit, release.** Owning readers share one snapshot transaction. Missing optional data is empty; reader errors abort everything. Serialize before committing export audit. Rejected: swallowing failures into empty arrays. Export reads current data and replaces the page with that same snapshot, rather than silently downloading stale data.
+- **One screen/download schema.** Proposed format for teammate approval: one pretty-printed UTF-8 JSON file (`application/json`, fixed filename `bookbuddies-child-data.json`). A versioned document contains `schemaVersion`, UTC `generatedAt`, `childId` and all eleven categories, each with a stable key, plain purpose text and records. The same projected values populate the readable screen. Rejected: raw database dumps (secrets/unrelated fields) and a new PDF/ZIP dependency. This selects the UC’s format-TBD through the design review; it does not claim the client approved a separate PDF/ZIP or a new disclosure policy.
+- **Password confirmation per action.** Enter it to review and again to export, without retaining plaintext. Approving this design accepts that interaction. Rejected: trusting a hidden button or client `verified` flag. A server-side grant could reduce friction but needs an agreed lifetime and binding to the parent, database session and child. No grant lifetime or new token store is needed. If reviewers prefer one prompt, its server-side binding and expiry require a revised design before implementation.
+- **Snapshot, audit, release.** Owning readers share one snapshot transaction with snapshot read concern. Missing optional data is empty; reader errors abort everything. Serialize before committing export audit. Rejected: swallowing failures into empty arrays. Export reads current data and replaces the page with that same snapshot, rather than silently downloading stale data; commit one refreshed-view audit and one export audit in that transaction. A failed commit releases neither data nor file.
 - **No saved export.** Server retains no file or child-data cache. Browser builds a Blob from success only and revokes its URL; no local/session storage, service worker cache, URL payload or telemetry receives it. Leaving clears application state but cannot retract downloaded copies. Rejected: retaining or emailing exports, against the UC field table.
 - **Revoked consent does not block review.** Use current linkage and password checks, never `checkCreateChildAccess` or `isConsentConfirmed`. Rejected: removing the review right when the parent stops collection.
 
@@ -364,7 +369,7 @@ Each owning reader checks the child/family relation inside the transaction and u
 | Step 5 category | Owner / source or dependency | Contents and purpose source |
 |---|---|---|
 | Identity | Accounts & Family `children`; Child Identity Store `childIdentities`; Identity & Access `users` | UC-listed fields and stored creation times; credentials reader returns username only. Purposes: `BR-kid-data-stored`. |
-| Reading profile | REC, not built; pending #96 proposes `readingProfiles` | Entered interests/favorites, onboarding completion/save time when stored, and the stored derived Interest Profile; purpose: `BR-kid-data-stored`. |
+| Reading profile | Merged REC design; PR #102 proposes `readingProfiles` code | Entered interests/favorites, onboarding completion/save time when stored, and the stored derived Interest Profile; purpose: `BR-kid-data-stored`. |
 | Parent notes and flags | Accounts & Family `parentNotes`; Safety Flagging `noteFlags` | Stored notes/save times; parent-visible flag fields require OI-27 resolution. `check_not_run` never means clean. Purposes: `BR-parent-note`, `BR-note-safety-flagging`. |
 | Recommendations/reactions | REC, not built | Batches, choices, decline reasons, times; purpose: `BR-kid-data-stored`. |
 | Shelf/history | Shelf, not built | Entries, moves, confirmations and retained removed-book history; purpose: `BR-kid-data-stored`. |
@@ -374,6 +379,8 @@ Each owning reader checks the child/family relation inside the transaction and u
 | Reports/exclusions | Accounts & Family / Shelf, not built | This child's reports, reasons/comments and exclusions; purpose: `BR-kid-data-stored`. |
 | Notifications | Notification, not built | Child-linked notices only; purpose: `BR-kid-data-stored`. |
 | Family consent | Accounts & Family `consentRecords`, provisional shape | Recorded consent fields including revoked state; purpose: `BR-coppa-parental-consent`. |
+
+Each owning component supplies `readForParentData(parent, childId, tx)` or an equivalently named narrow reader, receiving the same transaction session and returning only its listed category fields. The coordinator calls those readers, never their collections. Parent-note reads include every retained note, not only the latest; no earlier version is invented when none exists. Shared book references return only catalog data, never another child’s records.
 
 All eleven categories remain visible with purpose and a plain empty state when genuinely empty (5a). Purposes must match the supplied privacy notice before release. An unimplemented reader is not evidence of no records: confirm nothing collects that category, document the dependency, and add the owning reader in the same change that starts collecting it. Never claim full UC coverage while omitting an existing source. Reads use one committed snapshot; deletion before a later request gives not found.
 
@@ -520,21 +527,23 @@ Use invented siblings with different ages, grades, usernames, notes and book cho
 | Main 5–8 | Browser + integration | Seed each implemented category; open and parse the actual downloaded file. Compare each ID/value to independent fixtures and view to returned export snapshot. Inspect every category by keyboard. |
 | 2a | Integration + browser | Substitute sibling, foreign, unknown and malformed IDs in direct action calls. Sibling needs confirmation; foreign/unknown refusals do not reveal existence. Signed-out/child/admin with invalid input fail authentication/role first. |
 | 4a | Integration + browser | Child's password and wrong parent password disclose nothing; correct own password succeeds. Clear field after error. Missing hash never bypasses. |
-| 4b | Integration, fixed clock | Fail through sign-in then reauthentication and in reverse: combined attempts reach the agreed threshold. Pin just-before/at retry deadline and concurrent attempts. Blocked until shared policy is approved. |
+| 4b | Integration, fixed clock | Fail through sign-in then reauthentication and in reverse: combined attempts reach the agreed threshold. Pin just-before/at retry deadline and concurrent attempts. Use the policy below for Main and Sub Parents, including the fifth-failure threshold, 30-second first delay, capped doubling, successful reset and concurrent updates. |
 | 5a | Browser + integration | New child without optional level/note still shows eleven categories/purposes. No ratings gives an empty state; reader failure never does. |
 | 5b | Integration + browser | Fail a later reader after identity/note succeed: no partial DTO, old view cleared, retry works. |
 | 6a | Browser + integration | Review then leave. One view event, no export event/file. |
 | 7a | Integration + browser | Separately force serialization and audit failure. No file and no success event from the aborted transaction; retry produces complete parsed data. |
-| POST-3 | Integration | View audit failure discloses nothing. Success records exact actor/child IDs/event; audit commit precedes response; no fixture values in audit. |
+| POST-3 | Integration | Export refresh commits a second view event and one export event; the initial read has one view event. View audit failure discloses nothing. Success records exact actor/child IDs/event; audit commit precedes response; no fixture values in audit. |
 | POST-4 | Integration | Compare all source records before/after: only specified audits and authentication-attempt bookkeeping differ; consent/profile/shelf unchanged. |
 | Session/link changes | Integration + browser | Delete session or remove family link after viewing; direct export refuses. Still-linked retained data remains reviewable after consent revocation. A link removed before the next snapshot refuses; readers in a single snapshot cannot mix families or different membership versions. |
 | Secrecy/escaping | Integration + browser | Unique hash/password/token sentinels and sibling note never appear in page/action/file/logs. HTML-like note renders literally. Force a real logged failure so silence cannot make the logging check vacuous. |
 
 After implementation, manually choose the younger sibling, mistype the password, correct it, inspect categories, download/open the file, then switch to the older sibling. Check heading, contents and file after Back/refresh and a failed retry. Inspect desktop/narrow layouts for clipped controls, readable labels, focus and disclosure. Record screenshots and outcomes. This explicitly requests visual validation for this UC without changing the earlier creation feature's test scope.
 
-Review/export proposes adding its two events to architecture §8.2.9. No new service or exception to §8.1. This proposal does not resolve OI-27.
+Review/export proposes adding its two events to architecture §8.2.9. No new service or exception to §8.1. This proposal does not resolve OI-27; flagged-data cases remain gated until its requirements are settled.
 
 ## Changes to the architecture-of-record
+
+Child-data review adds the parent view/export events to §8.2.9; no component or trust boundary changes. The original child-creation edits below are retained as history.
 
 _[Designing an area against real code is when the architecture's guesses meet reality. If this design needs a component the map does not have, moves a responsibility, or adds a dependency, **change [the architecture-of-record](architectural-design.md) in the same pull request** and list each change here in one line. If nothing changed, write "None". A design that silently disagrees with the architecture leaves two maps, and the agent will follow whichever it reads last.]_
 
@@ -561,7 +570,7 @@ What this design had to assume, and where each answer belongs. `DI-field-tables`
 - **Where the agreed values go (developer, 2026-11-05).** The tables for the TBD values live in [`par-field-values.md`](par-field-values.md), one empty table per item above. Files that read them are created empty: `word-list.ts`, `avatars.ts`, `grades.ts` under `src/server/`. `/implement` fills the code from the tables once the team has written them.
 - **Child credential in the Auth.js `users` collection (team).** Proposed: role `child`, a unique-where-set index on `username`.
 - **Libraries (team; a person confirms each before it is added).** Dependency policy (developer, 2026-11-05): open-source dependencies are allowed; paid third-party dependencies are not; nothing that collects data in a way that would violate COPPA is allowed. A person still confirms each package exists and is the one intended (CLAUDE.md). §8.2.4 leaves Mongoose against the native MongoDB driver open; this design assumes the native driver (setup script, `withTransaction`). The password-hashing algorithm and package are also unchosen; pick an open-source one that runs locally with no network calls.
-- **REC hand-off route (team, with the REC design).** Step 9 passes the child ID to `UC-REC-kid-onboarding`, which must check it against the session's family (`DI-integrity`). Its route is not named here.
+- **REC hand-off route (team, with the REC design).** Step 9 passes the child ID to `UC-REC-kid-onboarding`, which must check it against the session's family (`DI-integrity`). Its route is `/parent/children/[childId]/reading-profile` (`design/rec.md`).
 - **Completion page does not check REC's flag.** A parent who opens the page before onboarding finishes sees a harmless message with the nickname only. `UC-REC-kid-onboarding` POST-3 stays the authority on whether onboarding is complete. Accepted.
 - **Not designed here, accepted:** the "Add a Child" dashboard button (the page and action already refuse a Sub Parent), age against grade consistency, nickname uniqueness, and a minimum nickname length (a one-character nickname makes the 4h nickname rule reject most usernames; the team may set a two-character minimum with the nickname rules).
 
@@ -569,7 +578,7 @@ Other open items:
 
 - **No admin alert (team decision needed).** The developer dropped the alert for this use case. The same alert is still written into `FR-NOTE-flagging`, `SAF-flag-delivery`, `ROB-atomic-finish`, `UI-notifications`, the glossary entry for the flag, `UC-SHLF-par-finish-book` POST-5 and step 8, the trigger of `UC-ADM-flag-review`, and architecture §1.2, §4, §5.2 and §8.2.8 (the paths that say "note, flag and admin alert"). This pull request edits only `UC-PAR-create-kid-account`. If the alert goes everywhere, those edits are a separate change; if it stays for `UC-SHLF-par-finish-book`, the two flows differ and `SAF-flag-delivery` needs to say so.
 - **Parent note edit or delete (client).** Out of this design; the developer will add it to a menu later. Filed as `OI-33` so it is not lost. `FR-NOTE-parent-note` says the parent "may edit it later", the use case says it is unspecified.
-- **How the REC onboarding hands back (team).** Step 10 needs `UC-REC-kid-onboarding` to redirect to the completion page after its step 5. This pull request adds that to the use case text; the REC design must realize it. If the parent skips onboarding (REC 3b), the completion message is not shown, and nothing here reminds them.
+- **How the REC onboarding hands back (team).** Step 10 needs `UC-REC-kid-onboarding` to redirect to the completion page after its step 5. This pull request adds that to the use case text; `design/rec.md` realizes it. REC no longer has a skip extension; a parent who leaves the form unsaved sees no completion message and nothing reminds them (`OI-39`).
 - **Age and grade (`OI-29`).** Resolved here on the reading that collecting them with verified parental consent, for the purpose in `BR-reading-level-proxy`, is within the minimization rule. That is the team's reading of the rule text, not legal advice (`OI-20`).
 - **`UC-PAR-onboarding` is not designed.** This use case needs a family ID, a Main Parent session and a confirmed consent record from it. Tests can create those as fixtures, but the feature cannot be used end to end until onboarding is designed and built. A family whose consent is later revoked (`UC-PAR-revoke-consent`) must make `isConsentConfirmed` false.
 - **Seeing or resetting the password (client, `OI-26`).** This design makes the password unrecoverable after step 7 (7a). A reset needs its own use case.
@@ -582,15 +591,14 @@ Other open items:
 
 ## Working this document with your agent
 
-### Review/export blockers and review questions (2026-11-16)
+### Child-data review dependencies and open decisions
 
-1. **Onboarding owner/team, OI-41:** parent sign-in/hash storage and shared attempt counter are absent. Agree credential shape, atomic attempts, threshold/delay, reset rules and retry deadline. Call the same policy as sign-in. Fixture sessions do not prove real reauthentication.
-2. **Client/team, OI-27:** step 5 lists notes/flags, but flagged-note export is unresolved and §8.1 reserves Dangerous Content List access to admins. Agree the parent-visible fields and any exception in the specification. Neither silent omission nor exposing the list is an acceptable guess.
-3. **Team/client, OI-42:** approve JSON, password confirmation method and per-action prompt, or specify the readable companion/grant contract. These remain proposals, not Team Decisions.
-4. **Component owners:** settings and sources beyond creation do not exist. PR #96 changes `par.md`, the architecture, requirements and traceability; wait for its merge, then rebase and combine before opening this design PR. Its proposed `readingProfiles` contract includes `savedAt`, which the parent review/export reader must include. OI-41/42 avoid its proposed OI-37–40; recheck numbering after merge. Recheck overlapping PRs before editing PAR. Map/test every store actually holding child data. Never create empty-returning fake REC/Shelf readers.
-5. **Client:** notice wording is unfinished. Category/purpose copy needs agreement with it; the development placeholder is not approval. Sub Parent access follows the existing team position pending OI-25.
-
-Self-review against pinned code: direct actions repeat checks; server context fixes family; reader errors cannot masquerade as empty; audit failure prevents release; child's password cannot authorize parent; current demo cannot exercise password re-entry. No independent teammate approval or fresh-agent review has occurred. The design remains proposed, with implementation blocked by the decisions above.
+- **Authentication integration (`OI-43`).** PR #98 defines Main Parent sign-in by lowercased email and proposes `sign-in-throttle.ts`/`signInAttempts`. Reuse that policy: five failures, then 30 seconds, doubling after each further failure to 15 minutes; correct confirmation clears the failure count, as sign-in does. All password entry points use one Identity & Access operation that reserves/checks an attempt and records its outcome atomically per account; serialize the account’s counter updates with a transaction/conditional version and recheck after contention, including successful confirmations. Do not implement separate read-count-then-increment sequences in the actions. A rate-limited attempt does not run scrypt. All time checks use the shared clock.
+- `verifyParentPassword(parent, password)` reads the current parent `users` record by the authenticated user ID, checks its current role/family, and verifies its stored `passwordHash` through `passwords.ts`. Main Parents use their stored lowercased email as the shared attempt key. Sub Parents use `username:` plus their stored lowercased username (the prefix cannot collide with an email); their eventual sign-in flow must use that same key and counter. Missing credentials fail closed. Neither the child’s password nor another parent’s password authorizes this action. This extends the pending Main-Parent-only contract; the onboarding owner must review the shared interface before implementation.
+- **Safety data (`OI-27`).** Step 5 permits the parent’s note and its safety flag, but flag export and Dangerous Content List access remain unresolved in the UC. No admin-only evidence or review comments enter the parent DTO. Do not enable the affected export path until the client/team records allowed fields and any restriction in the requirements. A missing decision must never be treated as permission, “no data”, or a silently incomplete successful export. This is a policy gate; this design does not decide it for the client.
+- **Export interaction (`OI-44`).** This proposal chooses the JSON format and per-action password prompt described above. A teammate can approve or request changes to those choices in this design PR. Requester-confirmation acceptance by the client/team remains explicit, not assumed.
+- **Pending overlapping work.** PR #98 changes the same PAR document and authentication contract; PR #100 changes its driver-decision wording; PR #102 adds the reading-profile source. Preserve each owner’s changes when combining. No implementation starts before this design is approved and merged. No claim of independent review or feature test completion is made here.
+- **Notice and Sub Parent scope.** Category/purpose copy must match the supplied privacy notice. The development placeholder is not approval. Both parent roles follow `OI-25`; Main-Parent-only sign-in in #98 does not remove the Sub Parent from this UC.
 
 _[Delegate: drafting the diagrams from your sketch and the use case; listing the existing files a class should extend; filling the contract rows' request and response fields; proposing the test row for each extension; drafting the rejected alternative for a decision you have already made; checking that every identifier this document cites exists in the document that owns it._
 

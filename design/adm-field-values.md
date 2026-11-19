@@ -2,7 +2,7 @@
 
 **Area:** `UC-ADM-add-content` · **Design:** [adm.md](adm.md)
 
-Values the design could not invent (`DI-field-tables`). The team agreed them on 2026-11-17; the client's confirmation is `OI-41`. `/implement` builds `src/shared/catalog/tags.ts` and the limits from these tables and from nothing else. When a table changes, update the use case's data table to match.
+Values the design could not invent (`DI-field-tables`). The team agreed them on 2026-11-17; the client's confirmation is `OI-42`. `/implement` builds `src/shared/catalog/tags.ts` and the limits from these tables and from nothing else. When a table changes, update the use case's data table to match.
 
 The standard tag lists are the values found in the client's `BookBuddies_Seed_Catalog.xlsx` (134 books), so the lists match how the seed is tagged. The file is on the REC design branch, not on `main`.
 

@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.14
+**Version:** 0.15
 
 ---
 
@@ -35,6 +35,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-25]_ | 0.12    | Cleanup of stale references, no flow changed: rewrote §1.1 Purpose without groups; corrected the `FEAT-*` mapping in the Use Case List; replaced `BR-admin-no-pii` with `BR-admin-limited-view` and removed citations of undefined rules (`BR-no-behavioral-analytics`, `BR-flagging-disclosure`); applied the four-option rating scale (`OI-17` resolved); removed "not yet filed" notes for `OI-15`–`OI-19`; marked `UC-PAR-view-growth-report` post-MVP per vision-and-scope §4.3 | _Claude_                        |
 | _[2026-10-26]_ | 0.13    | Applied team decisions and source-backed fixes, and added the remaining areas' use cases. `UC-PAR-create-kid-account` is Main Parent only (Sub Parents cannot create accounts), requires confirmed consent, and adds a nickname so the child never sees their real name; onboarding POST-4 and the 1a cross-reference (now extension 8a) agree; per-child exclusions are applied in the rules quiz, manual search and parent suggestions; a block now removes shelf entries in both shelf views and copies flagged reflections to the dangerous content list (`OI-24`); decline reasons follow the glossary; ratings and reflections feed the rule-based MVP per the 2026-09-24 notes; parent removal keeps ratings and reflections; flag review covers reflections only and is the recorded exception to `BR-admin-limited-view` (team position, `OI-15`); suspension notices are in-app only; the reflection disclosure notes `OI-18`; catalog status includes draft; Added `UC-PAR-review-child-data`, `UC-PAR-delete-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-kid-account`, `UC-PAR-approve-shelf-request`, `UC-ADM-unblock-content` and `UC-ADM-reinstate-account`; the admin may suspend accounts (team decision: the client is, in practice, the admin); the admin sees parents' and Sub Parents' names, usernames and emails, never passwords; mapped the new `FEAT-consent-privacy`, `FEAT-parent-book-report`, `FEAT-admin-catalog` and `FEAT-flag-review`; Added `UC-ADM-edit-content`, `UC-ADM-suspend-parent-account` and `UC-ADM-view-audit-log`; `UC-ADM-reinstate-account` now covers parent accounts; repeated false reports point to the parent-account suspension | _Claude_ |
 | _[2026-10-29]_ | 0.14    | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): removed `UC-SHLF-kid-add-note` and all child free text; the optional 250-character parent note, an internal child ID and no real name in `UC-PAR-create-kid-account`; flagged parent notes in `UC-ADM-flag-review` (internal word list, human review, no outside reporting); dropped the 24-hour review rule; configurable retention and consent; the parent weekly dashboard, post-rating recommendations and V1 success measures; the curated seed catalog fields; added `UC-SHLF-par-finish-book`: a parent confirms a child finished a book before the child can rate it, and may add a note for the recommender that `UC-ADM-flag-review` also screens; `UC-SHLF-kid-move-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` updated to match; added `UC-SHLF-kid-dashboard`: a screen the child opens from the shelf with parent-approved recommended books, a radar chart of current reading interests and bookshelf activity and history (no badges yet); `UC-ADM-view-usage-stats` now includes the admin's lookup of one child's usage data by internal child ID, recorded in the audit log; the weekly check-in is covered by `FR-NOT-weekly-reminder` in the SRS, so the use cases that said it had no use case now cite it; `UC-SHLF-kid-view-shelf` links to the dashboard; the export and both deletion use cases now name the interest profile, shelf history and usage records (derived and per-child data), matching the inventory in `BR-kid-data-stored`; the admin's child lookup shows nothing for a child whose consent was revoked | _Claude_ |
+| _[2026-11-17]_ | 0.15    | `UC-SHLF-parent-view-shelf`: the confirmed-finished icon and "Edit note" show on a confirmed book in any category, as `UC-SHLF-par-finish-book` POST-1 and `UC-SHLF-kid-move-book` 3d already say; added extension 1b (no linked child) and the no-existence-leak wording in 2c; stated that a rating shows on any entry still on the shelf and is not shown once its entry is removed or the book is blocked (team proposal, `OI-41`). The same rule is now stated in `UC-SHLF-kid-remove-book`, `UC-SHLF-parent-remove-book` and `UC-ADM-block-content`, which had left it open | _Tam Nguyen_, _Claude_ |
 
 ---
 
@@ -1196,11 +1197,12 @@ _The shelf is the child's record of what they are reading, want to read, or have
 **Extensions:**
 
 - 1a. The Parent has more than one linked child. The system asks which child's shelf to view before step 2.
+- 1b. The Parent has no linked child account (PRE-2 is not met). The system shows no shelf data. It takes a Main Parent to `UC-PAR-create-kid-account` and tells a Sub Parent to ask the family's Main Parent to add a child (a Sub Parent cannot create accounts, `OI-25`). *Team proposal.*
 - 2a. The child has no shelf entries. The system displays an empty-state message for the shelf instead of an empty list.
 - 2b. Loading fails. The system displays a retry message and does not show a partial or stale shelf.
-- 2c. The Parent is not linked to the requested child. The system denies the request and returns no shelf data (`SEC-role-authorization`).
-- 5a. The book is in Finished and its finish is awaiting confirmation. The system shows "Confirm finished," which invokes `UC-SHLF-par-finish-book`. A book with a confirmed finish shows the confirmed-finished icon and "Edit note," which invokes the same use case.
-- 5b. The admin blocks the book while the Parent is viewing the shelf. `UC-ADM-block-content` removes the shelf entry, so the entry is gone the next time the view loads. Neither the parent nor the child is told (`UC-ADM-block-content` Assumptions).
+- 2c. The Parent is not linked to the requested child. The system denies the request and returns no shelf data, with the same response as for a child that does not exist, so the response does not reveal whether the child exists (`SEC-role-authorization`).
+- 5a. The book is in Finished and its finish is awaiting confirmation (no parent has confirmed it). When the Parent selects it, the system shows "Confirm finished," which invokes `UC-SHLF-par-finish-book`. A book with a confirmed finish shows the confirmed-finished icon and "Edit note," which invokes the same use case, in whichever category the book sits, because the confirmation and icon stay wherever the child moves it (`UC-SHLF-par-finish-book` POST-1, `UC-SHLF-kid-move-book` 3d).
+- 5b. The admin blocks the book while the Parent is viewing the shelf. `UC-ADM-block-content` removes the shelf entry, so the entry is gone the next time the view loads. The book's rating, finish confirmation and note are kept (`UC-ADM-block-content` POST-3) but are not shown here. Neither the parent nor the child is told (`UC-ADM-block-content` Assumptions).
 
 **Priority:** High — reviewing the child's shelf is the parent's core oversight action.\
 **Frequency of Use:** Several times per week per family (estimate).\
@@ -1211,15 +1213,16 @@ _The shelf is the child's record of what they are reading, want to read, or have
 | Property name  | Data type                                              | Validation rule                                                                                                             | Security or access concerns                                                                                | Glossary reference   |
 |----------------|--------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|----------------------|
 | Shelf category | enum: Reading Now, Want to Read, Maybe Later, Finished | required; one value per entry                                                                                               | Visible to the parent and child                                                                            | Shelf (`FEAT-shelf`) |
-| Rating         | enum: Loved it, Liked it, It was okay, Not for me      | optional; only for Finished entries                                                                                         | Parent-visible; the system admin sees it only through the lookup by internal child ID (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`)                                | Rating               |
+| Rating         | enum: Loved it, Liked it, It was okay, Not for me      | optional; set only on a Finished book whose finish is confirmed (`UC-SHLF-kid-rate-book`); shown while the entry is on the shelf | Parent-visible while the book is on the shelf; the system admin sees it only through the lookup by internal child ID (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`)                                | Rating               |
 | Display order  | system-set                                             | Categories are fixed in the order listed in step 3; entries within a category are most-recently-moved first (team proposal) | Not shown as a number                                                                                      | —                    |
 
 The view runs from a stored shelf and does not recompute anything, so a failed load leaves the child's data untouched. Quality attributes: `USE-parent-light` (the parent reaches the shelf in one tap from the dashboard).
 
-**Related Use Cases:** `UC-SHLF-parent-remove-book` (invoked from step 4); `UC-SHLF-kid-view-shelf` (the child's view of the same shelf); `UC-PAR-report-book` (also invoked from this view); `UC-SHLF-par-finish-book` (invoked from step 5 to confirm a finish or edit a note); `UC-PAR-view-growth-report` (a separate weekly dashboard, not this view)\
-**Assumptions:** A secondary parent sees the same shelf as the primary parent, per `UC-PAR-create-sub-parent-account`. The parent view shows no counts or totals, a team proposal that keeps this view consistent with `BR-kid-no-metrics`.\
+**Related Use Cases:** `UC-SHLF-parent-remove-book` (invoked from step 4); `UC-SHLF-kid-view-shelf` (the child's view of the same shelf); `UC-PAR-report-book` (also invoked from this view); `UC-SHLF-par-finish-book` (invoked from step 5 to confirm a finish or edit a note); `UC-ADM-block-content` (extension 5b); `UC-PAR-view-growth-report` (a separate weekly dashboard, not this view)\
+**Assumptions:** A secondary parent sees the same shelf as the primary parent, per `UC-PAR-create-sub-parent-account`. The parent view shows no counts or totals, a team proposal that keeps this view consistent with `BR-kid-no-metrics`. A rating belongs to the child and the book. This view shows it for any entry still on the shelf, whatever its category, so a confirmed book that the child moved back to Reading Now to re-read keeps its icon, its "Edit note" and its rating on screen (team proposal, `OI-41`). A rating whose shelf entry has been removed, by the child, a parent or a block, is kept for the recommender but is not shown in this view (team proposal, `OI-41`).\
 **Open Issues:**
 - Whether a parent should see when a child moved a book, or any history of moves, is not specified anywhere in the requirements.
+- Whether a parent should see a rating while its book is outside Finished, or after its entry was removed or its book blocked, is a team proposal awaiting the client (`OI-41`).
 
 ---
 
@@ -1460,7 +1463,7 @@ A failed save changes nothing, so the entry is never left in two categories or i
 | Property name                  | Data type | Validation rule                                                                                             | Security or access concerns                                                                                                              | Glossary reference |
 |--------------------------------|-----------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
 | Confirmation                   | boolean   | required; the child must actively confirm                                                                   | Child-set                                                                                                                                | —                  |
-| Retained rating | reference | kept after the shelf entry is removed | The rating stays with the child's record for the recommender; parent-visible | —                  |
+| Retained rating | reference | kept after the shelf entry is removed | The rating stays with the child's record for the recommender; parent-visible only while the book is on the shelf | —                  |
 
 Only the shelf entry is deleted, in one save. The rating is not touched, so a failed save leaves the entry in place (`ROB-no-data-loss`).
 
@@ -1468,7 +1471,7 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 **Assumptions:** A child-removed book is not put back into the recommendation list automatically; a later recommendation is a new request under `UC-REC-recommend-quiz-rules`.\
 **Open Issues:**
 - No source confirms that a child may remove their own shelf entries (see Description).
-- A rating whose shelf entry has been removed is not shown on the shelf, so the parent view (`UC-SHLF-parent-view-shelf`) needs a rule for showing it. The recommender still uses it. Whether the parent should be able to see it is not specified.
+- A rating whose shelf entry has been removed is not shown on the shelf. The parent view does not show it either (`UC-SHLF-parent-view-shelf` Assumptions, team proposal), and the recommender still uses it. Whether the parent should be able to see it is not specified (`OI-41`).
 - Whether the parent should see that the child removed a book is not specified.
 - Whether a removed book can be recommended again is not specified (also open for `UC-SHLF-parent-remove-book`).
 
@@ -1656,7 +1659,7 @@ The confirmation, note, flag and alert are one save (architecture §8.2.8). Only
 - 3b. The book is no longer on the child's shelf, for example because the child removed it first. The system tells the Parent the book is already off the shelf. No notice is created, since nothing was removed.
 - 5a. Saving fails. The system shows an error, leaves the entry on the shelf, and creates no notice. The Parent may retry. Removal and notice are all-or-nothing.
 - 5b. The child is not online. The notice stays pending until the child's next session and does not expire.
-- 5c. The child's rating for the book is kept, as in `UC-SHLF-kid-remove-book` and `BR-parent-report-book`. How the parent sees a rating whose shelf entry is gone is open (see `UC-SHLF-kid-remove-book` Open Issues).
+- 5c. The child's rating for the book is kept, as in `UC-SHLF-kid-remove-book` and `BR-parent-report-book`. The parent view does not show a rating whose shelf entry is gone (`UC-SHLF-parent-view-shelf` Assumptions, `OI-41`).
 
 **Priority:** Medium — `BR-parent-shelf-removal` is confirmed, but removal is an occasional correction rather than a routine step.\
 **Frequency of Use:** Occasional; a few times per family per month (estimate).\
@@ -1809,7 +1812,7 @@ _The system admin operates the catalog and the system and receives safety alerts
 - 5a. A matching book already exists, whatever its status, including a blocked book. The system shows the existing entry and offers to open it instead. No new record is created.
 - 6a. Saving fails. The system shows an error and saves nothing; no partial book and no audit entry is left behind.
 
-**Priority:** Medium — `FEAT-book-tagging` is in the MVP per `vision-and-scope.md` v0.4. The seed-catalog source is settled (the client's curated 134-book spreadsheet, Q11); the approved tag lists are agreed in `design/adm-field-values.md` (`OI-41`).\
+**Priority:** Medium — `FEAT-book-tagging` is in the MVP per `vision-and-scope.md` v0.4. The seed-catalog source is settled (the client's curated 134-book spreadsheet, Q11); the approved tag lists are agreed in `design/adm-field-values.md` (`OI-42`).\
 **Frequency of Use:** Occasional; the 134-book seed catalog is loaded by the import script, not through this use case.\
 **Business Rules:** None in `business-rules.md` governs catalog content directly. Age-appropriate catalog content is required by `SAF-child-content` in the SRS.
 
@@ -1839,13 +1842,13 @@ Only the admin role may write catalog data (`SEC-role-authorization`). A failed 
 **Related Use Cases:** `UC-ADM-block-content` (the reverse action); `UC-ADM-view-audit-log` (where the add is recorded); `UC-PAR-suggest-book` (requires the book to exist in the catalog); `UC-REC-recommend-quiz-rules` (draws only from active, tagged books)\
 **Assumptions:** The seed catalog is loaded in bulk from the client's spreadsheet, and the spreadsheet's "Kid Testing Reaction" column is test-profile data, not catalog data (Q11). This use case handles single additions and corrections of new entries only. Custom tags are free-form labels for the admin's own use. They are shared across the catalog, they do not replace standard tags, and the rules engine does not use them unless the client says so.\
 **Open Issues:**
-- The source is now the curated seed spreadsheet (`OI-1` resolved by the client, Q11), and the team agreed the approved tag lists on 2026-11-17 (`design/adm-field-values.md`; the client confirms them in `OI-41`). How its Status values map to draft, active and blocked is not specified.
+- The source is now the curated seed spreadsheet (`OI-1` resolved by the client, Q11), and the team agreed the approved tag lists on 2026-11-17 (`design/adm-field-values.md`; the client confirms them in `OI-42`). How its Status values map to draft, active and blocked is not specified.
 - Whether custom tags such as "Cute," "Scary but Warming," and "Friends" are shown to children, used by the rules-based recommender, or used only for admin browsing is not specified.
 - Who may create custom tags, rename them, or delete them is not specified. This use case allows any admin to create one.
 - The normalization rule (case, spacing, and whether plurals such as "Friend" and "Friends" are merged) and the 30-character limit are team proposals that need client input.
 - Editing an existing book's details and tags is `UC-ADM-edit-content`.
 - Whether ISBN is required for de-duplication is a team proposal. The form makes the admin tick "This book has no ISBN" to leave it empty (team decision 2026-11-17).
-- A new book is always saved as draft and goes live only when an admin publishes it (team decision 2026-11-17, `OI-42`; client to confirm).
+- A new book is always saved as draft and goes live only when an admin publishes it (team decision 2026-11-17, `OI-43`; client to confirm).
 
 ---
 
@@ -1979,7 +1982,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 | Affected counts      | integers: shelf entries                                        | system-computed before confirmation                                                         | Admin-only; shown only as numbers, never the child's content                                                    | —                  |
 
 **Related Use Cases:** `UC-PAR-report-book` (creates the reports in the list); `UC-ADM-suspend-parent-account` (the admin's manual punishment for a repeated false report); `UC-ADM-add-content` (the book was added there); `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` (how a blocked book appears); `UC-SHLF-kid-rate-book` (ratings are kept when a book is blocked); `UC-REC-recommend-quiz-rules` (no longer offers blocked books)\
-**Assumptions:** Blocking is reversed by `UC-ADM-unblock-content`, which does not bring back the shelf entries the block removed. Discarding a report closes it in the list only; it does not give the book back to the child it was reported for. Neither the child nor the parent is told when a block removes a book from a shelf. The reporting parent is not told whether a report was acted on, except for the false-report warning.\
+**Assumptions:** Blocking is reversed by `UC-ADM-unblock-content`, which does not bring back the shelf entries the block removed. Discarding a report closes it in the list only; it does not give the book back to the child it was reported for. Neither the child nor the parent is told when a block removes a book from a shelf. The rating, finish confirmation and note that a block keeps are not shown in the parent's shelf view, because the shelf entry is gone (`UC-SHLF-parent-view-shelf`, `OI-42`). The reporting parent is not told whether a report was acted on, except for the false-report warning.\
 **Open Issues:**
 - The reason list is a team proposal and needs client input.
 - `OI-24` (keeping a flagged reflection on a block) no longer applies, because reflections were removed on 2026-10-28; a flagged parent note is not tied to a book.

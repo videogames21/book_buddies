@@ -146,7 +146,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-REC-recommend-quiz-ai` | Later (`FEAT-ai-recommendation`) | ❌ Not started |  |  |  |  |
 | `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-review` |  | ❌ Not started |  |  |  |  |
-| `UC-SHLF-parent-view-shelf` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-parent-view-shelf` | MVP | 📐 Designed | [design/shlf.md](../design/shlf.md) |  |  |  |
 | `UC-SHLF-kid-view-shelf` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-move-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-remove-book` |  | ❌ Not started |  |  |  |  |

@@ -139,7 +139,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-review-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-delete-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |
-| `UC-PAR-delete-kid-account` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-delete-kid-account` |  | 📐 Designed | [design/par.md](../design/par.md#uc-par-delete-kid-account-delete-a-child-account) |  |  |  |
 | `UC-PAR-approve-shelf-request` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-onboarding` |  | 📐 Designed | [design/rec.md](../design/rec.md) |  |  |  |
 | `UC-REC-recommend-quiz-rules` |  | ❌ Not started |  |  |  |  |

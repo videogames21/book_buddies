@@ -4,10 +4,10 @@
 **Team:** Team 05
 **Area:** `UC-PAR`
 
-> **Realizes:** `UC-PAR-create-kid-account`, `UC-PAR-onboarding`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent`, `FR-ACCT-consent-confirm`, `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`, `DI-consent-record`, `SEC-signin-throttling` (Main Parent sign-in only, `OI-41`)
-> **Depends on:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `DI-retention`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `CI-email-parent`, `SI-email-provider`, `DE-email-provider`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`, `KD-time-rules-on-read`, `OI-21`, `OI-22`
+> **Realizes:** `UC-PAR-create-kid-account`, `UC-PAR-onboarding`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent`, `FR-ACCT-consent-confirm`, `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`, `DI-consent-record`, `SEC-signin-throttling` (Main Parent sign-in only, `OI-41`; and the password re-check of `UC-PAR-delete-kid-account`), `UC-PAR-delete-kid-account`, `FR-DATA-removal` (the whole-account path), `DI-disposal`
+> **Depends on:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `DI-retention`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `CI-email-parent`, `SI-email-provider`, `DE-email-provider`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`, `KD-time-rules-on-read`, `OI-21`, `OI-22`, `BR-coppa-parent-rights`, `FR-DATA-review`, `OI-18`, `OI-27`, `OI-42`, `OI-43`
 > **See:** [use cases, PAR area](../docs/requirements/use-cases.md#par-parent-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [COPPA design requirements](../docs/coppa/coppa-design-requirements.md), [team decisions](../docs/Team_Decisions.md), [architecture-of-record](architectural-design.md)
-> **Designed against:** `3493672` for `UC-PAR-create-kid-account` (no application code existed then); `d8beec6` for `UC-PAR-onboarding` (the child-account slice is built)
+> **Designed against:** `3493672` for `UC-PAR-create-kid-account` (no application code existed then); `d8beec6` for `UC-PAR-onboarding` (the child-account slice is built); `ce04601` (the onboarding design branch, on `main` at `8f27e55`) for `UC-PAR-delete-kid-account`
 
 ---
 
@@ -42,6 +42,8 @@ _[One paragraph: what this area does, which components of your [architecture-of-
 The Parent area owns families: Main and Sub Parents, consent, child accounts, the parent's book suggestions and reports, and the parent's data rights. It is the Accounts & Family component of the Application container ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-PAR-create-kid-account`, the first use case designed here, lets the Main Parent create a child once the family's consent is confirmed. The system holds **no real name** for the child; the child is a nickname, an avatar and an internal child ID (`DI-child-id`). One transaction writes the child account (nickname and avatar) in Accounts & Family, the child's age, grade and optional reading level in the Child Identity Store, and the child's username and password hash in Identity & Access (`KD-pii-segregation`, architecture §5.2). If the parent gave a note, the same transaction also writes the note (Accounts & Family) and, when the internal word list matches, its flag (Safety Flagging) and an audit entry. A flagged note needs no alert: it appears in the flag-review list of `UC-ADM-flag-review`. The plaintext password exists only in the response that shows it to the parent. After the parent acknowledges the credentials, the parent is sent into `UC-REC-kid-onboarding`, and returns to a completion message when that use case finishes.
 
 `UC-PAR-onboarding` creates the family that every child hangs off. One transaction writes the Main Parent's user document and database session (Identity & Access) and the family's **Consent Record** (Accounts & Family); the confirmation email goes out through Notification after the commit. A family is identified by its `familyId`; there is no separate family collection, as the child-account code already assumes. "Awaiting confirmation" is not a status field: it is a Consent Record with no confirmation date and a stored `confirmBy` deadline, which every read compares against `now()` (`KD-time-rules-on-read`), and the Scheduled Cleanup cron route only purges what has already expired (6a). The confirmation link carries a single-use token that confirms consent without needing a session. An onboarding gate in Accounts & Family tells every parent entry point where a signed-in Main Parent belongs: awaiting confirmation (6), expired (6a), first child still needed (8a), or done. Sign-in, sign-out and password reset are **not part of this use case**. They are supporting flows with no use case of their own (`OI-41`), designed here for Main Parents at the developer's request (2026-11-17), with sign-in throttled (`SEC-signin-throttling`). Onboarding depends on only two of them: sign-in, so a parent who stops before finishing can come back and resume at 8a, and the password-reset link that 4a offers. They never decide onboarding state; the gate does. Email is sent over SMTP: Mailpit outside production, Resend in production (developer decision 2026-11-17, `DE-email-provider`, `SI-email-provider`). This design refines `KD-auth-sessions` and two lines of the architecture-of-record; see "Changes to the architecture-of-record".
+
+`UC-PAR-delete-kid-account` lets the Main Parent delete one child and everything held about them (`FR-DATA-removal`). Every component that stores records keyed by the internal child ID exports one function, `deleteChildRecords(tx, childId)`, that deletes only its own records. Accounts & Family runs all of them in **one transaction**, together with the conditional delete of the child account, the child's sign-in records, the Consent Record entry for the removed child, the audit entry and any Sub Parent notices (§8.2.8), so either everything goes or nothing does (5b). The action re-checks the Main Parent's password through the same throttle as sign-in (`SEC-signin-throttling`) and checks the typed nickname (step 3). A flagged parent note and its flag are deleted like everything else (5a, team proposal 2026-11-19, `OI-43`). When the family's last child is gone, the onboarding gate already sends the Main Parent to `/parent/children/new` (7a); nothing new is needed for that.
 
 ## Components & classes
 
@@ -221,6 +223,33 @@ classDiagram
     childAccounts --> auditLog
     childAccounts --> sharedLib
     screenNote --> wordList
+    class DeleteChildPage {
+        <<new, delete-kid-account>>
+        /parent/children/[childId]/delete
+    }
+    class deleteChildActions {
+        <<new, delete-kid-account>>
+        +deleteChildAccount(input) ActionResult
+    }
+    class childDeletion {
+        <<new, Accounts and Family>>
+        +deleteChild(session, childId) ActionResult
+    }
+    class deleteChildRecords {
+        <<new, one per owning component>>
+        +deleteChildRecords(tx, childId)
+    }
+    DeleteChildPage --> deleteChildActions
+    DeleteChildPage --> sessions
+    DeleteChildPage --> childAccounts
+    deleteChildActions --> sessions
+    deleteChildActions --> childAccounts
+    deleteChildActions --> parentAccounts
+    deleteChildActions --> signInThrottle
+    deleteChildActions --> childDeletion
+    childDeletion --> deleteChildRecords
+    childDeletion --> families
+    childDeletion --> auditLog
 ```
 
 - `src/app/(parent)/parent/children/new/page.tsx` (new): the form (step 2) and, after a successful save, the credentials screen (step 7). Before rendering it calls `requireParent()`; a Sub Parent sees an explanation instead of the form (1b), and a family without confirmed consent is redirected to the "check your email" screen of `UC-PAR-onboarding` (1c). It shows a link to the online privacy notice next to the form (`FR-DATA-notice`, `BR-coppa-notice`), the note prompt of step 2, the reading-level referral links as plain outbound links (4e), a warning that does not block when the age is outside 6–11 (4b), and form text telling the parent the username must not be contact information or contain the nickname (4h). The privacy notice link comes from `config.ts` (`PRIVACY_NOTICE_URL`); the notice page itself is outside this use case. The submit button is disabled while the action is pending, and once the credentials screen is showing, no later response replaces it, so a double submit can never overwrite the only copy of the password (7a). On acknowledge (step 8) it navigates to `UC-REC-kid-onboarding` for this child (step 9), passing the child ID; `UC-REC-kid-onboarding` must check that ID against the session's family, and its route is that design's to name. This page sits outside the "no child yet" redirect that `UC-PAR-onboarding` 8a needs.
@@ -260,6 +289,24 @@ Added for `UC-PAR-onboarding` (all new unless marked reused):
 - `src/app/api/cron/cleanup/route.ts` and `vercel.json` (daily schedule): the Scheduled Cleanup route. It accepts only `Authorization: Bearer <CRON_SECRET>` and calls `purgeExpiredUnconfirmed` (§8.1 trust boundary, §8.2.3).
 - `src/server/lib/config.ts` (reused): gains `APP_URL` (to build the link), `SMTP_URL`, `MAIL_FROM`, `CRON_SECRET`, `CONSENT_CONFIRMATION_DAYS` (default 14, `OI-22`) and `CONSENT_METHOD` (an enum whose only value is `email-plus`, `OI-21`) (§8.2.6).
 - Reused as they are: `action-result.ts`, `clock.ts`, `db.ts` (`withTransaction`), `log.ts`, `audit-log.ts`, and the `/privacy-notice` placeholder page.
+
+Added for `UC-PAR-delete-kid-account` (new unless marked reused or extended):
+
+- `src/app/(parent)/parent/children/[childId]/delete/page.tsx`: steps 2–3 and 7. It calls `requireParent()` and `getChildForFamily` (reused); a Sub Parent sees an explanation and no form (1a), and a child outside the family is not found. It shows the child's nickname and avatar, the statement of step 2, a password field and a "type the nickname" field. The submit button is disabled while the action is pending. On `ok` the page replaces the form with the confirmation of step 7 and a link to `/parent`, where the onboarding gate handles 7a. Leaving the page is the cancel (2a). No page links here yet; see Open questions, "Where the delete link lives".
+- `.../[childId]/delete/actions.ts` and `schema.ts`: `deleteChildAccount`. In order (§8.2.3): `requireParent()`; refuse a Sub Parent (1a); validate with the zod schema (password and nickname present, the child ID a UUID from the route); `getChildForFamily`, so another family's child is not found before anything else is revealed; then the password check and the nickname check (4a, below); then `deleteChild`. The family comes from the session and the child ID from the route, never from the form. It does **not** check that consent is confirmed, because `UC-PAR-revoke-consent` 2a sends a parent here after revoking.
+- `src/server/identity-access/parent-accounts.ts` (extended): `getParentCredential(userId)`, returning the lowercased email (the throttle's account key) and the password hash, and nothing else.
+- `src/server/identity-access/sign-in-throttle.ts` and `passwords.ts` (reused): the password re-check calls `checkAllowed`, `verifyPassword`, then `recordFailure` on a wrong password or `clear` on a right one, with the same account key as sign-in, so failures here and at sign-in share one count (`SEC-signin-throttling`).
+- `src/server/accounts-family/child-deletion.ts` (server-only): `deleteChild(session, childId)` runs the transaction in the sequence diagram and maps failures to the codes in the API contract. It is the only function that calls every component's `deleteChildRecords`, and the list of those calls lives in this one file.
+- `deleteChildRecords(tx, childId)`, one per owning component, each deleting only its own collections (§8.2.4):
+  - Accounts & Family, `parent-notes.ts` (extended): the child's parent notes. Per-child exclusions and book reports are added here when `UC-PAR-report-book` builds them: exclusions are deleted, and each report keeps its book and reason but loses its child reference (the use case's Associated Information).
+  - Child Identity Store, `child-identity.ts` (extended): the identity record.
+  - Identity & Access, `child-credentials.ts` (extended, named `deleteChildSignIn`): the child's `users` document, every `sessions` document with that user ID (POST-1), and, once they exist, the child's sign-in time records (`DI-usage-records`).
+  - Safety Flagging, `note-flags.ts` (extended): the child's note flags, whatever their status (5a). Dangerous content list entries for the child are added here when `UC-ADM-flag-review` builds the list.
+  - Recommendation, `reading-profiles.ts` (extended when it is built, `design/rec.md`): the reading profile, and later the interest profile, batches, reactions and decline reasons.
+  - Shelf and Notification: their own records (shelf, shelf history, ratings, shelf requests, notices) when those collections are built.
+- `src/server/accounts-family/families.ts` (extended): `markChildRemoved(tx, familyId, childId)` adds the child ID and date to the Consent Record (POST-4).
+- `src/server/audit/audit-log.ts` (extended): `appendChildDeletedAudit(tx, parentUserId, childId)`, the event `child-account-deleted` (POST-5).
+- Notification (new when Sub Parents exist): `insertNotice(tx, recipientUserId, kind)` for step 6. Sub Parent accounts and in-app notices are not built yet (`UC-PAR-create-sub-parent-account`), so until they are, `deleteChild` finds no Sub Parents and writes no notice.
 
 ## Sequence
 
@@ -559,6 +606,78 @@ sequenceDiagram
     UI-->>P: Redirect to /sign-in, "password changed"
 ```
 
+### UC-PAR-delete-kid-account: delete a child account
+
+```mermaid
+sequenceDiagram
+    actor P as Main Parent
+    participant UI as Web UI (delete child page)
+    participant ACT as deleteChildAccount
+    participant IA as Identity & Access
+    participant AF as Accounts & Family
+    participant OWN as Each owning component
+    participant DB as Database
+    P->>UI: Tap "Delete this child's account" for a child (step 1)
+    UI->>IA: requireParent()
+    UI->>AF: getChildForFamily(familyId, childId)
+    alt Sub Parent (1a)
+        UI-->>P: Explanation, no form
+    else child not in the family, or unknown
+        UI-->>P: Not found
+    end
+    UI-->>P: Everything is deleted, cannot be undone, the child can no longer sign in (step 2)
+    UI-->>P: Password field and "type the nickname" field (step 3)
+    alt Parent cancels (2a)
+        P->>UI: Leave the page
+        Note over UI: No server call, nothing changes
+    end
+    P->>UI: Enter both and confirm (step 4)
+    UI->>ACT: deleteChildAccount(childId, password, nickname)
+    ACT->>IA: requireParent()
+    alt Sub Parent (1a)
+        ACT-->>UI: NOT_MAIN_PARENT
+    end
+    ACT->>ACT: Validate with the zod schema
+    ACT->>AF: getChildForFamily(familyId, childId)
+    alt not found
+        ACT-->>UI: CHILD_NOT_FOUND
+    end
+    ACT->>IA: getParentCredential, checkAllowed (step 4)
+    alt waiting after repeated failures (4a)
+        ACT-->>UI: TOO_MANY_ATTEMPTS with the wait
+    end
+    ACT->>IA: verifyPassword
+    alt wrong password (4a)
+        ACT->>IA: recordFailure
+        ACT-->>UI: WRONG_PASSWORD
+    end
+    ACT->>IA: clear
+    alt nickname does not match (4a)
+        ACT-->>UI: NICKNAME_MISMATCH
+    end
+    ACT->>AF: deleteChild(session, childId) (step 5)
+    AF->>DB: Begin transaction
+    AF->>DB: Delete the child account where _id and familyId match (step 5)
+    alt nothing deleted (already deleted, double submit)
+        AF-->>ACT: CHILD_NOT_FOUND, transaction aborted
+    end
+    AF->>IA: deleteChildSignIn(tx): credential, sessions (step 5, POST-1)
+    AF->>OWN: deleteChildRecords(tx, childId), each owning component, including a flagged note and its flag (step 5, POST-2, 5a)
+    AF->>DB: Consent Record: add the removed child ID and date (POST-4)
+    AF->>DB: Append audit entry: parent ID, child ID, time (POST-5)
+    opt the family has Sub Parents (step 6)
+        AF->>DB: One in-app notice per Sub Parent, without the nickname
+    end
+    alt any write fails (5b)
+        DB-->>AF: error, transaction aborted
+        AF-->>ACT: DELETE_FAILED with an error ID
+    end
+    AF->>DB: Commit
+    ACT-->>UI: ok
+    UI-->>P: "The account was deleted", link to /parent (step 7)
+    Note over UI,P: Last child (7a): the onboarding gate at /parent sends the parent to /parent/children/new
+```
+
 ## API contract
 
 _[One row per endpoint, scheduled job, or message this area adds or changes, appended per use case. **This section is never dropped**: before the code exists it is the only thing the person (or agent session) building the front end and the one building the back end both read. Name the caller and who may call it, the request fields, the success response, and the error each extension returns. Leave field types and exact JSON to the agent unless a wrong guess would break something, such as a format another system depends on. Use the error shape your architecture-of-record's section 8.2 fixes; do not invent one here._
@@ -584,6 +703,10 @@ _Pages change data through server actions (§8.2.3), and every result uses the `
 | Server action `requestPasswordReset` (supporting flow, `OI-41`) | Anyone | Email | `ok`, the same answer whether or not an account exists and whether or not an email was sent | `INVALID_EMAIL` for a malformed address only. A send failure is logged and still answers `ok`, so the answer reveals nothing. |
 | Page `/reset-password` (supporting flow, `OI-41`) | Anyone holding the link | The token, in the URL fragment | The new-password form | None at load: nothing changes until the form is submitted. |
 | Server action `resetPassword` (supporting flow, `OI-41`) | Anyone holding the token; no session needed | Token, new password | `ok`; the password is replaced, every session of that parent is ended, and the page redirects to `/sign-in` | `RESET_LINK_INVALID` for an unknown, used, replaced or expired token, with no hint which. `WEAK_PASSWORD` (the 4c rule), with the token still usable. `SAVE_FAILED` with an error ID, nothing changed. |
+| Page `/parent/children/[childId]/delete` (UC-PAR-delete-kid-account) | A signed-in Main Parent of the child's family | The child ID in the path | The statement of step 2, the child's nickname and avatar, and the password and nickname fields of step 3 | 1a: a Sub Parent sees an explanation and no form. A child outside the family, or unknown: not found, with no hint which. No session: redirect to sign-in. |
+| Server action `deleteChildAccount` (UC-PAR-delete-kid-account) | A signed-in Main Parent of the child's family; consent need not be active (`UC-PAR-revoke-consent` 2a); the family comes from the session | Child ID (from the route), password, typed nickname | `ok` with no data | Not signed in or not a parent: `NOT_SIGNED_IN`, `NOT_A_PARENT`. 1a: `NOT_MAIN_PARENT`. Child outside the family, unknown or already deleted: `CHILD_NOT_FOUND`. 4a: `WRONG_PASSWORD`, `NICKNAME_MISMATCH`, or `TOO_MANY_ATTEMPTS` with the wait in seconds. 5b: `DELETE_FAILED` with an error ID, nothing deleted. 2a and 5a are not errors. |
+
+The Sub Parent notice of step 6 says that a child account in the family was deleted by the Main Parent. It does not hold the nickname, because the nickname is the deleted child's data (`FR-DATA-removal`).
 
 The password reset email goes only to the Main Parent's own address. It holds the link and when it expires, says to ignore it if the parent did not ask, and holds no child data.
 
@@ -668,6 +791,26 @@ _A decision that affects the whole system rather than this area is an architectu
 **A reset ends every session of that parent and clears the throttle, in one transaction with the new hash and an audit entry.** A parent may be resetting because someone else knows the password. §8.2.9 lists password resets. Rejected: keeping existing sessions, which would leave an intruder signed in.
 
 **Reset emails are spaced per account.** Anyone can type any email into `/forgot-password`, so the system sends at most one reset email per account within the minimum spacing in `par-field-values.md`, and still gives the same answer. Rejected: no limit, which would let anyone flood a parent's inbox; and the sign-in throttle, which counts wrong passwords, not emails sent.
+
+### UC-PAR-delete-kid-account
+
+**Each component deletes its own records, and one function calls them all in one transaction.** `child-deletion.ts` holds the one list of `deleteChildRecords` calls; each call deletes only its own collections (§8.2.4), and all of them share the transaction handle (§8.2.8), so a failure anywhere deletes nothing (5b). Rejected: Accounts & Family deleting from every collection itself, which breaks §8.2.4; and a later cleanup by cron, which leaves the data behind if the run fails and makes the cron the only thing enforcing `FR-DATA-removal`.
+
+**A completeness test, not a checklist, guards `FR-DATA-removal`.** The integration test gives a child records in every collection that exists, deletes the child, then searches every collection in the database for the child ID; only the audit log and the Consent Record's removed-child entry may still hold it. A collection added later without a `deleteChildRecords` makes the test fail. Rejected: a hand-kept list of collections, which goes stale the first time someone adds one.
+
+**The flagged note and its flag are deleted too (5a).** The use case said to refuse the deletion until `OI-27` was settled. The developer and Claude proposed on 2026-11-19 to delete them instead: V1 reports nothing outside the system (`OI-18`), so nothing is being kept as evidence; `FR-DATA-removal` says no preservation exception may be assumed; and a refusal would block a parent's COPPA deletion right (`BR-coppa-parent-rights`) for as long as `UC-ADM-flag-review` is unbuilt, because no flag can leave the `open` status until then. The use case is edited to match, and the client is asked to confirm (`OI-43`). Rejected: refusing the deletion, for those reasons. A flag the admin is reviewing at that moment disappears from the list; accepted.
+
+**The password re-check uses the sign-in throttle, with the same account key.** `SEC-signin-throttling` counts a re-entered password as an attempt. Sharing the key means someone holding a stolen session cannot use this page to guess the password faster than at sign-in. Rejected: a separate counter for this page, which would give a second guessing route.
+
+**The nickname must match exactly, after trimming, letter case included.** Its only job is to stop the wrong child being deleted (step 3); the nickname was validated as letters and numbers when the child was created. Rejected: ignoring letter case, which weakens the check for no gain.
+
+**The child account is deleted first, with a condition on its ID and the session's family.** A double submit or a second tab gets `CHILD_NOT_FOUND`, because the second transaction finds nothing to delete. Rejected: reading the child and then deleting it, which races.
+
+**Consent need not be active.** `UC-PAR-revoke-consent` 2a revokes first and then sends the parent here, and deleting is how a parent removes data after revoking. Rejected: reusing `isConsentConfirmed`, which would make a revoked child impossible to delete.
+
+**Aggregate statistics need no step of their own (POST-3).** No stored aggregate exists; statistics are computed on read from the records, so a deleted child stops counting when their records go. A later design that stores an aggregate derived from a child must add it to `deleteChildRecords` or keep it free of child IDs. Rejected: stored counters, which would need adjusting here.
+
+**Past audit entries for the child stay.** The audit log is append-only (§8.2.9) and holds IDs only, so after deletion the child ID resolves to nothing. This is the team's reading of "applicable logs" in `FR-DATA-removal`. Rejected: deleting audit entries, which §8.2.9 forbids.
 
 ## Data model
 
@@ -776,6 +919,13 @@ erDiagram
 - `signInAttempts` (Identity & Access): unique on the account key. Cleared on a successful sign-in and by the purge. It holds the lowercased email because that is the account key; it is never logged.
 - `passwordResets` (Identity & Access): at most one per user, unique on `userId`. Deleted when used, replaced by a newer request, and purged by the cron once past `expiresAt`; a passed expiry is refused on read.
 
+`UC-PAR-delete-kid-account` adds no collection:
+
+- `consentRecords`: gains `removedChildren`, a list of `{ childId, removedAt }` (UTC, from the clock), written by `markChildRemoved` (POST-4). If `OI-42` makes consent per child, the per-child entry gains the removal date instead.
+- `auditLog`: the `event` enum gains `child-account-deleted`, with the parent as actor and the deleted child ID; it needs no `recordId`, so the validator makes `recordId` required only for `parent-note-flagged`.
+- `sessions`: deleted by `userId`. Add an index on `userId` if the Auth.js adapter does not create one.
+- Every other collection keyed by the child ID already has, or must get, an index on `childId`, so each `deleteChildRecords` is one indexed delete.
+
 What the purge deletes (6a), and why that is all: the parent's name and email were held only to obtain consent (`BR-coppa-notice`, `FR-ACCT-consent-confirm`), and no child data can exist before confirmation (step 6). A confirmed family's Consent Record is kept while a child account exists (`DI-consent-record`).
 
 Every child field has a stated purpose, as `DI-minimization` and `BR-coppa-minimization` require:
@@ -816,7 +966,14 @@ Not used by `UC-PAR-create-kid-account`: Notification and the Email Service (not
 - **Scheduled Cleanup:** the first cron route, protected by the cron secret (§8.1, §8.2.3), for the unconfirmed-account purge §5.2 already lists.
 - **Configuration:** the consent window and method come from the config module (§8.2.6), so legal review can change them without a code change (`OI-21`, `OI-22`).
 - **Logging:** never the parent's name, email, password, the confirmation token or the session token (§8.2.7). Refused sign-ins and cleanup runs are logged as security events with an ID and no account detail.
-- **Auditing:** one entry per purged unconfirmed account (`account.unconfirmed-purged`, the user ID and family ID only). Sign-up and confirmation are not in the §8.2.9 list; the Consent Record itself is the proof of consent. A password reset is: `account.password-reset`, the user ID only.
+- **Auditing (onboarding):** one entry per purged unconfirmed account (`account.unconfirmed-purged`, the user ID and family ID only). Sign-up and confirmation are not in the §8.2.9 list; the Consent Record itself is the proof of consent. A password reset is: `account.password-reset`, the user ID only.
+
+`UC-PAR-delete-kid-account` reuses `requireParent()`, `getChildForFamily`, the result helper, `withTransaction`, scrypt verification, the sign-in throttle, the clock and the audit log, and adds:
+
+- **Transactions:** the largest one yet, across every component that holds child records (§8.2.8).
+- **Logging:** never the password, the typed nickname, the username or the account key; a failed deletion is logged with its error ID only (§8.2.7).
+- **Auditing:** `child-account-deleted` with the parent's user ID and the deleted child ID (§8.2.9, data deletions).
+- **Not used:** Recommendation, Shelf and the rest are called only through their `deleteChildRecords`; Notification only through step 6, once Sub Parents exist.
 
 ## Tests
 
@@ -893,6 +1050,23 @@ _[One row per flow: the main success scenario and **every** extension of every u
 | Supporting flow: password reset, no click (`OI-41`) | end-to-end | Loading `/reset-password` from the link, without submitting, changes nothing; the token never appears in a request URL |
 | Supporting flow: reset purge (`OI-41`) | integration | The cleanup route removes reset records past their expiry and leaves unexpired ones |
 | UC-PAR-onboarding admin boundary | integration | No function an admin session can call returns a Consent Record's fields beyond whether one exists (`DI-consent-record`) |
+| UC-PAR-delete-kid-account main | integration | A Main Parent deletes a child: no child account, identity record, credential, session or parent note for that child remains; the Consent Record lists the child ID as removed with the date (fixed clock); one `child-account-deleted` audit entry holds IDs only; another child of the same family and its records are untouched; the Main Parent account and its session remain |
+| UC-PAR-delete-kid-account main, completeness | integration | With records for the child in every collection that exists, after deletion no document in any collection holds the child ID, except audit entries and the Consent Record's removed-child entry |
+| UC-PAR-delete-kid-account main, sign-in | integration | The deleted child's old session token no longer passes `auth()`, and the child's username no longer exists |
+| UC-PAR-delete-kid-account main | end-to-end | The parent opens the delete page, sees the statement, enters the password and nickname, confirms and sees the confirmation (steps 1–7) |
+| UC-PAR-delete-kid-account 1a | integration | A Sub Parent sees the explanation on the page, gets `NOT_MAIN_PARENT` from the action, and nothing is deleted |
+| UC-PAR-delete-kid-account 2a | end-to-end | Leaving the page without confirming deletes nothing |
+| UC-PAR-delete-kid-account 4a, password | integration | A wrong password returns `WRONG_PASSWORD`, adds one failure to the parent's throttle count and deletes nothing |
+| UC-PAR-delete-kid-account 4a, nickname | unit and integration | A nickname that differs in any letter or in letter case returns `NICKNAME_MISMATCH` and deletes nothing; surrounding spaces are ignored |
+| UC-PAR-delete-kid-account 4a, throttle | integration | Under a fixed clock, after the agreed number of failures here or at sign-in, the action returns `TOO_MANY_ATTEMPTS` even with the right password until the wait passes, and deletes nothing |
+| UC-PAR-delete-kid-account 5a | integration | A child with a flagged note and an `open` flag is deleted; no note and no flag remain; the earlier `parent-note-flagged` audit entry remains |
+| UC-PAR-delete-kid-account 5b | integration | When any one component's `deleteChildRecords` throws, every record of the child is still there, the Consent Record and audit log are unchanged, and the result is `DELETE_FAILED` with an error ID |
+| UC-PAR-delete-kid-account 6 | integration | With Sub Parents in the family, each gets one in-app notice in the same transaction, holding no nickname. Written when Sub Parents and Notification exist; until then, a family with no Sub Parent gets no notice |
+| UC-PAR-delete-kid-account 7a | integration | After the family's last child is deleted, the Main Parent account and Consent Record remain and `getOnboardingStep` returns `needs-first-child` |
+| UC-PAR-delete-kid-account, revoked consent | integration | A child whose family's consent is revoked can still be deleted |
+| UC-PAR-delete-kid-account, double submit | integration | Two simultaneous deletions of one child: one returns `ok`, the other `CHILD_NOT_FOUND`, and one audit entry exists |
+| UC-PAR-delete-kid-account authorization | integration | A child ID from another family returns `CHILD_NOT_FOUND` and deletes nothing; a child session and an admin session are refused |
+| UC-PAR-delete-kid-account logging | integration | After a successful deletion, a wrong password and a 5b failure, the logs contain no password, nickname, username or email |
 
 ## Changes to the architecture-of-record
 
@@ -907,6 +1081,10 @@ For `UC-PAR-onboarding`, edited in `architectural-design.md` in this pull reques
 - §8.1 Authentication and `KD-auth-sessions`: sessions are written by Identity & Access in the Auth.js adapter's document shape, from the sign-up transaction and from sign-in, instead of through the Credentials provider and its glue. Added as a dated refinement of the decision; the decision itself (database sessions, not JWT) is unchanged.
 - §5.1: the Email Service is Resend in production, reached over SMTP; Mailpit stands in for it outside production.
 - §8.2.7: consent confirmation and password reset tokens join the list of what is never logged.
+
+For `UC-PAR-delete-kid-account`, edited in `architectural-design.md` in this pull request:
+
+- §8.2.8: the deletion of a child account with all of its records, sessions, the Consent Record entry, the audit entry and any Sub Parent notices joins the list of single transactions, and the rule that every component holding child records exports `deleteChildRecords` is stated there.
 
 ## Open questions & risks
 
@@ -967,6 +1145,19 @@ Other open items and accepted risks for `UC-PAR-onboarding`:
 - **A COPPA data inventory in the README (team).** `docs/coppa/coppa-design-requirements.md` §3.9 proposes it; no business rule has adopted it, so this design does not require it.
 - **No limit on children per family.** Per the use case's Assumptions. A double submit with a different username would create a second child; accepted.
 - **Accepted risk: the transaction spans four components.** One function in Accounts & Family coordinates writes owned by Child Identity Store, Identity & Access and Safety Flagging. It is the only way to keep the records all-or-nothing in MongoDB, and the tests for 5a and 6a guard it.
+
+`UC-PAR-delete-kid-account`, what this design had to assume and the developer accepted on 2026-11-19:
+
+- **Flagged content is deleted (client, `OI-43`).** See Key decisions. The use case's 5a is edited in this pull request. `UC-PAR-delete-child-data` 5a still says to refuse; its design should follow this one or the team should decide otherwise for both.
+- **Reports keep the book and reason, lose the child (team).** POST-2 is edited to say so, matching the use case's Associated Information. Built with `UC-PAR-report-book`.
+- **The Sub Parent notice has no nickname (team).** A notice holding it would keep the deleted child's data in another parent's notices.
+- **Past audit entries stay (team).** See Key decisions.
+- **Where the delete link lives (team).** No account settings page exists, and `UC-PAR-review-child-data` and `UC-PAR-revoke-consent` are not built. The page and action are the contract; whichever design builds a page that lists the family's children adds the link to `/parent/children/[childId]/delete`. Until then, the end-to-end test opens the page by its address.
+- **The use case's other entry points.** `UC-PAR-revoke-consent` 2a and `UC-PAR-review-child-data` link to the same page when they are designed.
+- **Depends on the onboarding design.** The throttle, `parent-accounts.ts`, `families.ts` and the onboarding gate come from the `UC-PAR-onboarding` design, so this pull request is built on its branch and merges after it.
+- **Collections not built yet.** Recommendation, Shelf, Notification, reports, exclusions, usage records and the dangerous content list each add their `deleteChildRecords` when they are built; the completeness test catches any that do not.
+- **Backups (`OI-22`).** Deletion covers backups only through their own expiry, which the retention policy states. Nothing is designed here.
+- **Accepted risk: a long transaction.** One transaction touches every component holding child records. Each delete is one indexed query and families are small, so it stays well inside MongoDB's transaction limits.
 
 ---
 

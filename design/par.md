@@ -50,7 +50,7 @@ Review/export extends Accounts & Family with a parent-only read coordinator. Eac
 
 | File / component | Reuse or change |
 |---|---|
-| `src/app/(parent)/parent/settings/page.tsx` | New minimal account-settings entry, linked from the parent area, with the UC step 1 link. No unrelated settings. |
+| `src/app/(parent)/parent/settings/page.tsx` | New minimal account-settings entry, linked from the parent area, with the UC step 1 link. This entry and its child-data page use the parent session check outside the onboarding redirect so a still-linked parent can reach retained data after revocation. |
 | `src/app/(parent)/parent/settings/child-data/page.tsx`, `review-child-data.tsx`, `actions.ts`, `schema.ts` | New selector, password prompt, category view, download control and action boundaries. |
 | `src/server/accounts-family/child-data.ts` | New coordinator; family-scoped reads of child summaries, consent and notes. |
 | `src/server/identity-access/sessions.ts`, `passwords.ts` | Reuse session and hash verification. Add `verifyParentPassword` in Identity & Access. Use the caller’s stored credential and the shared attempt policy below; never accept an email, username, hash or account key from the request. |
@@ -290,15 +290,15 @@ Every action independently checks current session and parent role before input v
 
 | Endpoint | Caller / input | Success | Refusals and failures |
 |---|---|---|---|
-| Page `/parent/settings/child-data` | Main or Sub Parent; no password in URL | Linked-child summaries only. Preselect one child; otherwise require selection. No private data in initial HTML/RSC before confirmation. | No session: sign-in; wrong role: refusal; no linked children: explanation without review form. |
+| Page `/parent/settings/child-data` | Main or Sub Parent; no password in URL | Only linked-child IDs and display nicknames for the selector. Preselect one child or require selection for multiple children. Category records first appear in the successful review response. | No session: sign-in; wrong role: refusal; no linked children: explanation without review form. |
 | Action `reviewChildData` | Parent; child UUID and own current password | Complete category DTO after password confirmation, scoped snapshot and committed view audit | 2a: `CHILD_NOT_FOUND`, identical for missing/unlinked IDs. 4a: `PASSWORD_INCORRECT`. 4b: `TOO_MANY_ATTEMPTS` with shared retry deadline. 5b or audit failure: `LOAD_FAILED`, no DTO. Malformed input: `INVALID_INPUT`. Missing parent credential: unavailable, never bypass confirmation. |
-| Action `exportChildData` | Parent; child UUID and fresh own-password confirmation | Serialized complete document and same snapshot for the page; refreshed-view and export audits committed first | Same session, role, linkage, validation and password refusals. 7a, reader, serialization or audit failure: `EXPORT_FAILED`, no file bytes. Caller-provided category data is never trusted. |
+| Action `exportChildData` | Parent; child UUID and fresh own-password confirmation | Serialized complete document and same snapshot for the page; refreshed-view and export audits committed first | Same session, role, linkage, validation and password refusals. 7a, reader, serialization or audit failure: `EXPORT_FAILED`, no file bytes. If unresolved safety policy prevents a complete export, show an export-unavailable message and return no file or export audit. The action reads all records on the server. |
 
 For both actions: session/role first, validate the child UUID and password bounds, check the child belongs to the session’s family, then confirm the password. Repeat the family check inside the data snapshot. A missing/unlinked child is `CHILD_NOT_FOUND` before checking its data. Password input is 1–128 characters and is never trimmed; accept an existing password shorter than the new sign-up minimum. Missing or unsupported parent credentials return `REAUTH_UNAVAILABLE`, not success.
 
 The page is dynamic and uncached; no reader uses a shared data cache. Clear revealed data on child changes, navigation/pagehide and restored-history pageshow, requiring confirmation again after returning. A revoked/deleted session is checked again on every action; never reveal a restored payload merely because a button was previously unlocked.
 
-Clear passwords after attempts; never retain them for export. Changing child clears previous data. Render notes as text, never HTML. Errors receive keyboard focus and an announced status. Failed reads clear stale data; duplicate submissions are disabled while pending. No emailed export, public URL, download API route, object storage or scheduled job.
+Clear passwords after attempts. Changing child clears previous data and invalidates any pending review/download response for the previous selection. Render notes as text, never HTML. Errors receive keyboard focus and an announced status. Failed reads clear stale data; duplicate submissions are disabled while pending. No emailed export, public URL, download API route, object storage or scheduled job.
 
 _[One row per endpoint, scheduled job, or message this area adds or changes, appended per use case. **This section is never dropped**: before the code exists it is the only thing the person (or agent session) building the front end and the one building the back end both read. Name the caller and who may call it, the request fields, the success response, and the error each extension returns. Leave field types and exact JSON to the agent unless a wrong guess would break something, such as a format another system depends on. Use the error shape your architecture-of-record's section 8.2 fixes; do not invent one here._
 
@@ -523,7 +523,7 @@ Use invented siblings with different ages, grades, usernames, notes and book cho
 
 | UC flow | Level | Concrete acceptance check |
 |---|---|---|
-| Main 1–5, one/multiple children | Browser + integration | One child preselected; with two choose the second. Private values absent from initial HTML/RSC and all responses before correct own-password confirmation. Both approved parent roles work. |
+| Main 1–5, one/multiple children | Browser + integration | One child preselected; with two choose the second. Private values absent from initial HTML/RSC and all responses before correct own-password confirmation. Both parent roles work once their credential paths are available. |
 | Main 5–8 | Browser + integration | Seed each implemented category; open and parse the actual downloaded file. Compare each ID/value to independent fixtures and view to returned export snapshot. Inspect every category by keyboard. |
 | 2a | Integration + browser | Substitute sibling, foreign, unknown and malformed IDs in direct action calls. Sibling needs confirmation; foreign/unknown refusals do not reveal existence. Signed-out/child/admin with invalid input fail authentication/role first. |
 | 4a | Integration + browser | Child's password and wrong parent password disclose nothing; correct own password succeeds. Clear field after error. Missing hash never bypasses. |
@@ -532,9 +532,11 @@ Use invented siblings with different ages, grades, usernames, notes and book cho
 | 5b | Integration + browser | Fail a later reader after identity/note succeed: no partial DTO, old view cleared, retry works. |
 | 6a | Browser + integration | Review then leave. One view event, no export event/file. |
 | 7a | Integration + browser | Separately force serialization and audit failure. No file and no success event from the aborted transaction; retry produces complete parsed data. |
+| Policy unresolved | Integration + browser | When a retained record needs the unresolved OI-27 policy, export returns no file and no success audit. The page explains the export is unavailable without identifying the flagged record. |
+| Selector changes | Browser | If a response for the first child returns after the second child is selected, the page still shows no records and offers no download until confirmation for the second child. |
 | POST-3 | Integration | Export refresh commits a second view event and one export event; the initial read has one view event. View audit failure discloses nothing. Success records exact actor/child IDs/event; audit commit precedes response; no fixture values in audit. |
 | POST-4 | Integration | Compare all source records before/after: only specified audits and authentication-attempt bookkeeping differ; consent/profile/shelf unchanged. |
-| Session/link changes | Integration + browser | Delete session or remove family link after viewing; direct export refuses. Still-linked retained data remains reviewable after consent revocation. A link removed before the next snapshot refuses; readers in a single snapshot cannot mix families or different membership versions. |
+| Session/link changes | Integration + browser | Delete session or remove family link after viewing; direct export refuses. After consent revocation, a still-linked parent can reach the review page from settings and review retained data. A link removed before the next snapshot refuses; readers in a single snapshot cannot mix families or different membership versions. |
 | Secrecy/escaping | Integration + browser | Unique hash/password/token sentinels and sibling note never appear in page/action/file/logs. HTML-like note renders literally. Force a real logged failure so silence cannot make the logging check vacuous. |
 
 After implementation, manually choose the younger sibling, mistype the password, correct it, inspect categories, download/open the file, then switch to the older sibling. Check heading, contents and file after Back/refresh and a failed retry. Inspect desktop/narrow layouts for clipped controls, readable labels, focus and disclosure. Record screenshots and outcomes. This explicitly requests visual validation for this UC without changing the earlier creation feature's test scope.

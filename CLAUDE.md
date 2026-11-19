@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-BookBuddies (Team 05, client Dr. Yang Yang) is a book recommendation and reading shelf web app for children aged 6–11, with parent oversight and an admin role. **No application code exists yet.** The repository holds the specification and design documents, and code gets built one use case at a time from them. So there are no build, lint or test commands yet. When code arrives, the stack is TypeScript, Next.js on Vercel and MongoDB Atlas (`KD-tech-stack`). Tests will use Vitest for units, an in-memory MongoDB replica set for integration and Playwright for end to end (architecture §8.2.10).
+BookBuddies (Team 05, client Dr. Yang Yang) is a book recommendation and reading shelf web app for children aged 6–11, with parent oversight and an admin role. **Application code is being built one use case at a time** from the specification and design documents in this repository. The stack is TypeScript, Next.js on Vercel and MongoDB Atlas (`KD-tech-stack`). Commands (see `package.json`): `npm run lint`, `npm run typecheck`, `npm run build`, `npm test` (Vitest, in-memory MongoDB replica set for integration), `npm run test:e2e` (Playwright) and `npm run demo` (local demo). Tests follow architecture §8.2.10.
 
 ## Where things live
 

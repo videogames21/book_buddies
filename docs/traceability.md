@@ -141,7 +141,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-delete-kid-account` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-approve-shelf-request` |  | ❌ Not started |  |  |  |  |
-| `UC-REC-kid-onboarding` |  | ❌ Not started |  |  |  |  |
+| `UC-REC-kid-onboarding` |  | 📐 Designed | [design/rec.md](../design/rec.md) |  |  |  |
 | `UC-REC-recommend-quiz-rules` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-recommend-quiz-ai` | Later (`FEAT-ai-recommendation`) | ❌ Not started |  |  |  |  |
 | `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |

@@ -614,7 +614,7 @@ Quality attributes: `SEC-role-authorization` (a parent reaches only linked child
 
 - POST-1. The child's reading profile (interests, favorite books), the interest profile built from their activity, recommendation batches, reactions and decline reasons, shelf entries and shelf history, ratings, the parent note, shelf requests, notifications and usage records are deleted, so they are no longer retrievable in the normal course of business.
 - POST-2. The child account, its internal child ID, its identity fields (nickname, age, grade, optional reading level, username, avatar), its credentials, the family's consent record and any per-child exclusions are kept.
-- POST-3. Onboarding is marked incomplete for the child, so the Parent is asked to fill in the reading profile again (`UC-REC-kid-onboarding` 3b).
+- POST-3. Onboarding is marked incomplete for the child, so the Parent is asked to fill in the reading profile again (`UC-REC-kid-onboarding`; how the Parent returns to the form is `OI-39`).
 - POST-4. Any aggregate statistic derived from the child's data no longer counts it (`FR-DATA-removal`).
 - POST-5. The deletion is recorded in the audit log with IDs only (architecture §8.2.9).
 
@@ -885,33 +885,32 @@ _The two quiz use cases are mutually exclusive. Which one a request enters is de
 **Main Success Scenario:**
 
 1. The Parent starts onboarding for the new child profile.
-2. The system displays a set of reading-interest options and a picker of catalog books.
-3. The Parent selects one or more reading interests.
+2. The system displays a set of reading-interest options, a picker of catalog books, and a link to the online privacy notice (`BR-coppa-notice`).
+3. The Parent selects zero or more reading interests.
 4. The Parent selects zero or more favorite books the child has already read.
 5. The system saves the onboarding profile and marks onboarding complete.
 6. If this use case was started from `UC-PAR-create-kid-account` step 9, the system returns the Parent there, which shows the onboarding-complete message (step 10). Use case ends.
 
 **Extensions:**
 
-- 3a. The Parent selects no interests. The system allows this and continues; the recommender then relies on age and grade alone, per `BR-reading-level-proxy`.
-- 3b. The Parent skips the whole step. Onboarding is saved as incomplete; the child can still request recommendations, which again use age and grade only. The system reminds the Parent on their next login.
+- 1a. If onboarding is already complete, raise an error to the parent. The kid should still be able to access their account like normal.
 - 4a. The Parent tries to add a favorite book that is not in the seed catalog. The system does not accept it; the picker only offers catalog books, so the recommender can use the entry.
 - 5a. The system fails to save the onboarding profile. The system displays an error and keeps every selection the Parent has made so far in the form; onboarding is not marked complete.
 
 **Priority:** High — the recommender's starting profile depends on it, and `FR-ONB-profile` in the SRS places its collection at child account creation.\
 **Frequency of Use:** Once per child profile, at setup; rare after that.\
-**Business Rules:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`
+**Business Rules:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-retention`
 
 **Associated Information:**
 
-| Property name               | Data type                             | Validation rule                                                  | Security or access concerns                                                                                           | Glossary reference |
-|-----------------------------|---------------------------------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|--------------------|
-| Reading interests           | multi-select from a fixed option list | optional; each value must come from the list (list contents TBD) | Visible to the parent and child; used by the recommender; the system admin sees it only through the lookup by internal child ID (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`) | —                  |
-| Favorite books already read | list of catalog book references       | optional; each entry must exist in the seed catalog              | Visible to the parent and child; used by the recommender; never visible to the system admin (`BR-admin-limited-view`) | Seed Catalog       |
-| Onboarding complete         | boolean                               | required; set only by step 5                                     | Parent-set; not visible to the admin                                                                                  | —                  |
+| Property name               | Data type                             | Validation rule                                                  | Security or access concerns                                                                                                                                                          | Glossary reference |
+|-----------------------------|---------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
+| Reading interests           | multi-select from a fixed option list | optional; each value must come from the list (list contents TBD) | Visible to the parent only, and the child sees only the derived interest profile (`BR-kid-data-stored`); used by the recommender; the system admin never sees one child's interests, only totals across all accounts (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`) | —                  |
+| Favorite books already read | list of catalog book references       | optional; each entry must exist in the seed catalog              | Visible to the parent only, and the child sees only the derived interest profile (`BR-kid-data-stored`); used by the recommender; the system admin never sees one child's favorites, only totals across all accounts (`BR-admin-limited-view`, `UC-ADM-view-usage-stats`) | Seed Catalog       |
+| Onboarding complete         | boolean                               | required; set only by step 5                                     | Parent-set; not visible to the admin                                                                                                                                                 | —                  |
 
-**Related Use Cases:** `UC-PAR-create-kid-account` (invokes this use case); `UC-REC-recommend-quiz-rules` (consumes the saved profile)\
-**Assumptions:** The Parent, not the child, enters interests and favorite books, consistent with `BR-parent-creates-kid-account`.\
+**Related Use Cases:** `UC-PAR-create-kid-account` (invokes this use case); `UC-REC-recommend-quiz-rules` (consumes the saved profile); `UC-PAR-review-child-data` (the parent reviews and exports the saved profile); `UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account` and `UC-PAR-revoke-consent` (remove or stop use of it); inactivity retention (`BR-coppa-retention`, `OI-22`) also deletes it\
+**Assumptions:** The Parent, not the child, enters interests and favorite books, consistent with `BR-parent-creates-kid-account`. If the Parent selects no interests, the system allows this and continues; the recommender then relies on age and grade alone, per `BR-reading-level-proxy`, and the child can still request recommendations on that basis.\
 **Open Issues:**
 - `BR-kid-data-stored` lists reading interests and favorite books, and the interest profile built from them, each with its purpose.
 - `UC-PAR-create-kid-account` and this use case both run at child setup. Whether the profile fields belong in the parent's create-kid form or a separate onboarding step is undecided; the SRS currently puts all of them in the creation step (`FR-ONB-profile`).
@@ -2292,7 +2291,7 @@ The two rating measures are set by the client (Q14); the rest of the figure list
 **Primary Actor:** A System Admin\
 **Secondary Actors:** none\
 **Trigger:** The admin opens the usage statistics page.\
-**Description:** An admin sees aggregate usage figures for the system, such as the number of parent accounts, the number of child accounts per parent, and how many accounts were active in a period. It also reports the client's V1 engagement measures: day-30 retention (the share of families who return within 30 days of sign-up; target 25% or more) and weekly active families (the share of families with at least one meaningful action in a week: a rating, a shelf save, or a "not for me" response) (client answers 2026-10-28, Q14). The aggregate figures are totals only, from aggregate or de-identified data. The admin can also look up one child by internal child ID to see that child's usage data over time (reading interests, recommendation responses, shelf activity and ratings), never a name or other identifying detail, so the admin can understand how the product is used (client answers 2026-10-28, Q5, Q14). Each lookup is recorded in the audit log. The rest of the contents are not yet decided (SRS §7.3).
+**Description:** An admin sees aggregate usage figures for the system, such as the number of parent accounts, the number of child accounts per parent, and how many accounts were active in a period. It also reports the client's V1 engagement measures: day-30 retention (the share of families who return within 30 days of sign-up; target 25% or more) and weekly active families (the share of families with at least one meaningful action in a week: a rating, a shelf save, or a "not for me" response) (client answers 2026-10-28, Q14). The aggregate figures are totals only, from aggregate or de-identified data. They include which reading interests and which favorite books children's profiles hold across all accounts (`UC-REC-kid-onboarding`), as totals; the child lookup never shows one child's interests or favorite books. The admin can also look up one child by internal child ID to see that child's usage data over time (recommendation responses, shelf activity and ratings), never a name or other identifying detail, so the admin can understand how the product is used (client answers 2026-10-28, Q5, Q14). Each lookup is recorded in the audit log. The rest of the contents are not yet decided (SRS §7.3).
 
 **Preconditions:**
 
@@ -2313,7 +2312,7 @@ The two rating measures are set by the client (Q14); the rest of the figure list
 5. The admin changes the date range, and the system recomputes the figures.
 6. The admin enters one child's internal child ID in the child lookup.
 7. The system checks the ID, records the lookup in the audit log (the admin's account, the child ID and the time), and loads that child's usage data for the date range.
-8. The system displays that data under the internal child ID only: reading interests over time, recommendation responses (accepted, deferred or declined, with the decline reasons), shelf activity, and ratings, each with its date.
+8. The system displays that data under the internal child ID only: recommendation responses (accepted, deferred or declined, with the decline reasons), shelf activity, and ratings, each with its date.
 9. The admin returns to the aggregate figures or enters another ID. Use case ends when the admin leaves the page.
 
 **Extensions:**
@@ -2341,14 +2340,19 @@ The two rating measures are set by the client (Q14); the rest of the figure list
 | Active account counts | integers            | a figure below 5 is shown as "not enough data" (team proposal) | Admin-only                                        | —                  |
 | Day-30 retention      | percentage          | families who return within 30 days of sign-up, over all families who signed up in the range | Admin-only; aggregate only | —                  |
 | Weekly active families | percentage         | families with at least one meaningful action in the week (rating, shelf save, "not for me") | Admin-only; aggregate only | —                  |
+| Onboardings completed (team proposal) | integer | children whose reading-profile onboarding (`UC-REC-kid-onboarding`) was completed in the date range; a figure below 5 is shown as "not enough data" | Admin-only; a count only, never which child or when | — |
+| Reading interests across accounts (team proposal) | list of interest, count | for each fixed interest, how many children's profiles hold it; a count below 5 is shown as "not enough data" | Admin-only; totals only, never which child | — |
+| Favorite books across accounts (team proposal) | list of catalog book, count | for each catalog book, how many children's profiles list it; a count below 5 is shown as "not enough data" | Admin-only; totals only, never which child | — |
 | Internal child ID      | opaque identifier  | required for the child lookup; must match the system's ID format                              | Admin-only; never shown with a name; each lookup is audit-logged | —  |
-| Child usage data       | records by date    | reading interests, recommendation responses and decline reasons, shelf activity, ratings; nothing identifying | Admin-only; shown only under the internal child ID | —  |
+| Child usage data       | records by date    | recommendation responses and decline reasons, shelf activity, ratings; nothing identifying; never the child's onboarding interests or favorite books | Admin-only; shown only under the internal child ID | —  |
 
-**Related Use Cases:** `UC-ADM-view-recommender-stats` (sister page); `UC-ADM-view-audit-log` (shows each child lookup); `UC-PAR-onboarding` and `UC-PAR-create-kid-account` (the source of account records)\
+**Related Use Cases:** `UC-ADM-view-recommender-stats` (sister page); `UC-ADM-view-audit-log` (shows each child lookup); `UC-PAR-onboarding` and `UC-PAR-create-kid-account` (the source of account records); `UC-REC-kid-onboarding` (the source of the onboardings-completed count)\
 **Assumptions:** "Active" means a session in the date range for the general figures; the definition is a team proposal. The V1 measure "weekly active families" is stricter: a rating, a shelf save or a "not for me" response (client answers 2026-10-28, Q14). The admin learns a child's ID from outside this page, for example from a test-profile list or the client's own records; this use case does not list IDs. Usage data is a stored record of what the child did, not child details.\
 **Open Issues:**
 - The figure list beyond the two measures above, and the definition of "active," need client input.
 - The client set targets for two measures (Q14) but said other success metrics may stay open; `vision-and-scope.md` §2.3 records them.
+- **Onboardings completed (team proposal, 2026-11-16).** The figure counts completed onboardings in the date range, from the time `UC-REC-kid-onboarding` saved each profile. It is a total only: the admin sees no child, no save time and no profile content. It differs from account sign-ups, because a parent can leave a child's onboarding unsaved (`OI-39`). If a parent's data deletion is followed by a new fill-in (`UC-PAR-delete-child-data`), the child counts at the later save. Needs the client's or team's confirmation that the figure is wanted.
+- **Interests and favorite books are totals only (developer, 2026-11-16).** The admin can check which interests and favorite books are common across all accounts, but the child lookup never shows one child's interests or favorites. `BR-admin-limited-view`, `BR-kid-data-stored`, `FR-ADM-child-lookup` and architecture `KD-admin-usage-lookup` were edited to match.
 - **Child-level lookup.** `BR-admin-limited-view` allows it, and architecture `KD-admin-usage-lookup` names the path (usage data under an opaque ID, no identifying fields). The client's list of usage data (Q5) is the field list above; whether more is wanted is open.
 
 ---

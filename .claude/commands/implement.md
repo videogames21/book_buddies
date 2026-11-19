@@ -32,7 +32,7 @@ The design was approved at its pull request, so there is no second approval of t
 
 ## Phase 2: plan, then go on (no approval gate, except for a refactor)
 
-State a short plan and go on to Phase 3 without waiting:
+State a short plan and go on to Phase 3 after the developer has confirmed they have logged the change list:
 
 - **Acceptance criteria**: the main flow and every extension, as testable outcomes.
 - **Back end and front end changes**, realizing the design's components and API contract, including who may call each endpoint and how that is enforced.
@@ -40,6 +40,7 @@ State a short plan and go on to Phase 3 without waiting:
 - **Where the plan departs from the design**, if anywhere. A departure updates the design in Phase 3.
 - **The trunk**: which commits are shared code (code many flows depend on, code that changes behavior existing users rely on, or code that is hard to roll back), and which are leaves.
 - **Open questions and risks.** A real blocker stops you here.
+- **List of files expected to change or add.** Remind the developer before continuing that they have to update the GitHub issue with Paths you expect to change, or "new:" and the path. You are to give the developer the list they need.
 
 ## Phase 3: build
 
@@ -51,6 +52,7 @@ Work on a branch, never on `main`, and **commit in steps a reviewer can read, cu
 - **A security rule or a schema migration goes in a commit of its own,** so the reviewer sees it alone.
 - **Each commit carries the tests for what it adds** and passes them, run as targeted tests, not the full suite.
 - **A small use case with no trunk** is one commit and no pause, except that a security rule or migration still goes alone.
+- **Keep each pull request under 2000 changed lines** (added + deleted, excluding lockfiles and generated files; check with `git diff --shortstat main...HEAD`). Before a commit that would take the branch past that, stop at the last commit where the tests pass, tell the developer to open a pull request with the branch as it stands (Build `🟡 In progress` in the traceability row), and wait. Once it is merged, merge `main` into the branch and continue with the remaining commits in a new pull request.
 
 Inside each commit, follow the project's conventions and the design. Keep the change to this use case: a rename, a tidier method, or a convention fixed elsewhere is listed under Areas to Look At in the pull request as a follow-up, not made. **Keep the design honest:** if the build forced a change from the design, update `design/<area>.md` to describe what was built.
 

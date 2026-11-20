@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.16
+**Version:** 0.17
 
 ---
 
@@ -37,6 +37,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-29]_ | 0.14    | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): removed `UC-SHLF-kid-add-note` and all child free text; the optional 250-character parent note, an internal child ID and no real name in `UC-PAR-create-kid-account`; flagged parent notes in `UC-ADM-flag-review` (internal word list, human review, no outside reporting); dropped the 24-hour review rule; configurable retention and consent; the parent weekly dashboard, post-rating recommendations and V1 success measures; the curated seed catalog fields; added `UC-SHLF-par-finish-book`: a parent confirms a child finished a book before the child can rate it, and may add a note for the recommender that `UC-ADM-flag-review` also screens; `UC-SHLF-kid-move-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` updated to match; added `UC-SHLF-kid-dashboard`: a screen the child opens from the shelf with parent-approved recommended books, a radar chart of current reading interests and bookshelf activity and history (no badges yet); `UC-ADM-view-usage-stats` now includes the admin's lookup of one child's usage data by internal child ID, recorded in the audit log; the weekly check-in is covered by `FR-NOT-weekly-reminder` in the SRS, so the use cases that said it had no use case now cite it; `UC-SHLF-kid-view-shelf` links to the dashboard; the export and both deletion use cases now name the interest profile, shelf history and usage records (derived and per-child data), matching the inventory in `BR-kid-data-stored`; the admin's child lookup shows nothing for a child whose consent was revoked | _Claude_ |
 | _[2026-11-17]_ | 0.15    | `UC-SHLF-parent-view-shelf`: the confirmed-finished icon and "Edit note" show on a confirmed book in any category, as `UC-SHLF-par-finish-book` POST-1 and `UC-SHLF-kid-move-book` 3d already say; added extension 1b (no linked child) and the no-existence-leak wording in 2c; stated that a rating shows on any entry still on the shelf and is not shown once its entry is removed or the book is blocked (team proposal, `OI-41`). The same rule is now stated in `UC-SHLF-kid-remove-book`, `UC-SHLF-parent-remove-book` and `UC-ADM-block-content`, which had left it open | _Tam Nguyen_, _Claude_ |
 | _[2026-11-17]_ | 0.16    | `UC-PAR-onboarding`, from its design (`design/par.md`): added extension 5b (the confirmation email fails to send; the account is kept and resend is offered); step 7 has the Parent confirm on the page the link opens; 4a's password-reset link leads to the reset flow designed with this use case (`OI-44`); the parent password rule is set (8–128 characters, developer decision); the data tables of `UC-PAR-onboarding` and `UC-PAR-create-kid-account` now carry the values the developer approved in `design/par-field-values.md`; 6a treats the account as expired from the deadline on; open issues cite `OI-44` (no sign-in use case) | _Claude_ |
+| _[2026-11-19]_ | 0.17    | `UC-PAR-delete-kid-account` (from its design in `design/par.md`): 5a deletes a flagged note, its flag and dangerous content list entries with the account (team proposal, `OI-46`); POST-2 says what a report keeps and that audit entries stay; the consent need not be active (Assumptions, citing `UC-PAR-revoke-consent` 2a); the nickname match rule is in Associated Information; 4a counts a wrong password in the same count as sign-in; the Sub Parent notice does not name the child. `UC-PAR-delete-child-data` Open Issues point to `OI-46`. |
 
 ---
 
@@ -656,7 +657,7 @@ Deletion covers backups only through their own expiry; the backup window must be
 **Related Use Cases:** `UC-PAR-review-child-data` (often precedes this); `UC-PAR-delete-kid-account` (deletes the account as well); `UC-REC-kid-onboarding` (the profile is filled in again)\
 **Assumptions:** Per-child exclusions are kept, because a parent's report is final while the account is in service (`BR-parent-report-book`). A parent who wants them gone deletes the account.\
 **Open Issues:**
-- **Flagged content.** Whether a parent's deletion removes a flagged parent note that is under admin review, or entries on the dangerous content list, needs a decision. `FR-DATA-removal` says no preservation exception may be assumed (`OI-27`, `OI-18`).
+- **Flagged content.** Whether a parent's deletion removes a flagged parent note that is under admin review, or entries on the dangerous content list, needs a decision. `FR-DATA-removal` says no preservation exception may be assumed (`OI-27`, `OI-18`). `UC-PAR-delete-kid-account` 5a now deletes them with the account, as a team proposal the client is asked to confirm (`OI-46`). Until `OI-46` is answered and this use case is designed, its 5a still refuses, so the two differ; this use case's 5a should follow the same answer.
 - Whether the Main Parent may delete only some categories, rather than all reading data at once, is not specified.
 - Whether the parent gets an email confirming the deletion is not specified; notifications are otherwise in-app only (`CI-in-app-alerts`).
 
@@ -744,7 +745,7 @@ A revoked account is not a suspended account: only the Parent can end a revocati
 **Postconditions:**
 
 - POST-1. The child account and its credentials no longer exist, and its sessions are ended.
-- POST-2. Everything in `FR-DATA-removal` is deleted: the identity fields and internal child ID in the Child Identity Store, the reading profile, the interest profile, the parent note, recommendation batches and reactions, shelf and shelf history, ratings, shelf requests, usage records, books reported for the child and their per-child exclusions, notifications, and the child's entries in applicable logs.
+- POST-2. Everything in `FR-DATA-removal` is deleted: the identity fields and internal child ID in the Child Identity Store, the reading profile, the interest profile, the parent note, recommendation batches and reactions, shelf and shelf history, ratings, shelf requests, usage records, the per-child exclusions, notifications, a flagged parent note with its flag and any dangerous content list entries for the child (5a), and the child's entries in applicable logs. Reports made for the child keep only the book, the reason and the reporting parent's reference; the child reference and the parent's comment are deleted (see Associated Information). Audit entries stay, because they are append-only and hold IDs only, so the deleted child ID resolves to nothing (architecture §8.2.9).
 - POST-3. Aggregate statistics no longer count the child (`FR-DATA-removal`).
 - POST-4. The family's consent record shows the child removed, with the date.
 - POST-5. The deletion is recorded in the audit log with IDs only (architecture §8.2.9).
@@ -764,8 +765,8 @@ A revoked account is not a suspended account: only the Parent can end a revocati
 
 - 1a. The Parent is a Sub Parent (PRE-1 fails). The system does not offer the action; only the Main Parent creates or deletes accounts (`OI-25`).
 - 2a. The Parent cancels. No change.
-- 4a. The password is wrong, or the nickname does not match. The system shows an error and returns to step 3; repeated password failures are slowed (`SEC-signin-throttling`).
-- 5a. The child has a flagged parent note still open in `UC-ADM-flag-review`, or entries on the dangerous content list. As in `UC-PAR-delete-child-data` 5a, the handling is not decided, and the system must not complete this step for that child until it is.
+- 4a. The password is wrong, or the nickname does not match. The system shows an error and returns to step 3; a wrong password counts toward the account's failed-password count, the same count sign-in uses, and repeated failures are slowed (`SEC-signin-throttling`).
+- 5a. The child has a flagged parent note, open in `UC-ADM-flag-review` or not, or entries on the dangerous content list. The system deletes them with everything else in step 5. Nothing is kept as safety evidence: V1 reports nothing outside the system (`OI-18`), and `FR-DATA-removal` allows no assumed preservation exception (team proposal 2026-11-19, for the client to confirm, `OI-46`).
 - 5b. Deleting fails part way. Nothing is deleted; the system shows an error and the Parent may retry.
 - 7a. This was the family's last child. The Main Parent account stays, and the Parent is offered `UC-PAR-create-kid-account` on the next sign-in, as in `UC-PAR-onboarding` 8a.
 
@@ -777,15 +778,16 @@ A revoked account is not a suspended account: only the Parent can end a revocati
 
 | Property name | Data type                      | Validation rule                                  | Security or access concerns                                               | Glossary reference |
 |---------------|--------------------------------|--------------------------------------------------|---------------------------------------------------------------------------|--------------------|
-| Confirmation  | password + typed nickname      | both required; the nickname must match exactly   | Main Parent only                                                          | —                  |
+| Confirmation  | password + typed nickname      | both required; the nickname must match exactly: compared after trimming spaces at either end, letter case included (team proposal 2026-11-19) | Main Parent only                                                          | —                  |
 | Audit record  | record                         | system-set: parent ID, deleted child ID, time    | IDs only; the deleted child ID no longer resolves to any data             | —                  |
 
-Deletion covers backups only through their own expiry, stated in the retention policy (`BR-coppa-retention`, `OI-22`). Reports in the admin's list that named this child keep the book and reason but lose the child reference.
+Deletion covers backups only through their own expiry, stated in the retention policy (`BR-coppa-retention`, `OI-22`). Reports in the admin's list that named this child keep the book, the reason and the reporting parent's reference, and lose the child reference and the parent's comment.
 
 **Related Use Cases:** `UC-PAR-delete-child-data` (deletes the reading data but keeps the account); `UC-PAR-revoke-consent` (may lead here); `UC-PAR-create-kid-account` (the reverse); `UC-ADM-block-content` (a report that loses its child reference stays in the admin's list)\
-**Assumptions:** Deleting a child account never deletes the parent account. There is no undo or grace period (team proposal).\
+**Assumptions:** Deleting a child account never deletes the parent account. There is no undo or grace period (team proposal). The family's consent need not be active: `UC-PAR-revoke-consent` 2a revokes first and then continues here, so a parent who has revoked consent can still delete the account (team proposal 2026-11-19).\
 **Open Issues:**
-- **Flagged content.** As in `UC-PAR-delete-child-data`: whether a deletion removes flagged content under review or on the dangerous content list needs a decision (`FR-DATA-removal`, `OI-27`, `OI-18`).
+- **Flagged content.** This use case deletes flagged content with the account (5a, team proposal 2026-11-19); the client is asked to confirm (`OI-46`). `UC-PAR-delete-child-data` 5a still refuses until `OI-27` is settled, so the two differ until its design is done.
+- The Sub Parent notice of step 6 does not name the child, because the nickname is the deleted child's data (team proposal 2026-11-19).
 - Whether a parent can delete their own Main Parent account, and what happens to the family, has no use case.
 - Whether a short grace period should apply is not specified.
 

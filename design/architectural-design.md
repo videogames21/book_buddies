@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang, Research Scientist, IBR/Knight D Research
-**Version:** 0.12
+**Version:** 0.14
 
 ---
 
@@ -46,7 +46,8 @@ _[These are slugs, like every other identifier in your project, so an inserted d
 | 0.10 | 2026-11-05 | Team 05 (with Claude) | `design/par.md` rewritten for `UC-PAR-create-kid-account` against this version: no child real name, the parent note owned by Accounts & Family, a flag written in the same transaction as the note and listed for flag review. `OI-29` resolved (age and grade stay, required); `OI-33` filed (note edit or delete) |
 | 0.11 | 2026-11-16 | Team 05 (with Claude) | `design/rec.md` written for `UC-REC-kid-onboarding`: Recommendation owns the reading profile (the Accounts & Family row no longer claims the onboarding answers), and the Catalog names the two reads the book picker needs. `OI-37` to `OI-39` filed |
 | 0.12 | 2026-11-18 | Team 05 (with Claude) | `design/shlf.md` written for `UC-SHLF-parent-view-shelf`: the Catalog names the shelf read (`getBooksForShelf`), added to `src/server/catalog/books.ts` beside the two reads from `design/rec.md`. |
-| 0.13 | 2026-11-19 | Team 05 (with Claude) | `design/shlf.md` extended for `UC-SHLF-kid-view-shelf` and child sign-in (a supporting flow with no use case, `OI-46`): a Child sign-in paragraph in section 8.1 (the parent's throttle with the child's numbers and no lockout; session until the next midnight, `OI-48`; a suspended parent's children, `OI-47`); the Catalog's shelf read also returns author and series name; Notification and Identity & Access rows name the child's reads and records. |
+| 0.14 | 2026-11-17 | Team 05 (with Claude) | From the `UC-PAR-onboarding` design in `design/par.md`: sessions are written by Identity & Access in the Auth.js adapter's shape rather than through the Credentials provider (refines `KD-auth-sessions`, §8.1); the Email Service is Resend in production, reached over SMTP, with Mailpit outside production (§5.1, developer decision); consent confirmation and password reset tokens are never logged (§8.2.7); a Main Parent can sign out and reset a forgotten password through an emailed link (§8.1, `OI-44`) |
+| 0.15 | 2026-11-19 | Team 05 (with Claude) | `design/shlf.md` extended for `UC-SHLF-kid-view-shelf` and child sign-in (a supporting flow with no use case, `OI-46`): a Child sign-in paragraph in section 8.1 (the parent's throttle with the child's numbers and no lockout; session until the next midnight, `OI-48`; a suspended parent's children, `OI-47`); the Catalog's shelf read also returns author and series name; Notification and Identity & Access rows name the child's reads and records. |
 
 ---
 
@@ -131,7 +132,7 @@ C4Context
     System(bb, "BookBuddies", "Recommends books, keeps each child's shelf, and gives parents oversight")
 
     System_Ext(dataset, "Curated Seed Catalog", "BookBuddies_Seed_Catalog.xlsx, 134 tagged books from the client; a file, not a live service")
-    System_Ext(email, "Email Service", "Delivers parent account emails; provider not yet chosen")
+    System_Ext(email, "Email Service", "Delivers parent account emails; Resend in production, Mailpit in development")
 
     Rel(child, bb, "Gets recommendations, keeps a shelf, rates books (structured choices only)")
     Rel(parent, bb, "Creates accounts, suggests and reports books, confirms finished books, adds an optional note, reviews shelf and ratings")
@@ -205,14 +206,14 @@ C4Container
     }
 
     System_Ext(dataset, "Curated Seed Catalog", "BookBuddies_Seed_Catalog.xlsx")
-    System_Ext(email, "Email Service", "Provider not yet chosen")
+    System_Ext(email, "Email Service", "Resend in production, Mailpit in development; reached over SMTP")
 
     Rel(child, ui, "Uses", "HTTPS")
     Rel(parent, ui, "Uses", "HTTPS")
     Rel(admin, ui, "Uses", "HTTPS")
     Rel(ui, app, "Calls server actions and route handlers", "JSON/HTTPS")
     Rel(app, db, "Reads and writes", "MongoDB driver over TLS")
-    Rel(app, email, "Sends account and invitation emails", "HTTPS API")
+    Rel(app, email, "Sends account and invitation emails", "SMTP")
     Rel(importer, dataset, "Reads the spreadsheet file", "file")
     Rel(importer, db, "Upserts catalog books", "MongoDB driver over TLS")
 ```
@@ -281,7 +282,7 @@ _Secrets (passwords, API keys, connection strings) never appear in this document
 
 **Trust boundary.** The Application container is the boundary. Everything outside it is untrusted: the browser, including every client component and anything it sends; the Catalog Import's input file; the Email Service; and calls from Vercel Cron. Every server action and route handler is a public endpoint, including actions no page shows, so each one checks the session and role itself through Identity & Access before doing anything. Next.js middleware may redirect for convenience but is never the check. The cleanup route accepts only requests carrying the cron secret (`SEC-role-authorization`).
 
-**Authentication** (`SEC-auth`, `KD-auth-sessions`). Parents sign in with email and password. Sub parents sign in with the username and password they chose at setup (`UC-PAR-create-sub-parent-account`). Children sign in with a username the parent chooses and a password the system generates (`UC-PAR-create-kid-account`); the parent sees the password once. Team decision, 2026-10-15, to confirm with the client (`OI-26`): the parent can reset the password and sees the new one once, and the child cannot change it. Whether the parent can see the current password is still open. Auth.js handles sign-in and sessions: the Credentials provider checks passwords, which are stored only as salted hashes, and sessions use Auth.js's database strategy through its MongoDB adapter. The cookie (httpOnly, Secure, SameSite=Lax) carries only a random session token, and deleting the session document signs the user out everywhere, as suspension needs (`UC-ADM-suspend-account`). Failed sign-ins are counted per account and slowed down (`SEC-signin-throttling`). Admin accounts are created by hand, never through sign-up.
+**Authentication** (`SEC-auth`, `KD-auth-sessions`). Parents sign in with email and password. Sub parents sign in with the username and password they chose at setup (`UC-PAR-create-sub-parent-account`). Children sign in with a username the parent chooses and a password the system generates (`UC-PAR-create-kid-account`); the parent sees the password once. Team decision, 2026-10-15, to confirm with the client (`OI-26`): the parent can reset the password and sees the new one once, and the child cannot change it. Whether the parent can see the current password is still open. Auth.js handles sign-in and sessions: the Credentials provider checks passwords, which are stored only as salted hashes, and sessions use Auth.js's database strategy through its MongoDB adapter. The cookie (httpOnly, Secure, SameSite=Lax) carries only a random session token, and deleting the session document signs the user out everywhere, as suspension needs (`UC-ADM-suspend-account`). Failed sign-ins are counted per account and slowed down (`SEC-signin-throttling`). Admin accounts are created by hand, never through sign-up. Refinement, 2026-11-17 (`design/par.md`, `UC-PAR-onboarding`): sessions are created by Identity & Access, which checks the password itself and writes the session document in the Auth.js adapter's shape, so that sign-up can create the session inside the transaction that creates the account; Auth.js still reads, expires and deletes sessions. A Main Parent signs out by deleting their session document, and resets a forgotten password through a single-use emailed link that ends every session they have; no use case covers sign-in, sign-out or reset yet (`OI-44`).
 
 **Child sign-in** (`OI-46`, `OI-47`, `OI-48`; `design/shlf.md`). A child signs in at `/child/sign-in`, not the parent's page. A child's failed attempts are counted per account and per device like a parent's (`SEC-signin-throttling`): the first 3 wrong attempts are free, then each further attempt waits 30 seconds, doubling after every wrong one, an attempt during a wait is refused and not counted, one wrong attempt is forgiven every 30 minutes while no wait is running, and an account is never locked. Another device is not made to wait, so no one can lock a child out remotely (`OI-49`). A child's session ends at the next midnight in one configured time zone, checked on read (8.2.2), and each sign-in leaves a record under the internal child ID (`DI-usage-records`). A child whose consent was revoked or who is suspended, including by the suspension of a parent (`OI-47`), cannot sign in.
 
@@ -323,7 +324,7 @@ _One short subsection each: the rule in one sentence, why, and the file that sho
 
 **8.2.6 Configuration and secrets.** All configuration comes from environment variables, read and validated once at startup by one config module; the recommender mode (`UC-REC-recommend-quiz-rules`), the consent-confirmation window and the retention periods (placeholders 14 days and 12 months), and the consent method settings are among them, so they can change after testing and legal review without a code change (client answers 2026-10-28, Q9, Q13). Development uses a local or development database; Vercel preview deployments use their own database and never production data; production has its own. Secrets follow 8.1. Why: a preview deployment pointed at production data would expose real children's data to anyone with the preview link. Shown in: not yet.
 
-**8.2.7 Logging.** Server errors and security events (failed sign-ins, refused requests, cleanup runs) are logged with an error or request ID. Passwords, session IDs, email addresses, usernames, child nicknames, ages, grades, parent note text, decline reasons, report comments and flagged passages are never logged. Why: Vercel's logs sit outside the data controls in 8.1, so nothing personal may reach them. Shown in: not yet.
+**8.2.7 Logging.** Server errors and security events (failed sign-ins, refused requests, cleanup runs) are logged with an error or request ID. Passwords, session IDs, consent confirmation and password reset tokens, email addresses, usernames, child nicknames, ages, grades, parent note text, decline reasons, report comments and flagged passages are never logged. Why: Vercel's logs sit outside the data controls in 8.1, so nothing personal may reach them. Shown in: not yet.
 
 **8.2.8 Persistence and concurrency.** Any change that must never happen without another is one MongoDB transaction: a shelf removal and its notice (`UC-SHLF-parent-remove-book`), a parent's finish confirmation with its note, flag and admin alert (`UC-SHLF-par-finish-book`), a parent account and its consent record, a child account, its Child Identity Store record and its credentials, with any parent note and its flag and alert (`UC-PAR-create-kid-account`), a book report with its exclusion, the shelf removal and the child's notice (`UC-PAR-report-book`), a block with its report decisions and the removal of the shelf entries (`UC-ADM-block-content`), and a suspension with its session deletion and dangerous content entry (`UC-ADM-flag-review`; `UC-ADM-suspend-account` for a suspension alone). State changes that only one person may make (a batch released, a shelf request approved) use a conditional update so the first one wins and the second sees the new state. One MongoDB client is created per server instance and reused, because serverless functions otherwise exhaust connections. Development and tests run MongoDB as a replica set, since transactions need one. Why: `ROB-no-data-loss`, `SAF-flag-delivery`. Shown in: not yet.
 
@@ -387,6 +388,7 @@ _BookBuddies' decisions. Accepted ones were made by the team; Proposed ones were
 - **Decision:** Auth.js with its MongoDB adapter and the `database` session strategy. The Credentials provider checks passwords, which are stored only as salted hashes, and the cookie holds only a random session token. Out of the box, Auth.js allows the Credentials provider only with JWT sessions, so sign-in needs one small piece of glue: after the password check succeeds, it creates the session through the Auth.js adapter and sets the session cookie. Everything after that (looking up, expiring and deleting sessions) is Auth.js's own. Confirm the exact glue against the Auth.js version installed.
 - **Rejected:** Auth.js's default JWT sessions, which cannot be revoked before they expire, so a suspended child would stay signed in. A hosted service such as Clerk or Auth0, which would hold children's sign-in data outside the system and add an external system to section 3.
 - **Trade-off:** The sign-in glue goes around an Auth.js default, so an Auth.js upgrade can break it. It is security-critical, so it needs its own tests (section 8.2.10), and it is a candidate risk for section 11 at Checkpoint 2.
+- **Refinement, 2026-11-17** (`design/par.md`, `UC-PAR-onboarding`): the glue does not go through the Credentials provider. Identity & Access verifies the password and writes the session document in the adapter's own shape, because sign-up must create the session in the same transaction as the account and the adapter's `createSession` takes no transaction handle. Rejected: the Credentials provider with adapter glue, which cannot join that transaction. A test proves Auth.js reads such a session back. Database sessions, and the rejection of JWT, are unchanged.
 
 **`KD-pii-segregation`: child details in their own collection.** _Proposed._
 

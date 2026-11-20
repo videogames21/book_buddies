@@ -648,7 +648,7 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - §8.1 Authentication: a new paragraph after the Authentication paragraph says a child signs in at their own page, with the parent's throttle and the child's numbers (`SEC-signin-throttling`, no lockout), a session that ends at the next midnight (`OI-48`), and that a suspended parent's children are suspended (`OI-47`). It is a separate paragraph so it does not collide with the sentence edits of pull request #98.
 - §5.2 Catalog: `getBooksForShelf` also returns the author and series name, for the child's book details.
 - §5.2 Notification: the child's reads, `peekUnseenChildNotices` and `markNoticesSeen`.
-- §5.2 Identity & Access: names the child sign-in record and the child's sign-in attempts. Revision history: a v0.13 row.
+- §5.2 Identity & Access: names the child sign-in record and the child's sign-in attempts. Revision history: a v0.15 row.
 
 
 ## Open questions & risks

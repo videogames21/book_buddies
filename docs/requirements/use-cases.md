@@ -1252,23 +1252,25 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 2. The system loads the child's shelf entries.
 3. The system displays the entries grouped under Reading Now, Want to Read, Maybe Later, and Finished, each with its cover and title, using large tap targets.
 4. The child taps a book.
-5. The system displays the book's shelf actions: move, remove, and, for books whose finish the parent has confirmed, rate. A book with a confirmed finish carries the confirmed-finished icon in any category.
+5. The system displays the book's details (cover, title, author and, for a book in a series, the series name) and the child's own rating if there is one, with the book's shelf actions: move, remove, and, for books whose finish the parent has confirmed, rate. A book with a confirmed finish carries the confirmed-finished icon in any category.
 6. The child leaves the shelf. Use case ends.
 
 **Extensions:**
 
-- 2a. The child has no shelf entries. The system displays a short empty-state message that points the child to get recommendations, not a count or a zero.
+- 2a. The child has no shelf entries. The system still shows the four categories, with a short message at the top that points the child to find a book and get recommendations, not a count or a zero.
 - 2b. Loading fails. The system displays a retry message and does not show a partial shelf.
-- 3a. A category has no entries. The system still shows the category heading with a one-line empty state, so the four-category layout stays the same for every child.
+- 3a. A category has no entries. The system still shows the category heading with nothing under it and no message, so the four-category layout stays the same for every child.
 - 3c. A book is in Finished with its finish awaiting confirmation. The system shows it grayed out, without the confirmed-finished icon and without a rating action.
 - 3d. A parent said a book was not finished (`UC-SHLF-par-finish-book` 4b). The first time the child opens the shelf afterwards, the system shows once: "Whoops! Looks like you didn't finish your book. It went back to where it was." The book is already back in its earlier category, and the notice does not show again.
 - 3e. The child taps "My Dashboard." The system opens `UC-SHLF-kid-dashboard`; leaving it returns the child to the shelf.
+- 3f. If a parent removed a book using UC-SHLF-parent-remove-book a notification appears when entering the shelf stating that the book was removed without stating a reason why it was removed.
 - 3b. The admin blocks a book on the child's shelf. `UC-ADM-block-content` removes the shelf entry, so the book is no longer on the shelf the next time it loads; the child is not told (`UC-ADM-block-content` Assumptions).
+- 3f. A parent removed a book from the shelf (`UC-SHLF-parent-remove-book`) or reported it (`UC-PAR-report-book`) and the child has not yet seen the notice. The first time the child opens the shelf afterwards, the system shows the removal notice once, and it does not show again. The book is already off the shelf.
 - 5a. The child taps an action that the book's current state does not allow, such as rating a book whose finish is not confirmed. The system does not offer the action.
 
 **Priority:** High — the shelf is the child's main place in the app after a recommendation is accepted.\
 **Frequency of Use:** Several times per week per active child.\
-**Business Rules:** `BR-kid-anonymous-profile`, `BR-kid-no-metrics`, `BR-parent-account-linked`
+**Business Rules:** `BR-kid-anonymous-profile`, `BR-kid-no-metrics`, `BR-parent-account-linked`, `BR-parent-shelf-removal`
 
 **Associated Information:**
 
@@ -1277,6 +1279,8 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 | Shelf category       | enum: Reading Now, Want to Read, Maybe Later, Finished | required; one value per entry                                | Visible to the child and parent | Shelf (`FEAT-shelf`) |
 | Book cover and title | catalog reference                                      | required; from the seed catalog                              | Visible to the child and parent | Seed Catalog         |
 | Display order        | system-set                                             | Within a category, most-recently-moved first (team proposal) | Not shown as a number           | —                    |
+| Book details         | catalog fields: cover, title, author, series name      | shown when the child taps a book; the reading level and every other tag are not shown (team proposal) | Visible to the child and parent | Seed Catalog         |
+| Child's own rating   | enum: Loved it, Liked it, It was okay, Not for me      | shown only if the child has rated the book; rated only after a parent confirmed the finish (`UC-SHLF-par-finish-book`) | Visible to the child and parent; shown as words, never a number | Rating |
 
 The child interface shows no counts, streaks, reading level, or comparisons (`BR-kid-no-metrics`; `UI-kid-no-metrics` in the SRS). Quality attributes: `USE-child-first-run` (a child finds the shelf without adult help).
 

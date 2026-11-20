@@ -154,7 +154,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-SHLF-kid-add-note` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-parent-remove-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-manual-search` |  | ❌ Not started |  |  |  |  |
-| `UC-ADM-add-content` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-add-content` |  | 📐 Designed | [design/adm.md](../design/adm.md) |  |  |  |
 | `UC-ADM-edit-content` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-block-content` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-unblock-content` |  | ❌ Not started |  |  |  |  |

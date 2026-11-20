@@ -59,7 +59,7 @@ _**Not to be confused with:** a **Parent Suggestion**, whose optional note the c
 
 ### Age Band
 
-An age range used to tag a book's age fit in the **Seed Catalog**, e.g., 6–8, 7–10, 9–12. It is one of the **Book Domains**. It is not the child's age; the child's actual age and grade are stored on the **Child Profile**.
+An age range used to tag a book's suggested ages in the **Seed Catalog** (a suggested age min and a suggested age max), e.g., 6–8, 7–10, 9–12. It is one of the **Book Domains**. It is not the child's age; the child's actual age and grade are stored on the **Child Profile**.
 
 ### Area Code
 
@@ -318,7 +318,7 @@ _**Open:** client confirmation of what the admin sees (`OI-15`); a stronger dete
 
 ### Seed Catalog
 
-The elementary-level books BookBuddies launches with, each tagged with the **Book Domains**. As of 2026-10-28 the source is the client's curated `BookBuddies_Seed_Catalog.xlsx` (134 tagged books), loaded by an offline import (`AS-book-data-source`, `KD-catalog-import-offline`, `OI-1` resolved). Each book gets an internal book ID; the ISBN and Open Library ID are only for matching to outside records; the Status field controls which books can be recommended; and series name and number are stored. The spreadsheet's "Kid Testing Reaction" column is test-profile data, not catalog data. Admins can add, edit or block single books afterwards (`UC-ADM-add-content`, `UC-ADM-edit-content`, `UC-ADM-block-content`). The catalog is meant to grow later through Open Library, and the verified seed can serve as a reference set for checking automated tagging.
+The elementary-level books BookBuddies launches with, each tagged with the **Book Domains**. As of 2026-10-28 the source is the client's curated `BookBuddies_Seed_Catalog.xlsx` (134 tagged books), loaded by an offline import (`AS-book-data-source`, `KD-catalog-import-offline`, `OI-1` resolved). Each book gets an internal book ID; the ISBN is only for matching to outside records; and the Status field controls which books can be recommended. The spreadsheet's "Kid Testing Reaction" column is test-profile data, not catalog data. Admins can add, edit or block single books afterwards (`UC-ADM-add-content`, `UC-ADM-edit-content`, `UC-ADM-block-content`). The catalog is meant to grow later through Open Library, and the verified seed can serve as a reference set for checking automated tagging.
 
 _**Superseded:** the earlier ideas of using Google Books (2026-09-10), Open Library plus Dr. Yang's own hand-coding (2026-09-21), and a Kaggle or GitHub dataset (2026-09-24, dropped by the client on 2026-10-28)._
 

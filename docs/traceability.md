@@ -130,23 +130,23 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 
 | Use case | Release | Build | Design | Code | Tests | Verify |
 |---|---|---|---|---|---|---|
-| `UC-PAR-onboarding` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-onboarding` |  | 📐 Designed | [design/par.md](../design/par.md#uc-par-onboarding-create-a-parent-account) |  |  |  |
 | `UC-PAR-create-sub-parent-account` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-create-kid-account` | MVP | 🟡 In progress | [design/par.md](../design/par.md) | [action](../src/app/(parent)/parent/children/new/actions.ts), [transaction](../src/server/accounts-family/child-accounts.ts) | [verification map](implementation/child-account.md#tests): units, MongoDB integration, production Playwright | 🟡 Partial: creation slice verified; real parent onboarding and REC POST-6 remain dependencies |
 | `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
 | `UC-PAR-report-book` |  | ❌ Not started |  |  |  |  |
-| `UC-PAR-review-child-data` | MVP | 📐 Design proposed; approval pending | [design/par.md](../design/par.md#uc-par-review-child-data-review-and-export) |  |  |  |
+| `UC-PAR-review-child-data` | MVP | 📐 Designed | [design/par.md](../design/par.md#uc-par-review-child-data-review-and-export) |  |  |  |
 | `UC-PAR-delete-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-delete-kid-account` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-approve-shelf-request` |  | ❌ Not started |  |  |  |  |
-| `UC-REC-kid-onboarding` |  | 📐 Designed | [design/rec.md](../design/rec.md) |  |  |  |
+| `UC-REC-kid-onboarding` |  | ✅ Built | [design/rec.md](../design/rec.md) | [action](../src/app/(parent)/parent/children/[childId]/reading-profile/actions.ts), [page](../src/app/(parent)/parent/children/[childId]/reading-profile/page.tsx), [Recommendation](../src/server/recommendation/reading-profiles.ts), [Catalog reads](../src/server/catalog/books.ts) | Units: `schema.test.ts` (3, 4a cap). Integration: `reading-profiles.int.test.ts` (main, 3, 4, 4a, 5a, 1a incl. simultaneous saves, PRE-2, logging, admin boundary), `actions.int.test.ts` (authorization, consent, check order, 3, 4a, 1a, step 6), `schema-setup.int.test.ts` (index, validator). End to end: `reading-profile.spec.ts` (main, abandon, notice, 5a, 1a, PRE-2). The admin-lookup half of the admin boundary row waits for `UC-ADM-view-usage-stats` | ✅ Verified |
 | `UC-REC-recommend-quiz-rules` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-recommend-quiz-ai` | Later (`FEAT-ai-recommendation`) | ❌ Not started |  |  |  |  |
 | `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-review` |  | ❌ Not started |  |  |  |  |
-| `UC-SHLF-parent-view-shelf` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-parent-view-shelf` | MVP | 📐 Designed | [design/shlf.md](../design/shlf.md) |  |  |  |
 | `UC-SHLF-kid-view-shelf` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-move-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-remove-book` |  | ❌ Not started |  |  |  |  |

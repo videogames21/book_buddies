@@ -1260,7 +1260,7 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 - 2a. The child has no shelf entries. The system still shows the four categories, with a short message at the top that points the child to find a book and get recommendations, not a count or a zero.
 - 2b. Loading fails. The system displays a retry message and does not show a partial shelf.
 - 3a. A category has no entries. The system still shows the category heading with nothing under it and no message, so the four-category layout stays the same for every child.
-- 3c. A book is in Finished with its finish awaiting confirmation. The system shows it grayed out, without the confirmed-finished icon and without a rating action.
+- 3c. A book is in Finished with its finish awaiting confirmation. The system shows it grayed out, without the confirmed-finished icon and without a rating action. The child can still move or remove it, which cancels the parent's request (`UC-SHLF-par-finish-book` 1a).
 - 3d. A parent said a book was not finished (`UC-SHLF-par-finish-book` 4b). The first time the child opens the shelf afterwards, the system shows once: "Whoops! Looks like you didn't finish your book. It went back to where it was." The book is already back in its earlier category, and the notice does not show again.
 - 3e. The child taps "My Dashboard." The system opens `UC-SHLF-kid-dashboard`; leaving it returns the child to the shelf.
 - 3f. If a parent removed a book using UC-SHLF-parent-remove-book a notification appears when entering the shelf stating that the book was removed without stating a reason why it was removed.
@@ -1583,7 +1583,7 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 
 **Extensions:**
 
-- 1a. The book is no longer in Finished when the Parent acts, for example because the child moved it back, or the book was removed or blocked. The system clears the awaiting state, tells the Parent, and makes no other change. This includes a child retracting an unconfirmed completion (`UC-SHLF-kid-move-book` 3c).
+- 1a. The book is no longer in Finished when the Parent acts, for example because the child moved it back, or the book was removed or blocked. The system clears the awaiting state, tells the Parent, and makes no other change. This includes a child retracting an unconfirmed completion (`UC-SHLF-kid-move-book` 3c). If the Parent had already tapped "Confirm finished" or "Not finished yet" and saved when the child moved or removed the book, the system shows a message that the child moved or removed the book, which cancelled the request, and saves nothing.
 - 2a. The Parent does not open the prompt. The book stays in Finished and awaiting confirmation, the child cannot rate it, and the prompt stays until the Parent acts. It does not expire.
 - 2b. The request is for a child not linked to the Parent. The system denies it and shows nothing (`SEC-role-authorization`).
 - 3a. The other parent decided first. The system shows the recorded outcome and makes no change.

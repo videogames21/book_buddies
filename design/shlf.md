@@ -12,7 +12,7 @@
 
 > **Revised for:** `UC-SHLF-kid-view-shelf` and child sign-in, 2026-11-19, against `main` at `74c3079` and the open pull requests #98, #100, #102 and #104 (designs only; no Shelf, Notification or child sign-in code exists).
 
-**Status of this draft.** Revised from PR #42 after it was reviewed against the 2026-10-28 client answers. Children no longer enter free text, so reflections, flagging of reflections and the 24-hour deletion window are gone; the use case is "View a Child's Shelf and **Ratings**". Steps 1, 3, 4 and 5 of the design process (own sketch, compare, questions test, teammate review) are still the team's to do. It covers `UC-SHLF-parent-view-shelf` only; the other SHLF use cases are appended as each is designed.
+**Status of this draft.** Revised from PR #42 after it was reviewed against the 2026-10-28 client answers. Children no longer enter free text, so reflections, flagging of reflections and the 24-hour deletion window are gone; the use case is "View a Child's Shelf and **Ratings**". Steps 1, 3, 4 and 5 of the design process (own sketch, compare, questions test, teammate review) are still the team's to do. It covers `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf` and child sign-in; the other SHLF use cases are appended as each is designed.
 
 ---
 
@@ -102,7 +102,7 @@ classDiagram
     class childNotices {
         <<new, Notification>>
         +peekUnseenChildNotices(childId) ChildNotice[]
-        +markNoticesSeen(ids)
+        +markNoticesSeen(ids) ids it set
     }
     class catalogBooks {
         <<Catalog, one read widened>>
@@ -130,10 +130,10 @@ classDiagram
 - `src/app/(child)/child/shelf/page.tsx` (new): a server component, marked dynamic, with no caching, like the parent page. It calls `requireChild()`: `NOT_SIGNED_IN` redirects to `/child/sign-in`, and `NOT_A_CHILD` (a parent or admin session) is `notFound()`. It then calls `getShelfForChild` with the child ID **from the session**; no child ID is in the URL or the request. It has no server action (POST-2).
 - `src/app/(child)/child/shelf/shelf-browser.tsx` (new, client component): renders the four categories in fixed order with large tap targets, each entry with its cover and title, the confirmed-finished icon on every confirmed entry in any category, and a Finished entry that is not confirmed grayed out with no icon (3c). When the child taps a book it shows, from what is already loaded, the book's details, the child's own rating if there is one, and the actions the server listed for that entry (steps 4 and 5). Selection is its own state, with no request and no URL parameter. It shows a pending notice once at the top (3d, 3f), the "find a book" message at the top for an empty shelf (2a), a "My Dashboard" link (3e), and nothing at all under an empty category (3a).
 - `src/app/(child)/child/shelf/error.tsx` (new): the retry message for extension 2b, with no shelf content and a "Try again" button.
-- `src/server/shelf/child-shelf.ts` (new, server-only): `getShelfForChild(childId)` reads the entries, finish confirmations, the child's ratings, the books' catalog data and the child's unseen notices, builds one complete view or throws, and only then marks the notices seen. It never returns part of a shelf.
+- `src/server/shelf/child-shelf.ts` (new, server-only): `getShelfForChild(childId)` reads the entries, finish confirmations, the child's ratings, the books' catalog data and the child's unseen notices, builds one complete view or throws, and only then marks the notices seen. The view carries only the notices that this call's own update marked, so a second tab that loads at the same time gets none. It never returns part of a shelf.
 - `src/server/shelf/shelf-entries.ts` (new, server-only, shared): one read of a child's entries joined to their finish-confirmation state (`confirmed` is a confirmation record, whatever the category, the parent view's decision below). `getShelfForParent` is revised in place to call it, so the parent and the child view cannot disagree about which entries are confirmed.
 - `src/server/catalog/books.ts` (the Catalog file, reused): `getBooksForShelf` also returns `author` and `seriesName`, for the child's book details; the parent view ignores them. It keeps the Catalog's rule that every read leaves out blocked books.
-- `src/server/notification/child-notices.ts` (new, server-only, Notification): `peekUnseenChildNotices(childId)` and `markNoticesSeen(ids)`, a conditional update that sets `seenAt` only where it is unset. Notices are *written* by `UC-SHLF-par-finish-book` 4b, `UC-SHLF-parent-remove-book` and `UC-PAR-report-book`, none of them designed yet.
+- `src/server/notification/child-notices.ts` (new, server-only, Notification): `peekUnseenChildNotices(childId)` and `markNoticesSeen(ids)`, a conditional update that sets `seenAt` only where it is unset and returns the IDs it actually set. Notices are *written* by `UC-SHLF-par-finish-book` 4b, `UC-SHLF-parent-remove-book` and `UC-PAR-report-book`, none of them designed yet.
 - `src/server/accounts-family/child-accounts.ts` (reused): `getChildDisplay(childId)` returns `{ nickname, avatar }` and nothing else, so it is safe for a child session to call (8.2.11).
 - `src/server/identity-access/sessions.ts` (reused, one new function): `requireChild()` returns `{ userId, childId }` from the `users` document with role `child`, or `NOT_SIGNED_IN` / `NOT_A_CHILD`. It does not redirect or throw. A parent session gets `NOT_A_CHILD`; a child session already gets `NOT_A_PARENT` from `requireParent()`.
 
@@ -182,8 +182,9 @@ classDiagram
 ```
 
 - `src/app/(child)/child/sign-in/page.tsx`, `actions.ts`, `schema.ts` (new): the form (username and password, large fields, no link to any parent page) and `signInChild`; one zod schema serves form and action (8.2.5). `signOutChild` deletes the caller's own session document, clears the cookie and redirects to `/child/sign-in`, as `signOutParent` does in the #98 design. A signed-in child who opens the sign-in page is redirected to `/child`. The "Sign out" button is on `/child`.
-- `src/server/identity-access/child-credentials.ts` (reused, extended): `findChildCredential(username)` returns the user ID, child ID and password hash and nothing else. `deleteChildSignIn` (named by pull request #104) also deletes the child's `childSignIns` records and the child's throttle state (the key `child:` plus the username).
-- `src/server/identity-access/sign-in-throttle.ts` (reused from the #98 design, server-only): counts failed sign-ins per account key and returns how long the caller must wait (`SEC-signin-throttling`). A child's key is `child:` plus the lowercased username, so it never meets a parent's email key. It takes the child's numbers from the table under Data model; if #98's module has them fixed, it gains one parameter for the number of free attempts.
+- `src/server/identity-access/child-credentials.ts` (reused, extended): `findChildCredential(username)` returns the user ID, child ID and password hash and nothing else. It matches the username case-insensitively, because the parent's entry is stored as typed (`UC-PAR-create-kid-account` step 3) and a child may type it in other capitals. `deleteChildSignIn` (named by pull request #104) also deletes the child's `childSignIns` records and all the child's throttle state (every key that starts `child:` plus the username).
+- `src/server/identity-access/sign-in-throttle.ts` (reused from the #98 design, server-only): counts failed sign-ins per key and returns how long the caller must wait (`SEC-signin-throttling`). A child's key is `child:`, the lowercased username and a hash of the caller's device token (below), so it never meets a parent's email key, and one device's failures never make another device wait. It takes the child's numbers and the decay rule from the table under Data model; if #98's module has them fixed, it gains parameters for the free attempts and the decay.
+- `src/server/identity-access/device-token.ts` (new, server-only): reads the `child_device` cookie, a random value with no meaning (httpOnly, Secure, SameSite=Lax), and issues one when the request has none. Only a hash of it is stored, in the throttle key. It identifies a browser for the throttle and nothing else: it is not written to `childSignIns`, it holds no IP address, and it is deleted with the throttle state (`DI-usage-records`).
 - `src/server/identity-access/child-sign-ins.ts` (new, server-only): owns `childSignIns`, one record per successful sign-in (`DI-usage-records`), and the read the admin usage lookup will call later (`FR-ADM-child-lookup`).
 - `src/server/accounts-family/child-accounts.ts` (reused): `childMaySignIn(childId)` is the one place that decides whether a child account may sign in. Today it checks that the child exists and that the family's consent is confirmed and not revoked (`isConsentConfirmed`). Suspension arrives here later (`UC-ADM-suspend-account`, and the children of a suspended parent, `OI-47`).
 - `src/server/identity-access/sessions.ts` (reused): `createDatabaseSession(userId, tx?)` from the #98 design gains an `expires` argument, because a child's session ends at the next midnight and not after a fixed lifetime (Key decisions).
@@ -270,7 +271,7 @@ sequenceDiagram
         SH-->>PG: error
         PG-->>UI: error.tsx: retry message, nothing partial
     end
-    SH->>NOT: markNoticesSeen(ids), only after every read succeeded (3d, 3f)
+    SH->>NOT: markNoticesSeen(ids), only after every read succeeded; keep only the ids this call set (3d, 3f)
     SH-->>PG: One complete view
     alt no entries (2a)
         PG-->>UI: Message at the top pointing to a recommendation, no count
@@ -303,20 +304,21 @@ sequenceDiagram
     C->>UI: Username and password on /child/sign-in
     UI->>ACT: signInChild(fields)
     ACT->>ACT: Validate; trim and lowercase both fields
-    ACT->>IA: checkAllowed("child:" + username)
-    alt waiting after repeated failures (SEC-signin-throttling)
-        ACT-->>UI: TOO_MANY_ATTEMPTS
+    ACT->>IA: Read or issue the device token; key = "child:" + username + device
+    ACT->>IA: checkAllowed(key)
+    alt this device is waiting after repeated failures (SEC-signin-throttling)
+        ACT-->>UI: TOO_MANY_ATTEMPTS, password not checked, nothing counted
     end
     ACT->>IA: findChildCredential(username), verifyPassword (against a dummy hash if unknown, so the work is the same)
     alt unknown username or wrong password
-        ACT->>IA: recordFailure("child:" + username)
+        ACT->>IA: recordFailure(key)
         ACT-->>UI: INVALID_CREDENTIALS
     end
     ACT->>AF: childMaySignIn(childId)
     alt consent revoked, child gone, or suspended
         ACT-->>UI: ACCOUNT_UNAVAILABLE
     end
-    ACT->>IA: clear("child:" + username)
+    ACT->>IA: clear(key)
     ACT->>DB: Begin transaction
     ACT->>IA: createDatabaseSession(userId, next midnight, tx); recordChildSignIn(tx, childId)
     ACT->>DB: Commit
@@ -372,7 +374,7 @@ This use case only reads, so its rows are pages and the server function behind t
 | Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
 |---|---|---|---|---|
 | Page `/child` | A signed-in child | None | The child's nickname and avatar, a "My Shelf" link and "Sign out" | No session: redirect to `/child/sign-in`. A parent or admin session: `404` |
-| Page `/child/shelf` (UC-SHLF-kid-view-shelf) | A signed-in child; the child is the session's, never a parameter | None | The four categories in fixed order, entries most recently moved first. Per entry: `bookId`, `title`, `coverUrl`, `author`, `seriesName` (or none), `category`, `confirmed`, `rating` (one of four words, or none) and `actions`: `move` and `remove`, plus `rate` only when `confirmed`. Plus `notices` (kind and, for a removal, the title) and a `showFindBookMessage` flag | 2a: all four categories still show, with the flag set, not an error. 2b: the `error.tsx` retry screen, no shelf content. 3a: an empty category has its heading and nothing else. 3c: a Finished entry that is not confirmed has `confirmed` false and no `rate`. 3d, 3f: a notice appears once, then never. 3b: a blocked book is absent. 5a: `rate` is not in `actions`. No session: redirect to `/child/sign-in`. A parent or admin session: `404` |
+| Page `/child/shelf` (UC-SHLF-kid-view-shelf) | A signed-in child; the child is the session's, never a parameter | None | The four categories in fixed order, entries most recently moved first. Per entry: `bookId`, `title`, `coverUrl`, `author`, `seriesName` (or none), `category`, `confirmed`, `rating` (one of four words, or none) and `actions`: `move` and `remove`, plus `rate` only when `confirmed`; an entry awaiting confirmation (3c) has `move` and `remove`, and either one cancels the parent's pending request. Plus `notices` (kind and, for a removal, the title) and a `showFindBookMessage` flag | 2a: all four categories still show, with the flag set, not an error. 2b: the `error.tsx` retry screen, no shelf content. 3a: an empty category has its heading and nothing else. 3c: a Finished entry that is not confirmed has `confirmed` false and no `rate`. 3d, 3f: a notice appears once, then never. 3b: a blocked book is absent. 5a: `rate` is not in `actions`. No session: redirect to `/child/sign-in`. A parent or admin session: `404` |
 | `getShelfForChild(childId)` in Shelf | Only the page above | The child ID from the session | One complete view | Throws on any failed read (2b); marks notices seen only after every read succeeded |
 
 **Never in the payload:** age, grade, reading level, the real name (none is held), any count or total, any date, `childId`, the confirming parent, the parent's note, a book's tags (8.2.11, `BR-kid-no-metrics`). `showFindBookMessage` is a flag, not a count.
@@ -418,9 +420,11 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 
 **The child ID comes from the session, never from the request.** `getShelfForChild` takes the ID `requireChild()` returned, so there is no parameter a child could change to read another child's shelf. Rejected: `/child/{childId}/shelf`, which would create exactly that parameter.
 
-**A notice is marked seen only after every read succeeded, with a conditional update.** Rejected: marking on read, because a failure at 2b would use up the notice with nothing shown; and a "got it" button, because the use case says it is shown once, and a child who never taps would see it every time. Accepted loss: a crash between marking and rendering drops one notice.
+**A notice is marked seen only after every read succeeded, with a conditional update, and only the notices this load marked are shown** (developer, 2026-11-19). A notice shows once even if the child opens the shelf in a second tab before dismissing it in the first: the tab whose update sets `seenAt` shows it, and the other shows nothing. Rejected: marking on read, because a failure at 2b would use up the notice with nothing shown; a "got it" button, because the use case says it is shown once, and a child who never taps would see it every time; and showing every notice that was unseen when read, which shows it twice in a race. Accepted loss: a crash between marking and rendering drops one notice, and the tab that lost a race never shows it.
 
 **The server lists each entry's actions.** `rate` is in `actions` only when the entry is confirmed, because 5a says the action is not offered. The action pages check the state themselves (their own use cases). Rejected: the client deriving it from `confirmed` and `category`, which would put a rule in two places.
+
+**An entry awaiting confirmation can still be moved or removed by the child, and doing so cancels the parent's request** (developer, 2026-11-19). The child's `actions` list `move` and `remove` for every entry. `UC-SHLF-kid-move-book` and `UC-SHLF-kid-remove-book` clear the awaiting state. `UC-SHLF-par-finish-book` must make its save conditional on the entry still being in Finished and awaiting, and when it is not, even after the parent tapped "Confirm finished" or "Not finished yet", show the parent a message that the child moved or removed the book, which cancelled the request (`UC-SHLF-par-finish-book` 1a is edited to say so). This view only lists the actions; the rest belongs to those designs. Rejected: withholding `move` and `remove` on an awaiting entry, which would stop a child retracting a completion (`UC-SHLF-kid-move-book` 3c).
 
 **One shared read of entries and confirmation state for both views.** Rejected: two copies of the confirmed or awaiting rule, which could disagree about the same entry.
 
@@ -438,19 +442,25 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 
 **The password is trimmed and lowercased before it is checked.** Generated passwords are all lowercase words and digits (`generateChildPassword`), so a first letter a tablet capitalizes still works. Rejected: an exact match, which would fail `USE-child-first-run` for no security gain.
 
-**A child's sign-in uses the parent's throttle, with the child's numbers: 3 wrong attempts cost nothing, then each further attempt must wait, 30 seconds first and doubling after every further wrong one, and there is never a lock** (developer, 2026-11-19; `SEC-signin-throttling`; the sign-in decision in `design/par.md`, pull request #98). The wait is capped at 15 minutes, as in #98's table (the developer gave no cap; confirm). A correct password clears the count. Rejected: a lock that a parent dismisses, the first draft of this design, because `SEC-signin-throttling` says a lockout must not let anyone lock a child out on purpose. Rejected: counting per IP address (`DI-usage-records` forbids keeping one).
+**A child's sign-in uses the parent's throttle, with the child's numbers, counted per device: 3 wrong attempts cost nothing, then each further attempt must wait, 30 seconds first and doubling after every further wrong one, and there is never a lock** (developer, 2026-11-19; `SEC-signin-throttling`; the sign-in decision in `design/par.md`, pull request #98). The wait is capped at 15 minutes, as in #98's table (the developer gave no cap; confirm). A correct password clears that device's count.
+- **The count belongs to the device, so nobody can lock a child out remotely.** A device is a browser holding the `child_device` token. A wait on one device does not stop the correct password on another, so someone guessing from elsewhere cannot keep the child from signing in on theirs (`SEC-signin-throttling`).
+- **An attempt made during a wait is refused and does not count.** It is not checked against the password and does not lengthen the wait.
+- **The count decays: one wrong attempt is forgiven every 30 minutes, but only while no wait is running.** The 30 minutes start when the last failure's wait ends (or at the last failure, if no wait was running). A device whose count reaches zero has its record deleted when it is read.
+- Rejected: a lock that a parent dismisses, the first draft of this design, because `SEC-signin-throttling` says a lockout must not let anyone lock a child out on purpose. Rejected: counting per IP address (`DI-usage-records` forbids keeping one). Rejected: one count per account for every device, because a wait would then refuse the child's own correct password. Accepted risk: a guesser who discards the token on every attempt looks like a new device each time and is not slowed by this throttle (Open questions, `OI-49`).
 
-**Failures are counted per lowercased username, unknown usernames included, and an unknown username and a wrong password give the same answer** (as #98 does for emails). Rejected: keying by child ID, which would make an existing username answer differently from an unknown one. Accepted, as in #98: a record exists for any string typed at the form, and its clearing and purging belong to #98's throttle.
+**Failures are counted per lowercased username and device, unknown usernames included, and an unknown username and a wrong password give the same answer** (as #98 does for emails). Rejected: keying by child ID, which would make an existing username answer differently from an unknown one.
+
+**The username is stored as the parent typed it, and sign-in matches it case-insensitively** (`UC-PAR-create-kid-account` step 3 and 4g, as already declared; its format rules are TBD in 4h). The use case says only that a username must be unique, so its design must treat two usernames that differ only in capitals as taken; otherwise a case-insensitive lookup could find two children. Nothing here changes what the parent enters. Accepted, as in #98: a record exists for any string typed at the form, and its clearing and purging belong to #98's throttle.
 
 **`ACCOUNT_UNAVAILABLE` only comes after a correct password**, so it tells a guesser nothing, and tells a child whose consent was revoked or who is suspended something other than "wrong password".
 
-**The session ends at the next midnight, not after a fixed lifetime** (developer's decision, 2026-11-19, `OI-48`). `createDatabaseSession` is given the expiry; the child's session document stores it as its `expires` and is treated as expired the moment it passes, whether or not cleanup has run (8.2.2, `KD-time-rules-on-read`). "Next midnight" is the first 00:00 after the sign-in in one configured time zone. Auth.js must not extend the session: the database strategy slides `expires` forward when a session is read after `updateAge`, so the auth configuration sets `updateAge` at least as long as the longest session, and a test proves the expiry does not move. Rejected: a fixed 24-hour lifetime, which is not what was asked and would end a morning session in the middle of the next day.
+**The session ends at the next midnight, not after a fixed lifetime** (developer's decision, 2026-11-19, `OI-48`). `createDatabaseSession` is given the expiry; the child's session document stores it as its `expires` and is treated as expired the moment it passes, whether or not cleanup has run (8.2.2, `KD-time-rules-on-read`). Auth.js compares `expires` with the real clock, so `requireChild()` also compares it with `now()` and refuses an expired session itself (developer, 2026-11-19: any extra enforcement is better), which is also what the fixed-clock tests exercise. "Next midnight" is the first 00:00 after the sign-in in one configured time zone. Auth.js must not extend the session: the database strategy slides `expires` forward when a session is read after `updateAge`, so the auth configuration sets `updateAge` at least as long as the longest session, and a test proves the expiry does not move. Rejected: a fixed 24-hour lifetime, which is not what was asked and would end a morning session in the middle of the next day.
 
 **The sign-in record is written in the same transaction as the session** (8.2.8), so there is no session without its `DI-usage-records` entry and no record without a session.
 
 **A child's sign-in deletes the session the browser's old cookie named.** Rejected: leaving it, because on a shared family tablet a parent's session would stay valid but unreachable until it expires.
 
-**`requireChild()` makes no second check of the child's account.** Deleting the child (`UC-PAR-delete-kid-account`), revoking consent and a suspension end their sessions (§8.1), so the session is the check, as for parents. `childMaySignIn` runs only at sign-in.
+**`requireChild()` makes no second check of the child's account.** Deleting the child (`UC-PAR-delete-kid-account`), revoking consent and a suspension end their sessions (§8.1), so the session is the check, as for parents, plus the expiry check above. `childMaySignIn` runs only at sign-in.
 
 
 
@@ -507,7 +517,7 @@ erDiagram
 
 - `childNotices` (Notification, §5.2 already assigns every in-app notice to it): this design fixes only the shape the shelf reads. Other designs write it: `UC-SHLF-par-finish-book` 4b (a `finish-declined` notice, fixed wording, no book, no parent), and `UC-SHLF-parent-remove-book` and `UC-PAR-report-book` (a `book-removed` notice with the book's ID, no parent's identity). The shelf reads `seenAt` unset and sets it. Indexed on (`childId`, `seenAt`). It holds the opaque child ID only, never a name (`KD-pii-segregation`).
 - `childSignIns` (Identity & Access): one record per successful sign-in, indexed on (`childId`, `at`). Written in the sign-in transaction. It keeps no IP address, device identifier or session length (`DI-usage-records`). Purpose for `BR-coppa-minimization`: the retention measure and the admin's lookup of one child's usage (`FR-ADM-v1-measures`, `FR-ADM-child-lookup`).
-- Sign-in throttle state: the `signInAttempts` collection of the #98 design (unique on the account key), with the child's key `child:` plus the lowercased username. No new collection is needed. It is checked against `now()` on read (8.2.2) and cleared by a correct password and when the child is deleted.
+- Sign-in throttle state: the `signInAttempts` collection of the #98 design (unique on the account key), with the child's key `child:`, the lowercased username and a hash of the device token. No new collection is needed. It is checked against `now()` on read (8.2.2), decays as in Key decisions, and is cleared by a correct password on that device and when the child is deleted.
 - `users` (role `child`) and `sessions`: no change in shape. A child session's `expires` is the next midnight.
 - No change to the shelf collections.
 
@@ -516,8 +526,10 @@ New configuration (8.2.6), read once by the config module:
 | Setting | Value |
 |---|---|
 | `CHILD_SESSION_TIME_ZONE` | required, a time zone name; "midnight" is the first 00:00 after sign-in in this zone (`OI-48`) |
-| Free wrong attempts | 3 |
+| Free wrong attempts | 3, per username and device |
 | First wait after the free attempts | 30 seconds, doubling after each further wrong attempt, capped at 15 minutes (#98's cap; confirm) |
+| Decay | 1 wrong attempt forgiven every 30 minutes, paused while a wait is running |
+| `child_device` token lifetime | 30 days, renewed on each use (a proposal; confirm) |
 
 
 ## Reuse & cross-cutting
@@ -590,6 +602,8 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | UC-SHLF-kid-view-shelf 3b | integration | After a block removes the entries the book is gone on the next load, and the child gets no notice |
 | UC-SHLF-kid-view-shelf 3c | integration | A Finished entry with no confirmation record is grayed, has no icon and no `rate` |
 | UC-SHLF-kid-view-shelf 3d | integration | A pending finish notice shows once with the fixed wording and a second load does not show it; it names no parent |
+| UC-SHLF-kid-view-shelf 3d, two loads | integration | Two loads that read the same unseen notice at once: exactly one shows it |
+| UC-SHLF-kid-view-shelf 3c, actions | integration | An entry awaiting confirmation lists `move` and `remove` and no `rate` |
 | UC-SHLF-kid-view-shelf 3e | component | "My Dashboard" links to `/child/dashboard` |
 | UC-SHLF-kid-view-shelf 3f | integration | A pending removal notice shows once, with the book's title when the Catalog returns it and without it when not; the book is not on the shelf |
 | UC-SHLF-kid-view-shelf 5, selection | component | Selecting a book makes no request and changes no URL |
@@ -604,14 +618,18 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | Flow | Level | Asserts |
 |---|---|---|
 | Sign-in main | integration | The right username and password create one session and one `childSignIns` record, set the cookie, and `requireChild()` then returns the child while `requireParent()` refuses it |
-| Sign-in, case and spacing | integration | A username in capitals and a password with a capital and a trailing space both sign in |
+| Sign-in, case and spacing | integration | A username typed in other capitals than the stored one, and a password with a capital and a trailing space, both sign in |
 | Sign-in, unknown or wrong | integration | An unknown username and a wrong password give the same code and message, and an unknown username creates no record |
 | Sign-in, throttle | integration | Under a fixed clock, 3 wrong attempts are answered at once, the next attempt is refused with `TOO_MANY_ATTEMPTS` until 30 seconds pass, a wrong attempt after that makes the wait 60 seconds, and the wait doubles with each further wrong one up to the cap; unknown usernames are throttled the same way; a parent's email key is separate |
+| Sign-in, other device | integration | While device A is waiting, the correct password from device B (a different token) signs in, and device A's wrong attempts do not change B's count |
+| Sign-in, refused attempt | integration | An attempt during a wait is refused without checking the password and does not lengthen the wait or raise the count |
+| Sign-in, decay | integration | Under a fixed clock, one wrong attempt is forgiven 30 minutes after the wait ends and not before; no attempt is forgiven while a wait is running; a record whose count reaches zero is gone |
 | Sign-in, no lock | integration | After any number of wrong attempts and the wait, the right password signs in; no state needs a parent to clear it |
-| Sign-in, count cleared | integration | A correct password clears the count, so the next wrong attempt starts again from zero |
+| Sign-in, count cleared | integration | A correct password clears that device's count, so the next wrong attempt starts again from zero |
+| Sign-in, device token | unit | The stored throttle key holds a hash of the token, never the token; the token is absent from `childSignIns` |
 | Sign-in, unavailable | integration | A child whose family's consent is revoked, or whose record is gone, with the right password gets `ACCOUNT_UNAVAILABLE`, no session and no sign-in record |
 | Sign-in, atomic | integration | When creating the session fails, no `childSignIns` record exists |
-| Sign-in, expiry | integration | Under a fixed clock, a session made at 3 pm expires at the next midnight in the configured time zone; one made at 23:59 expires a minute later; after it, the token no longer passes `auth()`; reading the session does not move `expires` |
+| Sign-in, expiry | integration | Under a fixed clock, a session made at 3 pm expires at the next midnight in the configured time zone; one made at 23:59 expires a minute later; after it, `requireChild()` returns `NOT_SIGNED_IN` even if the session document is still there; reading the session does not move `expires` |
 | Sign-in, shared device | integration | Signing in as a child deletes the session the old cookie named |
 | Sign-in, session contents | integration | The session `auth()` returns holds only the user ID |
 | Sign-in, logging | unit | Nothing logged for a failed or refused sign-in contains the username, password or a session ID |
@@ -653,5 +671,8 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - **Wording of the removal notice (client).** `UC-SHLF-parent-remove-book` leaves it TBD; the child's shelf shows whatever that design fixes.
 - **Book details set (team).** Cover, title, author and series name, a team proposal now written into the use case's Associated Information. If the client wants more (a description, for example), the Catalog read and the payload change together.
 - **Child-facing paths (team).** `/child`, `/child/shelf`, `/child/sign-in` and the link-out paths are proposals the other child use cases adopt or change.
+- **Throttle per device (team, `OI-49`).** Developer's decision, 2026-11-19: the count belongs to a device so no one can lock a child out remotely. A guesser who drops the `child_device` token on every attempt is not slowed. Whether to add a backstop, and whether the token is acceptable under `DI-usage-records` and `BR-coppa-minimization`, are open; the 30-day token lifetime is a proposal.
+- **Username uniqueness (team).** `UC-PAR-create-kid-account` 4g must treat usernames that differ only in capitals as taken. Its design owns the check.
+- **`UC-SHLF-par-finish-book` design (team).** Its save must be conditional on the entry still awaiting confirmation and must show the parent the cancelled-request message (its extension 1a, edited in this pull request).
 - **Auth.js sliding expiry (risk).** The expiry rule depends on Auth.js not extending a database session. It must be tested against the installed version before anyone relies on it (`SI-auth-sessions`).
 - **Open pull requests this document relies on.** #98 (`createDatabaseSession`, `signOutParent`), #102 (the same design, with `OI-44` for `OI-41`), #104 (`deleteChildSignIn`) and #100 (the ADM design). If one is rejected or reworked, the cited piece changes here. Open issue numbers: `main` ends at `OI-41` and the open pull requests reach `OI-45` (#102), so this document uses `OI-46` to `OI-48`. Two pairs of open pull requests already collide on a number (`OI-42` in #98 and #100, `OI-43` in #100 and #104) and are theirs to renumber.

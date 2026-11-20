@@ -4,10 +4,10 @@
 **Team:** Team 05
 **Area:** `UC-PAR`
 
-> **Realizes:** `UC-PAR-create-kid-account`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent-confirm` (PRE-3), `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`
-> **Depends on:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`
+> **Realizes:** `UC-PAR-create-kid-account`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent-confirm` (PRE-3), `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`; `UC-PAR-suggest-book`, `FR-REC-parent-suggest`, `FEAT-parent-suggest-book`
+> **Depends on:** `BR-parent-rec-not-forced`, `BR-parent-report-book`, `KD-book-exclusion`, `SAF-child-content`, `DI-catalog-status`, `DI-report-exclusion` (`UC-PAR-suggest-book`); `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`
 > **See:** [use cases, PAR area](../docs/requirements/use-cases.md#par-parent-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [COPPA design requirements](../docs/coppa/coppa-design-requirements.md), [team decisions](../docs/Team_Decisions.md), [architecture-of-record](architectural-design.md)
-> **Designed against:** `3493672` (no application code exists yet)
+> **Designed against:** `3493672` (no application code exists yet) for `UC-PAR-create-kid-account`; `74c3079` for `UC-PAR-suggest-book` (the add-a-child code exists; Catalog, Shelf, exclusions and recommendation batches have no code yet)
 
 ---
 
@@ -40,6 +40,8 @@ _**Status of this draft.** Rewritten from scratch by Claude on 2026-11-05 from u
 _[One paragraph: what this area does, which components of your [architecture-of-record](architectural-design.md) it lives in, and what it reads from or calls in other areas. Link the container diagram rather than redrawing it. If this design changes the architecture-of-record, say so here and list the change under "Changes to the architecture-of-record" below.]_
 
 The Parent area owns families: Main and Sub Parents, consent, child accounts, the parent's book suggestions and reports, and the parent's data rights. It is the Accounts & Family component of the Application container ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-PAR-create-kid-account`, the first use case designed here, lets the Main Parent create a child once the family's consent is confirmed. The system holds **no real name** for the child; the child is a nickname, an avatar and an internal child ID (`DI-child-id`). One transaction writes the child account (nickname and avatar) in Accounts & Family, the child's age, grade and optional reading level in the Child Identity Store, and the child's username and password hash in Identity & Access (`KD-pii-segregation`, architecture §5.2). If the parent gave a note, the same transaction also writes the note (Accounts & Family) and, when the internal word list matches, its flag (Safety Flagging) and an audit entry. A flagged note needs no alert: it appears in the flag-review list of `UC-ADM-flag-review`. The plaintext password exists only in the response that shows it to the parent. After the parent acknowledges the credentials, the parent is sent into `UC-REC-kid-onboarding`, and returns to a completion message when that use case finishes.
+
+`UC-PAR-suggest-book` lets a parent, Main or Sub, suggest one active catalog book to one child of the family, with an optional note the child sees. Accounts & Family owns the suggestion (§5.2), one document per child and book. A suggestion never creates a shelf entry (`BR-parent-rec-not-forced`) and does not go through `UC-REC-parent-review` (that use case's Assumptions). The parent finds the book in a plain list of active catalog books, built from the Catalog read `listPickerBooks` that `design/rec.md` already planned. The write checks the Catalog (active, not blocked), the child's per-child exclusions (`KD-book-exclusion`) and, for extension 4a, the child's shelf (Shelf) and pending suggestions. This design also fixes the one child-facing read, `listSuggestionsForChild`, that `UC-REC-kid-review` will call to show the suggestion in step 5. That use case removes the suggestion when the child reacts (its step 7). This use case changes §8.2.5, §8.2.7 and §8.2.11 of the architecture-of-record (see "Changes to the architecture-of-record").
 
 ## Components & classes
 
@@ -107,6 +109,58 @@ classDiagram
         <<new>>
         db, clock, action-result, config
     }
+    class BooksPage {
+        <<new, UC-PAR-suggest-book>>
+        /parent/books
+    }
+    class SuggestChildPickerPage {
+        <<new, UC-PAR-suggest-book>>
+        /parent/books/[bookId]/suggest
+    }
+    class SuggestPage {
+        <<new, UC-PAR-suggest-book>>
+        /parent/children/[childId]/suggest/[bookId]
+    }
+    class suggestActions {
+        <<new>>
+        +suggestBook(input) ActionResult
+    }
+    class suggestions {
+        <<new, Accounts and Family>>
+        +createSuggestion(session, input)
+        +getSuggestionConflict(childId, bookId)
+        +listSuggestionsForChild(childId)
+    }
+    class exclusions {
+        <<new, minimal read, Accounts and Family>>
+        +getExcludedBookIds(childId) string[]
+    }
+    class catalogBooks {
+        <<planned in rec.md and shlf.md, Catalog>>
+        +listPickerBooks()
+        +findActiveBookIds(ids)
+        +getBooksForShelf(ids)
+    }
+    class shelfEntries {
+        <<new, one read, Shelf>>
+        +isBookOnShelf(childId, bookId) boolean
+    }
+    BooksPage --> sessions
+    BooksPage --> catalogBooks
+    SuggestChildPickerPage --> sessions
+    SuggestChildPickerPage --> childAccounts
+    SuggestChildPickerPage --> catalogBooks
+    SuggestPage --> sessions
+    SuggestPage --> childAccounts
+    SuggestPage --> suggestions
+    SuggestPage --> suggestActions
+    suggestActions --> sessions
+    suggestActions --> childAccounts
+    suggestActions --> suggestions
+    suggestions --> catalogBooks
+    suggestions --> exclusions
+    suggestions --> shelfEntries
+    suggestions --> sharedLib
     NewChildPage --> childActions
     NewChildPage --> sessions
     NewChildPage --> childAccounts
@@ -138,6 +192,19 @@ classDiagram
 - `src/server/audit/audit-log.ts` (new, server-only): `appendAudit`, append-only, IDs only (§8.2.9).
 - `src/server/lib/db.ts`, `clock.ts`, `action-result.ts`, `config.ts` (new): one Mongo client per instance, the settable clock, the `{ ok, data | error }` helper and the validated environment (§8.2.1, §8.2.2, §8.2.6, §8.2.8).
 - `src/server/accounts-family/avatars.ts` and `grades.ts` (new, server-only): the fixed avatar set and grade list the schema checks against.
+
+For `UC-PAR-suggest-book` (all new unless marked reused):
+
+- `src/app/(parent)/parent/books/page.tsx` (new): step 1. It calls `requireParent()` (no session: `/sign-in`; not a parent: `notFound()`, as the other parent pages do), then `listPickerBooks()`, and lists every active book with cover, title and author, each with a "Suggest" link to `/parent/books/[bookId]/suggest`. It has no search and no detail page: the use case's trigger named pages that no use case specifies, and the trigger is edited in this pull request to name this list. It is the entry point until a parent dashboard links to it.
+- `src/app/(parent)/parent/books/[bookId]/suggest/page.tsx` (new): extension 1a. A book that `findActiveBookIds` does not return gives `notFound()`. With one child the page redirects to that child's confirmation page. With several it lists them by nickname and avatar through `listChildrenForFamily` (the function `design/shlf.md` adds to `child-accounts.ts`; whichever use case is built first adds it). With none it does what `/parent/shelf` does in `design/shlf.md`: a Main Parent goes to `/parent/children/new`, and a Sub Parent sees a message to ask the Main Parent.
+- `src/app/(parent)/parent/children/[childId]/suggest/[bookId]/page.tsx` and `suggest-form.tsx` (new): step 2. The page checks the session, `getChildForFamily` (another family's or an unknown child: `notFound()`), consent (an explanation and no form), the book (not active: `notFound()`) and the exclusion (1b: "This book can't be suggested to [nickname]" and no form). It then calls `getSuggestionConflict` and shows the 4a warning, "already on [nickname]'s shelf" or "already suggested", *before* the parent confirms. The form holds the optional note (at most 250 characters, with a live counter), "Suggest" (labelled "Suggest anyway" when there is a warning) and "Cancel" (3a, a link back to `/parent/books` that writes nothing). On `ok` it shows "Suggested to [nickname]" with a link back to the list. On `ALREADY_LISTED` (the state changed after the page loaded) it shows the warning and lets the parent resubmit with `suggestAnyway`. The submit button is disabled while the action is pending.
+- `.../suggest/[bookId]/actions.ts` (new): `suggestBook`. In order, as `saveReadingProfile` does in `design/rec.md`: `requireParent()`, `getChildForFamily` (`CHILD_NOT_FOUND` before anything else is revealed), `isConsentConfirmed`, the zod schema, then `createSuggestion`. The family comes from the session, and the child and book IDs from the route, never from form fields.
+- `.../suggest/[bookId]/schema.ts` (new): child ID, book ID, note (trimmed once, at most 250 characters, blank means no note) and `suggestAnyway` (boolean, default false).
+- `src/server/accounts-family/suggestions.ts` (new, server-only; the only code that touches `parentSuggestions`). `createSuggestion` re-checks the book (`findActiveBookIds`, PRE-3), the exclusion (`getExcludedBookIds`, 1b) and the conflict (4a). It then inserts the suggestion, or, when `suggestAnyway` is set and a pending suggestion exists, updates that one document's note and `suggestedAt` (see Key decisions). `getSuggestionConflict(childId, bookId)` returns `onShelf`, `suggested` or none, using `isBookOnShelf` and its own collection. `listSuggestionsForChild(childId)` is the child-facing read for step 5: the child's pending suggestions, minus books in `getExcludedBookIds`, joined to `getBooksForShelf` (which leaves out blocked books). Each item is the book ID, title, cover, the note if any and `fromGrownUp: true`, and nothing else. Its only caller is `UC-REC-kid-review`'s page, which takes the child ID from the child's own session.
+- `src/server/accounts-family/exclusions.ts` (new, minimal): `getExcludedBookIds(childId)`, the read over the per-child exclusions that `KD-book-exclusion` puts in Accounts & Family. `UC-PAR-report-book`, not yet designed, owns the collection's writes and its other fields. Until then integration tests insert fixture rows of `{ childId, bookId }`.
+- `src/server/shelf/shelf-entries.ts` (new, one read, Shelf): `isBookOnShelf(childId, bookId)` over `shelfEntries`, as `design/shlf.md` fixes it (unique on `childId`, `bookId`).
+- `src/server/catalog/books.ts` (planned in `design/rec.md` and `design/shlf.md`, reused here unchanged): `listPickerBooks`, `findActiveBookIds`, `getBooksForShelf`. Blocked and draft books never come back (`DI-catalog-status`).
+- Reused: `requireParent()`, `getChildForFamily`, `isConsentConfirmed`, `src/server/lib/` (`action-result.ts`, `clock.ts`, `db.ts`, `log.ts`, `collections.ts`) and `src/server/setup/ensure-indexes.ts`, which gains the `parentSuggestions` collection and index.
 
 ## Sequence
 
@@ -222,6 +289,79 @@ sequenceDiagram
     UI-->>P: "Onboarding complete" message, use case ends (step 10)
 ```
 
+### UC-PAR-suggest-book: suggest a book to a child
+
+```mermaid
+sequenceDiagram
+    actor P as Parent (Main or Sub)
+    participant UI as Web UI (books, suggest pages)
+    participant ACT as suggestBook
+    participant IA as Identity & Access
+    participant AF as Accounts & Family
+    participant CAT as Catalog
+    participant SH as Shelf
+    participant DB as Database
+    P->>UI: Open /parent/books (step 1)
+    UI->>IA: requireParent()
+    UI->>CAT: listPickerBooks() (step 1)
+    P->>UI: Tap "Suggest" on a book (step 1)
+    UI->>CAT: findActiveBookIds([bookId]) (PRE-3)
+    opt more than one child (1a)
+        UI->>AF: listChildrenForFamily(familyId)
+        UI-->>P: Child picker, nickname and avatar
+        P->>UI: Choose a child (1a)
+    end
+    UI->>AF: getChildForFamily(familyId, childId), isConsentConfirmed(familyId)
+    UI->>AF: getExcludedBookIds(childId) (PRE-3)
+    alt excluded for this child (1b)
+        UI-->>P: "This book can't be suggested to [nickname]", no form
+    end
+    UI->>AF: getSuggestionConflict(childId, bookId) (4a)
+    AF->>SH: isBookOnShelf(childId, bookId)
+    AF->>DB: Pending suggestion for this child and book?
+    UI-->>P: Confirmation with optional note field (step 2), with the 4a warning if any
+    alt Parent cancels (3a)
+        P->>UI: Cancel
+        Note over UI: No server call, nothing written
+    end
+    P->>UI: Confirm, with or without a note (step 3)
+    UI->>ACT: suggestBook(childId, bookId, note, suggestAnyway)
+    ACT->>IA: requireParent()
+    ACT->>AF: getChildForFamily(familyId, childId), isConsentConfirmed(familyId)
+    ACT->>ACT: Validate with the zod schema
+    ACT->>AF: createSuggestion(session, input) (step 4)
+    AF->>CAT: findActiveBookIds([bookId]) (PRE-3)
+    AF->>AF: getExcludedBookIds(childId) (1b)
+    AF->>SH: isBookOnShelf(childId, bookId) (4a)
+    alt not active (PRE-3) or excluded (1b)
+        AF-->>ACT: INVALID_BOOK or BOOK_EXCLUDED
+    else on shelf or already suggested, without suggestAnyway (4a)
+        AF-->>ACT: ALREADY_LISTED (onShelf or suggested)
+    end
+    alt no pending suggestion
+        AF->>DB: Insert suggestion: child, book, note, suggestedAt (step 4)
+    else pending suggestion and suggestAnyway (4a)
+        AF->>DB: Update that suggestion's note and suggestedAt (step 4)
+    end
+    alt duplicate key, simultaneous suggestion (4a)
+        DB-->>AF: duplicate key
+        AF-->>ACT: ALREADY_LISTED (suggested)
+    else write fails
+        AF-->>ACT: SAVE_FAILED
+    end
+    AF-->>ACT: ok
+    ACT-->>UI: ok
+    UI-->>P: "Suggested to [nickname]"
+    Note over UI,DB: Step 5 runs later, on UC-REC-kid-review's page, in a child session
+    UI->>AF: listSuggestionsForChild(childId from the child session) (step 5)
+    AF->>DB: Pending suggestions for the child
+    AF->>AF: Drop excluded books (KD-book-exclusion)
+    AF->>CAT: getBooksForShelf(bookIds), blocked left out (step 5)
+    AF-->>UI: Cover, title, "From your grown-up", the note if any (step 5)
+```
+
+Extension 5a needs no code: a suggestion has no deadline (`OI-42`), so it stays in the list until the child reacts in `UC-REC-kid-review`. Only the inactivity purge removes it, with the child's other data. The consent check and the family check implement no step; they come from `BR-kid-data-stored` and §8.1, as in `design/rec.md`.
+
 ## API contract
 
 _[One row per endpoint, scheduled job, or message this area adds or changes, appended per use case. **This section is never dropped**: before the code exists it is the only thing the person (or agent session) building the front end and the one building the back end both read. Name the caller and who may call it, the request fields, the success response, and the error each extension returns. Leave field types and exact JSON to the agent unless a wrong guess would break something, such as a format another system depends on. Use the error shape your architecture-of-record's section 8.2 fixes; do not invent one here._
@@ -234,7 +374,13 @@ _Pages change data through server actions (§8.2.3), and every result uses the `
 | Server action `createChildAccount` (UC-PAR-create-kid-account) | A signed-in Main Parent whose family's consent is confirmed; the family comes from the session | Nickname, age, grade, username, avatar key, reading level (scale and value, or none), note (or none) | `ok` with the child ID, the username and the generated password. The password is in this response only, and the response is never cached. The result does not say whether the note was flagged | 1b: `NOT_MAIN_PARENT`. 1c: `CONSENT_NOT_CONFIRMED`. 4a: `NICKNAME_REQUIRED`, or `INVALID_NICKNAME` for anything but letters and numbers. 4i: `NOTE_TOO_LONG`. 4c: `INVALID_GRADE`. 4f: `USERNAME_REQUIRED`. 4h: `INVALID_USERNAME` (format, or contact information) or `USERNAME_CONTAINS_NICKNAME`. 4g: `USERNAME_TAKEN`. 4d: `INVALID_READING_LEVEL`, with the accepted scales. An age that is not a whole number in the accepted range: `INVALID_AGE`. A missing or unknown avatar: `INVALID_AVATAR`. 5a and 6a: `SAVE_FAILED` with an error ID, nothing stored. 4b (age outside 6–11), 4e and 5b are not errors. Not a parent: refused (§8.1). |
 | Page `/parent/children/[childId]/onboarding-complete` (UC-PAR-create-kid-account step 10) | A signed-in parent of the child's family | The child ID in the path | The "onboarding complete" message and the child's nickname | A child ID outside the session's family, or unknown: not found, with no hint which. No session: redirect to sign-in. |
 
-The parent's screens may show the child's nickname and avatar. The system holds no real name. Nothing in this use case sends the age, grade, reading level or note to a child's screen (`FR-ACCT-child-display`, `BR-parent-note`, §8.2.11).
+| Page `/parent/books` (UC-PAR-suggest-book step 1) | A signed-in parent, Main or Sub | None | Every active catalog book with cover, title and author, each with a "Suggest" link | No session: redirect to `/sign-in`. Not a parent (a child or admin session): `404` |
+| Page `/parent/books/[bookId]/suggest` (UC-PAR-suggest-book 1a) | Same | Book ID in the path | One child: redirect to that child's confirmation page. Several: the child picker, nickname and avatar only | Unknown, draft or blocked book: `404`. No child: as `/parent/shelf` in `design/shlf.md` (Main Parent to `/parent/children/new`, Sub Parent a message). No session: `/sign-in` |
+| Page `/parent/children/[childId]/suggest/[bookId]` (UC-PAR-suggest-book step 2) | A signed-in parent of the child's family | Child and book IDs in the path | The child's nickname, the book's cover and title, the note field, and the 4a warning (`onShelf` or `suggested`) when there is one | Another family's child, an unknown child, or a book that is not active: `404`, with no hint which. 1b: an explanation and no form. Consent not confirmed or revoked: an explanation and no form. No session: `/sign-in` |
+| Server action `suggestBook` (UC-PAR-suggest-book) | Same; the family comes from the session | Child ID, book ID, note (or none), `suggestAnyway` | `ok` with no data | `NOT_SIGNED_IN`, `NOT_A_PARENT`. Another family's or an unknown child: `CHILD_NOT_FOUND`. `CONSENT_NOT_CONFIRMED`. PRE-3: `INVALID_BOOK` (unknown, draft or blocked). 1b: `BOOK_EXCLUDED`. Note over 250 characters: `NOTE_TOO_LONG`. 4a without `suggestAnyway`: `ALREADY_LISTED`, with the reason `onShelf` or `suggested`. Write failure: `SAVE_FAILED` with an error ID, nothing stored. 3a makes no call |
+| `listSuggestionsForChild(childId)` in Accounts & Family (UC-PAR-suggest-book step 5) | `UC-REC-kid-review`'s page only, with the child ID from the child's own session | Child ID | The child's pending suggestions that are not excluded and not blocked, each with book ID, title, cover, the note if any and `fromGrownUp: true` | Throws on a failed read, and the caller's error screen handles it. It never returns a parent ID or name, a date, a count or anything else |
+
+The parent's screens may show the child's nickname and avatar. The system holds no real name. Nothing in this use case sends the age, grade, reading level or note to a child's screen (`FR-ACCT-child-display`, `BR-parent-note`, §8.2.11). `UC-PAR-suggest-book` sends a child only book data, the suggestion note and the generic label "From your grown-up", under the §8.2.11 exception this design adds. The parent note of `BR-parent-note` is never part of it.
 
 ## Key decisions
 
@@ -273,6 +419,28 @@ _A decision that affects the whole system rather than this area is an architectu
 **The reading level is stored as the scale plus the value the parent typed, never converted.** Rejected: converting every scale to one number, which would be the system estimating a level (`BR-no-reading-level-assessment`).
 
 **Waiting for the child's onboarding is a redirect and a return, not a state.** After step 8 the page sends the parent to `UC-REC-kid-onboarding`; that use case ends on its step 5 by redirecting to the completion page (step 10). No polling and no status field belong to this use case; whether onboarding is complete is already REC's own flag (`UC-REC-kid-onboarding` POST-3). Rejected: the create page staying open and polling for completion, which keeps the password on screen for the whole of onboarding and adds a status nobody asked for.
+
+The decisions below are for `UC-PAR-suggest-book`.
+
+**A suggestion is its own document in Accounts & Family, not an item in a recommendation batch.** §5.2 gives parent book suggestions to Accounts & Family, and a suggestion skips parent review (`UC-REC-parent-review` Assumptions), so it has none of a batch's source or status. Rejected: writing a batch item in Recommendation. No batch model exists yet, and a batch would put the parent's own suggestion through parent review. `UC-REC-kid-review` shows released batch books and suggestions in one list when it is designed.
+
+**One pending suggestion per child and book; "suggest anyway" updates it in place.** A unique index on (`childId`, `bookId`) holds that. When a suggestion is already pending and the parent chooses "suggest anyway" (4a), the same document gets the new note (or loses the old one, if the new one is blank) and a new `suggestedAt`. Decided by the developer, 2026-11-19. Rejected: a second document, which would show the child the same book twice; and refusing outright, which would make "suggest anyway" mean nothing for a book that is already suggested. Accepted consequence: a second parent's suggestion replaces the first one's note.
+
+**The 4a check runs before the parent confirms, and the action enforces it again.** The confirmation page shows the warning with "Suggest anyway", so a parent confirms once. The action refuses a conflict unless `suggestAnyway` is set, so a shelf add or another suggestion made after the page loaded is still caught. Rejected: asking only after submit, which takes two round trips for the common case, and trusting the page alone, which a race defeats.
+
+**4a checks the shelf and pending suggestions only.** "Already in their recommendation list" also covers released batch books, and no batch exists in code or in any design yet. `UC-REC-parent-review`'s design adds that check to `getSuggestionConflict`. Rejected: inventing a batch read here.
+
+**The suggestion stores no parent ID, and the child sees a generic label.** No step reads which parent suggested the book, and the label "From your grown-up" names nobody (`BR-coppa-minimization`, `BR-kid-anonymous-profile`). Decided by the developer, 2026-11-19. Rejected: storing the parent ID to show "from Mom", which the use case does not ask for and which would put a parent's name on a child's screen.
+
+**Exclusions and blocks are applied when the child's list is read, not only when the suggestion is written.** A parent may report the book (`UC-PAR-report-book`) or the admin may block it (`UC-ADM-block-content`) after it was suggested. `listSuggestionsForChild` drops both, so the book "never appears for that child again" (`BR-parent-report-book`, `KD-book-exclusion`, `SAF-child-content`). Rejected: having report and block delete pending suggestions, which would make those use cases write into this one's collection. The pending suggestion stays and is never shown.
+
+**The note is at most 250 characters, is not screened, and is plain text.** The use case left the length open, and §8.2.5 limits every parent free-text field, so it uses the parent note's limit. It is not checked against the word list: the glossary says a suggestion note is not a Parent Note, and the use case says the admin never sees it, which a flag would contradict. Decided by the developer, 2026-11-19, with the screening question filed for the client (`OI-43`). The note is rendered as text (React escapes it), never as HTML or a link. Rejected: screening it into `UC-ADM-flag-review`, which adds an admin path to text the use case keeps from the admin.
+
+**The action checks consent.** A suggestion is data about the child under the internal child ID (`BR-kid-data-stored`), and the use case has no consent precondition. `isConsentConfirmed` is checked as in `design/rec.md`. Rejected: no check, which would keep collecting for a family whose consent was revoked.
+
+**No notification and no audit entry.** Step 5 says the child sees the suggestion "the next time they view recommendations"; nothing is sent. Suggestions are not in the §8.2.9 list. Rejected: a "new suggestion" notice, which no step asks for.
+
+**Step 1 is a plain list of active books.** The trigger named a book detail page and search results that no use case gives a parent. Decided by the developer, 2026-11-19: a list built from `listPickerBooks`, the read the onboarding picker already uses. The seed catalog is small (`AS-seed-catalog-size`). Rejected: a parent keyword search, which is new scope; and suggesting only from the shelf, where every book is already on the child's shelf.
 
 ## Data model
 
@@ -347,6 +515,26 @@ Every child field has a stated purpose, as `DI-minimization` and `BR-coppa-minim
 
 The indexes are created by an idempotent setup script, run before the first deploy and by the integration-test setup. MongoDB schema validation is the backstop for required fields (§8.2.5).
 
+`UC-PAR-suggest-book` adds one collection and names one read:
+
+```mermaid
+erDiagram
+    CHILD ||--o{ PARENT_SUGGESTION : "is suggested"
+    PARENT_SUGGESTION }o--|| BOOK : "suggests"
+    PARENT_SUGGESTION {
+        id _id
+        string childId "internal child ID"
+        string bookId "catalog book ID"
+        string note "optional, at most 250 characters, trimmed"
+        date suggestedAt "UTC, from the clock module"
+    }
+```
+
+- `parentSuggestions` (Accounts & Family): a unique index on (`childId`, `bookId`) and schema validation as the backstop. There is no status, no deadline (`OI-42`), no parent ID and no copied book data. A document is pending while it exists. `UC-REC-kid-review` removes it when the child reacts (its step 7), so a later suggestion of the same book is a new insert.
+- Purpose, for `BR-kid-data-stored` and `DI-minimization`: a book a parent wants the child to see, and the parent's reason. Seen by the child and the parent, never by the admin. The row is added to `BR-kid-data-stored` in this pull request, so `UC-PAR-review-child-data`, `UC-PAR-delete-child-data` and `UC-PAR-delete-kid-account` must cover it, and the inactivity purge removes it.
+- Per-child exclusions: this design reads `{ childId, bookId }` only. `UC-PAR-report-book` owns the collection, its writes and its other fields (`DI-report-exclusion`), and may name it.
+- `shelfEntries` is as `design/shlf.md` fixes it; this design only reads it.
+
 ## Reuse & cross-cutting
 
 _[Which existing services, components, and conventions this area uses rather than rebuilding: authentication, the error handler, email, the clock, another area's service. Cite your architecture-of-record's section 8.2 for each convention by name rather than restating it.]_
@@ -363,6 +551,8 @@ Nothing exists to reuse yet, so this use case builds the shared pieces the conve
 - **Logging:** never the nickname, age, grade, reading level, username, password or note text, not even on failure (§8.2.7).
 - **Transactions:** the inserts, and a raised flag with its audit entry, are one transaction (§8.2.8); development and tests run MongoDB as a replica set.
 - **Auditing:** one entry for a raised flag (§8.2.9): action `note.flagged`, actor the parent's user ID and role, record the flag ID, IDs only.
+
+For `UC-PAR-suggest-book`: the same session check, result helper, clock (`suggestedAt`), action order and `server-only` rules (§8.1, §8.2.1–§8.2.4). Validation is one zod schema, with the note at most 250 characters (§8.2.5). Logging never includes the suggestion note, the nickname or the child ID with a book (§8.2.7). Persistence is one document, guarded by the unique index, with no transaction (§8.2.8). The child-facing read follows the §8.2.11 exception added here. It uses no Notification, audit, Child Identity Store or Safety Flagging.
 
 Not used: Notification and the Email Service (nothing is sent and no alert is raised), Recommendation (`UC-REC-kid-onboarding` runs after step 8 but is its own use case), and the audit log for child creation itself (not in the §8.2.9 list).
 
@@ -408,6 +598,27 @@ _[One row per flow: the main success scenario and **every** extension of every u
 | Logging | integration | After a successful and a failed creation, including a flagged note, the logs contain no nickname, age, grade, reading level, username, password or note text |
 | Child-facing read | integration | The child account record that child-facing code reads holds only the ID, family, nickname and avatar; no function a child session can call returns the note, the flag, the age, the grade or the reading level |
 | Admin boundary | integration | An admin session cannot read the note, the age, the grade or the reading level; the only path is the flag-review function, which is not built here |
+| UC-PAR-suggest-book main | integration | A parent of the family suggests an active book with a note: one suggestion with the child, the book, the trimmed note and `suggestedAt` equal to `now()`; no shelf entry is created (POST-1, `BR-parent-rec-not-forced`) |
+| UC-PAR-suggest-book main, no note | integration | With a blank or missing note the suggestion is saved with no note field (step 3) |
+| UC-PAR-suggest-book main | end-to-end | The parent opens the book list, taps "Suggest", confirms with a note, and sees "Suggested to [nickname]" (steps 1–4) |
+| UC-PAR-suggest-book step 1 | integration | The book list shows active books only; draft and blocked books are not listed |
+| UC-PAR-suggest-book step 5 | integration | `listSuggestionsForChild` returns the suggestion with book ID, title, cover, the note and `fromGrownUp: true`, and no other field: no parent ID or name, no date, no count (POST-2, §8.2.11) |
+| UC-PAR-suggest-book step 5, later report or block | integration | After an exclusion row for the book is added, or the book is blocked, `listSuggestionsForChild` no longer returns it (`KD-book-exclusion`, `SAF-child-content`) |
+| UC-PAR-suggest-book 1a | integration | With one child the child-picker page redirects to that child's confirmation page; with several it lists them by nickname and avatar only; with none, a Main Parent goes to `/parent/children/new` and a Sub Parent sees the message |
+| UC-PAR-suggest-book 1b | integration | A book excluded for the child gives `BOOK_EXCLUDED` from the action and the explanation with no form on the page; nothing is stored. The same book can still be suggested to a sibling with no exclusion |
+| UC-PAR-suggest-book PRE-3 | integration | An unknown, draft or blocked book gives `INVALID_BOOK` from the action and `404` on both suggest pages; nothing is stored |
+| UC-PAR-suggest-book 3a | end-to-end | Cancelling from the confirmation page writes nothing |
+| UC-PAR-suggest-book 4a, on shelf | integration | A book on the child's shelf gives `ALREADY_LISTED` with `onShelf` and no write; with `suggestAnyway` the suggestion is saved and the shelf entry is unchanged |
+| UC-PAR-suggest-book 4a, already suggested | integration | A pending suggestion gives `ALREADY_LISTED` with `suggested`; with `suggestAnyway` the one document has the new note (or no note) and a new `suggestedAt`, and no second document exists |
+| UC-PAR-suggest-book 4a, warning | end-to-end | The confirmation page shows the warning before the parent confirms, and the button reads "Suggest anyway" |
+| UC-PAR-suggest-book 4a, concurrent | integration | Two simultaneous suggestions of one book to one child leave exactly one document, and the second gets `ALREADY_LISTED` |
+| UC-PAR-suggest-book 5a | integration | With the clock set a year later, `listSuggestionsForChild` still returns the suggestion; no deadline is stored |
+| UC-PAR-suggest-book note | unit | A 250-character note (after trimming) is accepted, 251 is refused with `NOTE_TOO_LONG`, and a note of only spaces is no note |
+| UC-PAR-suggest-book write failure | integration | When the write fails the result is `SAVE_FAILED` with an error ID and no suggestion exists |
+| UC-PAR-suggest-book authorization | integration | Another family's child, or an unknown one, gives `CHILD_NOT_FOUND` from the action and `404` on the page, whatever else is wrong with the request; a Sub Parent of the family may suggest; a child session and an admin session are refused |
+| UC-PAR-suggest-book consent | integration | A family with unconfirmed or revoked consent gets `CONSENT_NOT_CONFIRMED` and nothing is stored |
+| UC-PAR-suggest-book admin boundary | integration | No admin-callable function returns a suggestion or its note |
+| UC-PAR-suggest-book logging | integration | After a success and a failure the logs contain no suggestion note, nickname, or child ID tied to a book |
 
 ## Changes to the architecture-of-record
 
@@ -415,6 +626,10 @@ _[Designing an area against real code is when the architecture's guesses meet re
 
 - §5.2 Accounts & Family: the parent note and its flag no longer say "proposed owner; confirm in the design-of-record". Accounts & Family owns the note's text and state, Safety Flagging owns the flag record. Edited in `architectural-design.md` in this pull request.
 - Revision history: a v0.10 row records that `design/par.md` has had its pass and drops the real name; the "Changes needed in other documents" line that said it still needed one is removed.
+- `UC-PAR-suggest-book`, §8.2.11: an exception lets a child's screen show a parent suggestion's note and the generic label "From your grown-up", which names no parent. Edited in this pull request.
+- `UC-PAR-suggest-book`, §8.2.5: the suggestion note (at most 250 characters) is added to the parent free-text fields. Edited in this pull request.
+- `UC-PAR-suggest-book`, §8.2.7: suggestion note text is added to what is never logged. Edited in this pull request.
+- `UC-PAR-suggest-book`, §5.2 Shelf: names the read `isBookOnShelf`. Edited in this pull request. Accounts & Family already lists parent book suggestions, and the Catalog reads are already named.
 - §8.2.8 already lists this transaction and needs no edit. It still says the note's transaction includes "alert"; that wording is left for the team (see Open questions, "No admin alert").
 
 ## Open questions & risks
@@ -452,6 +667,16 @@ Other open items:
 - **A COPPA data inventory in the README (team).** `docs/coppa/coppa-design-requirements.md` §3.9 proposes it; no business rule has adopted it, so this design does not require it.
 - **No limit on children per family.** Per the use case's Assumptions. A double submit with a different username would create a second child; accepted.
 - **Accepted risk: the transaction spans four components.** One function in Accounts & Family coordinates writes owned by Child Identity Store, Identity & Access and Safety Flagging. It is the only way to keep the records all-or-nothing in MongoDB, and the tests for 5a and 6a guard it.
+For `UC-PAR-suggest-book`:
+
+- **Decided by the developer, 2026-11-19:** step 1 is a plain book list; the note is at most 250 characters and is not screened; "suggest anyway" replaces a pending suggestion's note; the §8.2.11 exception uses a generic label. The use case, `BR-kid-data-stored` and the architecture are edited in this pull request to match.
+- **Should a suggestion note be screened, and should the field show a privacy prompt (client, `OI-43`)?** The child reads this text. Until the client answers, there is no screening and no prompt, which is what the use case says.
+- **Does a pending suggestion expire (client, `OI-42`)?** Moved from the use case's Open Issues into `OPEN-ISSUES.md`. No expiry is designed.
+- **Dependencies with no code yet (team).** The Catalog reads (`design/rec.md`), `shelfEntries` (`design/shlf.md`), the per-child exclusions (`UC-PAR-report-book`, not designed) and `listChildrenForFamily` (`design/shlf.md`). `/implement` builds against fixture books, shelf entries and exclusion rows; the list shows real books only once the seed catalog is imported (`KD-catalog-import-offline`).
+- **Released batch books in 4a (team, with `UC-REC-parent-review`).** Not checked until a batch model exists; that design extends `getSuggestionConflict`.
+- **The child's list page (team, with `UC-REC-kid-review`).** That design builds the page, the child session check, and the removal at its step 7, and must call `listSuggestionsForChild` rather than read `parentSuggestions` itself (§8.2.4).
+- **Sub Parent may suggest (team, `OI-25`).** The use case says "A Parent", and §8.1 gives a Sub Parent the same access to linked children.
+- **Accepted risk:** a pending suggestion for a book that was later reported or blocked stays in the collection, unseen, until the child's data is deleted or purged. It is in the export until then.
 
 ---
 

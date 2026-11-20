@@ -38,7 +38,7 @@ _BookBuddies' features. The areas come from the feature mapping in [use-cases.md
 | `FEAT-ratings` | _not yet assigned_ | `SHLF` | MVP |
 | `FEAT-kid-reflections` | _not yet assigned_ | `SHLF` | MVP |
 | `FEAT-manual-search` | _not yet assigned_ | `SHLF`, `PAR` (`UC-PAR-approve-shelf-request`) | MVP |
-| `FEAT-parent-suggest-book` | _not yet assigned_ | `PAR` | MVP |
+| `FEAT-parent-suggest-book` | _not yet assigned_ | `PAR` (`UC-PAR-suggest-book`) | MVP |
 | `FEAT-parent-account-linking` | _not yet assigned_ | `PAR` | MVP |
 | `FEAT-consent-privacy` | _not yet assigned_ | `PAR` (`UC-PAR-onboarding`, `UC-PAR-review-child-data`, `UC-PAR-delete-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-kid-account`) | MVP |
 | `FEAT-parent-book-report` | _not yet assigned_ | `PAR` (`UC-PAR-report-book`), `ADM` (`UC-ADM-block-content`, `UC-ADM-suspend-parent-account`) | MVP |
@@ -133,7 +133,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-onboarding` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-create-sub-parent-account` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-create-kid-account` | MVP | 🟡 In progress | [design/par.md](../design/par.md) | [action](../src/app/(parent)/parent/children/new/actions.ts), [transaction](../src/server/accounts-family/child-accounts.ts) | [verification map](implementation/child-account.md#tests): units, MongoDB integration, production Playwright | 🟡 Partial: creation slice verified; real parent onboarding and REC POST-6 remain dependencies |
-| `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-suggest-book` | MVP | 📐 Designed | [design/par.md](../design/par.md) |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
 | `UC-PAR-report-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-review-child-data` |  | ❌ Not started |  |  |  |  |

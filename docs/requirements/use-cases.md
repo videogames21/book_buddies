@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.15
+**Version:** 0.16
 
 ---
 
@@ -36,6 +36,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-26]_ | 0.13    | Applied team decisions and source-backed fixes, and added the remaining areas' use cases. `UC-PAR-create-kid-account` is Main Parent only (Sub Parents cannot create accounts), requires confirmed consent, and adds a nickname so the child never sees their real name; onboarding POST-4 and the 1a cross-reference (now extension 8a) agree; per-child exclusions are applied in the rules quiz, manual search and parent suggestions; a block now removes shelf entries in both shelf views and copies flagged reflections to the dangerous content list (`OI-24`); decline reasons follow the glossary; ratings and reflections feed the rule-based MVP per the 2026-09-24 notes; parent removal keeps ratings and reflections; flag review covers reflections only and is the recorded exception to `BR-admin-limited-view` (team position, `OI-15`); suspension notices are in-app only; the reflection disclosure notes `OI-18`; catalog status includes draft; Added `UC-PAR-review-child-data`, `UC-PAR-delete-child-data`, `UC-PAR-revoke-consent`, `UC-PAR-delete-kid-account`, `UC-PAR-approve-shelf-request`, `UC-ADM-unblock-content` and `UC-ADM-reinstate-account`; the admin may suspend accounts (team decision: the client is, in practice, the admin); the admin sees parents' and Sub Parents' names, usernames and emails, never passwords; mapped the new `FEAT-consent-privacy`, `FEAT-parent-book-report`, `FEAT-admin-catalog` and `FEAT-flag-review`; Added `UC-ADM-edit-content`, `UC-ADM-suspend-parent-account` and `UC-ADM-view-audit-log`; `UC-ADM-reinstate-account` now covers parent accounts; repeated false reports point to the parent-account suspension | _Claude_ |
 | _[2026-10-29]_ | 0.14    | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): removed `UC-SHLF-kid-add-note` and all child free text; the optional 250-character parent note, an internal child ID and no real name in `UC-PAR-create-kid-account`; flagged parent notes in `UC-ADM-flag-review` (internal word list, human review, no outside reporting); dropped the 24-hour review rule; configurable retention and consent; the parent weekly dashboard, post-rating recommendations and V1 success measures; the curated seed catalog fields; added `UC-SHLF-par-finish-book`: a parent confirms a child finished a book before the child can rate it, and may add a note for the recommender that `UC-ADM-flag-review` also screens; `UC-SHLF-kid-move-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` updated to match; added `UC-SHLF-kid-dashboard`: a screen the child opens from the shelf with parent-approved recommended books, a radar chart of current reading interests and bookshelf activity and history (no badges yet); `UC-ADM-view-usage-stats` now includes the admin's lookup of one child's usage data by internal child ID, recorded in the audit log; the weekly check-in is covered by `FR-NOT-weekly-reminder` in the SRS, so the use cases that said it had no use case now cite it; `UC-SHLF-kid-view-shelf` links to the dashboard; the export and both deletion use cases now name the interest profile, shelf history and usage records (derived and per-child data), matching the inventory in `BR-kid-data-stored`; the admin's child lookup shows nothing for a child whose consent was revoked | _Claude_ |
 | _[2026-11-17]_ | 0.15    | `UC-SHLF-parent-view-shelf`: the confirmed-finished icon and "Edit note" show on a confirmed book in any category, as `UC-SHLF-par-finish-book` POST-1 and `UC-SHLF-kid-move-book` 3d already say; added extension 1b (no linked child) and the no-existence-leak wording in 2c; stated that a rating shows on any entry still on the shelf and is not shown once its entry is removed or the book is blocked (team proposal, `OI-41`). The same rule is now stated in `UC-SHLF-kid-remove-book`, `UC-SHLF-parent-remove-book` and `UC-ADM-block-content`, which had left it open | _Tam Nguyen_, _Claude_ |
+| _[2026-11-19]_ | 0.16    | `UC-PAR-suggest-book`, from its design (`design/par.md`): the trigger names the parent's list of active catalog books, since no use case gives a parent a book detail page or search; PRE-4 requires confirmed consent; the note is at most 250 characters (new extension 3b) and is not checked against the word list (`OI-43`); extension 4a's warning comes before the Parent confirms, and "suggest anyway" on a pending suggestion replaces its note; extension 5a and the Open Issues cite `OI-42` | _Cabdifataax Maxamuud_, _Claude_ |
 
 ---
 
@@ -355,7 +356,7 @@ If the account record is created but the invite email fails (4a), the account re
 **Date Created:** _2026-10-01_\
 **Primary Actor:** A Parent\
 **Secondary Actors:** A Child (recipient of the suggestion)\
-**Trigger:** The Parent taps "Suggest to [child]" from a book's detail page or search results.\
+**Trigger:** The Parent taps "Suggest" on a book in the parent's list of active catalog books. (No use case gives a parent a book detail page or a search, so the list is the entry point; `design/par.md`.)\
 **Description:** A parent directly suggests a specific catalog book to their child. The suggestion is added only to the child's recommendation list — never placed directly on the child's shelf, since a parent cannot manually add anything to the shelf. The child decides whether to accept it, exactly like any other recommendation. This use case corresponds to `FEAT-parent-suggest-book` in `vision-and-scope.md` §4.2, which is confirmed in scope for the MVP (§4.3).
 
 **Preconditions:**
@@ -363,6 +364,7 @@ If the account record is created but the invite email fails (4a), the account re
 - PRE-1. The Parent is logged in.
 - PRE-2. The Parent has at least one linked child account.
 - PRE-3. The book being suggested is an active book in the catalog (not blocked), and is not excluded for that child by an earlier report (`BR-parent-report-book`).
+- PRE-4. The family's parental consent is confirmed and not revoked (`BR-coppa-parental-consent`), since a suggestion is data about the child (`BR-kid-data-stored`).
 
 **Postconditions:**
 
@@ -372,7 +374,7 @@ If the account record is created but the invite email fails (4a), the account re
 **Main Success Scenario:**
 
 1. The Parent finds a book and taps "Suggest to [child]."
-2. The system displays a confirmation screen with an optional note field (e.g., "I think you'll like this because...").
+2. The system displays a confirmation screen with an optional note field of up to 250 characters (e.g., "I think you'll like this because...").
 3. The Parent confirms the suggestion, with or without a note.
 4. The system adds the book, with any note, to the child's recommendation list.
 5. The system surfaces the book to the child the next time they view recommendations, labeled as a suggestion from their grown-up, with the Parent's note shown if one was given. The book is not placed on the child's shelf — only the child's own action (accepting the recommendation) can do that, via a separate `REC`-area use case.
@@ -381,24 +383,25 @@ If the account record is created but the invite email fails (4a), the account re
 
 - 1a. The Parent has more than one linked child. The system asks which child to suggest the book to before continuing.
 - 3a. The Parent cancels before confirming. Use case ends; no suggestion is recorded.
+- 3b. The note is longer than 250 characters. The system displays an inline validation error and records no suggestion; returns to step 3.
 - 1b. The book is excluded for the chosen child by an earlier report (PRE-3 fails). The system tells the Parent the book cannot be suggested to this child and records no suggestion; a report is final (`BR-parent-report-book`).
-- 4a. The book is already on the child's shelf or already in their recommendation list. The system notifies the Parent and asks whether to suggest it anyway or cancel.
-- 5a. The child never logs in to see the suggestion. The suggestion remains pending indefinitely in the recommendation list; no expiry is currently defined (see Open Issues).
+- 4a. The book is already on the child's shelf or already in their recommendation list. The system tells the Parent on the confirmation screen, before they confirm, and asks whether to suggest it anyway or cancel. If the book is already suggested and still waiting for the child, "suggest anyway" replaces that suggestion's note with the new one (or removes it, if the new note is blank), so the child sees the book once (developer, 2026-11-19). Until recommendation batches are designed (`UC-REC-parent-review`), the check covers the shelf and pending suggestions only.
+- 5a. The child never logs in to see the suggestion. The suggestion remains pending indefinitely in the recommendation list; no expiry is currently defined (`OI-42`). It is removed with the child's other data by `UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account` or the inactivity limit of `BR-coppa-retention`.
 
 **Priority:** Medium-High — `FEAT-parent-suggest-book` is confirmed in scope for the MVP.\
 **Frequency of Use:** Occasional; whenever a parent spots a book they think fits their child.\
-**Business Rules:** `BR-parent-rec-not-forced`, `BR-parent-report-book` (no suggestion of an excluded book)
+**Business Rules:** `BR-parent-rec-not-forced`, `BR-parent-report-book` (no suggestion of an excluded book), `BR-kid-data-stored`, `BR-coppa-parental-consent`
 
 **Associated Information:**
 
 | Property name  | Data type | Validation rule                          | Security or access concerns                                                                                                                                             | Glossary reference |
 |----------------|-----------|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
 | Book reference | reference | required; an active catalog book not excluded for the child | Visible to parent and child (as a suggestion in the recommendation list only)                                                                                           | Seed Catalog       |
-| Note           | string    | optional, free text                      | Visible to the child as part of the suggestion (not private, per `BR-parent-rec-not-forced`'s source note); never visible to the system admin (`BR-admin-limited-view`) | —                  |
+| Note           | string    | optional, free text, at most 250 characters after trimming; a blank note is no note; not checked against the word list (`OI-43`) | Visible to the child as part of the suggestion (not private, per `BR-parent-rec-not-forced`'s source note); never visible to the system admin (`BR-admin-limited-view`) | —                  |
 
 **Related Use Cases:** `UC-REC-kid-review` (the child accepts or declines the suggestion; accepting is what moves it onto the shelf); this use case only ever populates the recommendation list.\
 **Assumptions:** none beyond what's listed in Open Issues.\
-**Open Issues:** Whether a pending suggestion in the recommendation list ever expires is undefined anywhere in the current requirements docs. Separately, `vision-and-scope.md` §4.2 still lists `FEAT-adult-influence-notes` (a private, hidden-from-child growth note) as a distinct, status-unclear feature that may or may not have been folded into this one — this use case assumes they are separate, with `FEAT-adult-influence-notes`/`BR-adult-influence-hidden` not yet implemented by any use case.
+**Open Issues:** Whether a pending suggestion in the recommendation list ever expires is undefined anywhere in the current requirements docs (`OI-42`). Whether the note, which the child reads, should be checked against the word list or shown with a privacy prompt like the parent note's is for the client (`OI-43`). Separately, `vision-and-scope.md` §4.2 still lists `FEAT-adult-influence-notes` (a private, hidden-from-child growth note) as a distinct, status-unclear feature that may or may not have been folded into this one — this use case assumes they are separate, with `FEAT-adult-influence-notes`/`BR-adult-influence-hidden` not yet implemented by any use case.
 
 ---
 

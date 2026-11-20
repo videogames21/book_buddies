@@ -244,7 +244,7 @@ body{margin:0;background:#f3f5fa;color:#23314a;font:18px/1.6 system-ui}main{max-
 <p>Try the Main Parent's account-creation flow with an invented family.</p>
 <ol><li>Enter a nickname, age, grade and username.</li><li>Choose a character and optionally add a reading level or note.</li><li>Create the account and see the generated credentials once.</li></ol>
 <form action="/start" method="post"><input type="hidden" name="csrf" value="${formToken}"><button>Open demo</button></form>
-<small>Sample data is temporary and is removed when this process stops. Parent sign-in and reading-interest onboarding are unfinished. Use invented data only.</small></main></html>`);
+<small>Sample data is temporary and is removed when this process stops. Parent sign-in is unfinished. Use invented data only.</small></main></html>`);
   });
   launcher.listen(launcherPort, "127.0.0.1");
   await once(launcher, "listening");

@@ -7,6 +7,7 @@ import { ensureIdentityAccessIndexes } from "@/server/identity-access/indexes";
 import { ensureParentNoteIndexes } from "@/server/accounts-family/parent-notes";
 import { ensureNoteFlagIndexes } from "@/server/safety-flagging/note-flags";
 import { ensureAuditCollection } from "@/server/audit/audit-log";
+import { ensureReadingProfileIndexes } from "@/server/recommendation/reading-profiles";
 
 // Idempotent index setup (design/par.md, Data model): run before the first deploy
 // and by the integration-test setup. Each component creates its own indexes.
@@ -17,4 +18,5 @@ export async function ensureIndexes(db: Db): Promise<void> {
   await ensureParentNoteIndexes(db);
   await ensureNoteFlagIndexes(db);
   await ensureAuditCollection(db);
+  await ensureReadingProfileIndexes(db);
 }

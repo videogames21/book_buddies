@@ -111,7 +111,7 @@ Decided by the developer, 2026-11-17: NIST-style, length only.
 | Name minimum / maximum length (after trimming) | 1 / 100 characters |
 | Email maximum length | 254 characters, trimmed and lowercased |
 
-## Sign-in throttling (`SEC-signin-throttling`, `OI-41`)
+## Sign-in throttling (`SEC-signin-throttling`, `OI-44`)
 
 | Rule | Value |
 |---|---|
@@ -120,7 +120,7 @@ Decided by the developer, 2026-11-17: NIST-style, length only.
 | Delay growth and cap | Doubles with each further failure, capped at 15 minutes |
 | Lockout | None; a successful sign-in or a password reset clears the count |
 
-## Password reset (`OI-41`)
+## Password reset (`OI-44`)
 
 | Rule | Value |
 |---|---|

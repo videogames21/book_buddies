@@ -1,6 +1,7 @@
 import "server-only";
 import type { Db } from "mongodb";
 import { ensureAccountsFamilyIndexes } from "@/server/accounts-family/child-accounts";
+import { ensureConsentRecordIndexes } from "@/server/accounts-family/families";
 import { ensureChildIdentityIndexes } from "@/server/child-identity/child-identity";
 import { ensureIdentityAccessIndexes } from "@/server/identity-access/indexes";
 
@@ -14,6 +15,7 @@ import { ensureReadingProfileIndexes } from "@/server/recommendation/reading-pro
 export async function ensureIndexes(db: Db): Promise<void> {
   await ensureIdentityAccessIndexes(db);
   await ensureAccountsFamilyIndexes(db);
+  await ensureConsentRecordIndexes(db);
   await ensureChildIdentityIndexes(db);
   await ensureParentNoteIndexes(db);
   await ensureNoteFlagIndexes(db);

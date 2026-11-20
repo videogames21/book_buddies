@@ -1,7 +1,7 @@
 // Local demo harness, outside the application. Uses the same invented-parent and
 // database-session approach as tests/e2e/session-fixture.ts. Never uses .env.local.
 import { spawn } from "node:child_process";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
@@ -140,9 +140,19 @@ try {
     email: "demo-parent@example.test",
     emailVerified: new Date(),
   });
-  await db
-    .collection("consentRecords")
-    .insertOne({ familyId, confirmedAt: new Date() });
+  const acknowledgedAt = new Date();
+  await db.collection("consentRecords").insertOne({
+    familyId,
+    parentUserId: userId,
+    noticeVersion: "demo",
+    method: "email-plus",
+    acknowledgedAt,
+    confirmBy: new Date(acknowledgedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
+    confirmationTokenHash: createHash("sha256")
+      .update(randomBytes(32))
+      .digest("hex"),
+    confirmedAt: acknowledgedAt,
+  });
   await db.collection("sessions").insertOne({
     sessionToken,
     userId,

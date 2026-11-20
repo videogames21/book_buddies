@@ -25,26 +25,57 @@ export async function appendNoteFlagAudit(
       { session: tx },
     );
 }
+// One shape per event, IDs only (§8.2.9). The purge is run by the cron, so it has no
+// actor account: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
+// own act on their own account (OI-44).
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
-    required: [
-      "actorId",
-      "actorRole",
-      "event",
-      "childId",
-      "recordId",
-      "occurredAt",
+    oneOf: [
+      {
+        required: [
+          "actorId",
+          "actorRole",
+          "event",
+          "childId",
+          "recordId",
+          "occurredAt",
+        ],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["parent-note-flagged"] },
+          childId: { bsonType: "string" },
+          recordId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      {
+        required: ["actorRole", "event", "userId", "familyId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorRole: { enum: ["system"] },
+          event: { enum: ["account.unconfirmed-purged"] },
+          userId: { bsonType: "objectId" },
+          familyId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      {
+        required: ["actorId", "actorRole", "event", "userId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["account.password-reset"] },
+          userId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
     ],
-    additionalProperties: false,
-    properties: {
-      _id: { bsonType: "objectId" },
-      actorId: { bsonType: "objectId" },
-      actorRole: { enum: ["parent"] },
-      event: { enum: ["parent-note-flagged"] },
-      childId: { bsonType: "string" },
-      recordId: { bsonType: "objectId" },
-      occurredAt: { bsonType: "date" },
-    },
   });
 }

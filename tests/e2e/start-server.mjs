@@ -30,6 +30,7 @@ const server = spawn(
       AUTH_SECRET: randomBytes(32).toString("hex"),
       AUTH_TRUST_HOST: "true",
       NEXTAUTH_URL: `http://localhost:${port}`,
+      APP_URL: `http://localhost:${port}`,
     },
   },
 );

@@ -102,6 +102,7 @@ try {
     MONGODB_DB: "bookbuddies_demo",
     AUTH_SECRET: randomBytes(32).toString("hex"),
     NEXTAUTH_URL: appOrigin,
+    APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
     NEXT_TELEMETRY_DISABLED: "1",
   };

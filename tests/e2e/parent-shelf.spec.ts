@@ -6,7 +6,18 @@ import { closeE2eDb, e2eDb, signInAs, signInParent } from "./session-fixture";
 // UC-SHLF-parent-view-shelf, end to end. Invented test data only. Nothing in the app
 // writes shelf records yet, so the tests put them in directly.
 
+// All the browser tests share one database in one run, and the reading-profile spec lists
+// every active book. So this spec removes the books it made (and the shelf records for
+// them) when it finishes, and its titles never repeat another spec's.
+const createdBookIds: string[] = [];
+
 test.afterAll(async () => {
+  const db = await e2eDb();
+  const bookId = { $in: createdBookIds };
+  await db.collection<{ _id: string }>("books").deleteMany({ _id: bookId });
+  await db.collection("shelfEntries").deleteMany({ bookId });
+  await db.collection("ratings").deleteMany({ bookId });
+  await db.collection("finishConfirmations").deleteMany({ bookId });
   await closeE2eDb();
 });
 
@@ -39,6 +50,7 @@ async function insertBook(title: string, status = "active") {
       "books",
     )
     .insertOne({ _id, title, author: "A. Writer", status });
+  createdBookIds.push(_id);
   return _id;
 }
 
@@ -79,7 +91,7 @@ test("main: the four categories show in order and a tapped book shows its rating
     consentConfirmed: true,
   });
   const childId = await insertChild(familyId);
-  const moon = await insertBook("Moon Garden E2E");
+  const moon = await insertBook("Lantern Hill E2E");
   await shelve(childId, moon, "finished", {
     confirmed: true,
     rating: "lovedIt",
@@ -99,7 +111,7 @@ test("main: the four categories show in order and a tapped book shows its rating
     page.getByRole("complementary", { name: "Selected book" }),
   ).toHaveCount(0);
 
-  await page.getByRole("button", { name: /Moon Garden E2E/ }).click();
+  await page.getByRole("button", { name: /Lantern Hill E2E/ }).click();
 
   const panel = page.getByRole("complementary", { name: "Selected book" });
   await expect(panel.getByText("Loved it")).toBeVisible();

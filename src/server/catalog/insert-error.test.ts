@@ -56,6 +56,12 @@ describe("classifyInsertError", () => {
     expect(find.mock.calls).toEqual([["matchKey", BOOK.matchKey]]);
   });
 
+  it("looks only at the ISBN when the keyPattern names only the ISBN, even if nothing is found", async () => {
+    const find = vi.fn().mockResolvedValue(null);
+    await classifyInsertError(duplicate({ isbn: 1 }), BOOK, find);
+    expect(find.mock.calls).toEqual([["isbn", BOOK.isbn]]);
+  });
+
   it("looks at the ISBN first, then the matchKey, when both or neither are named", async () => {
     const patterns: (Record<string, number> | undefined)[] = [
       { isbn: 1, matchKey: 1 },

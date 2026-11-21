@@ -7,14 +7,18 @@
  * punctuation removed, each run of whitespace one space, trimmed.
  */
 export function normalizeText(text: string): string {
-  return text
-    .normalize("NFKC")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\p{P}/gu, "")
-    .replace(/\s+/gu, " ")
-    .trim();
+  return (
+    text
+      .normalize("NFKC")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/\s+/gu, " ")
+      // Control characters go too, so U+001F can never appear inside a key part.
+      .replace(/[\p{P}\p{Cc}]/gu, "")
+      .replace(/\s+/gu, " ")
+      .trim()
+  );
 }
 
 /** U+001F, the unit separator: no entered text contains it, so keys cannot collide. */

@@ -165,6 +165,15 @@ describe("addBook, 4d custom tags", () => {
   });
 });
 
+describe("listCustomTags", () => {
+  it("returns each distinct tag once, sorted, whatever order the books were added in", async () => {
+    await insertBook("draft", "One", { customTags: ["zebra", "mango"] });
+    await insertBook("blocked", "Two", { customTags: ["apple", "mango"] });
+    await insertBook("active", "Three", {});
+    expect(await listCustomTags()).toEqual(["apple", "mango", "zebra"]);
+  });
+});
+
 describe("addBook, 5a duplicates", () => {
   it("reports a second book with the same ISBN, entered as ISBN-10 then ISBN-13, and adds nothing", async () => {
     await addBook(ADMIN, newBook({ isbn: "0439023483" }));

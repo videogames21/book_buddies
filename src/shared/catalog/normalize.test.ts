@@ -37,6 +37,20 @@ describe("buildMatchKey", () => {
   });
 });
 
+describe("normalizeText, control characters", () => {
+  it("removes them, so the key separator cannot appear inside a key part", () => {
+    expect(normalizeText("a\u001fb")).toBe("ab");
+    expect(buildMatchKey("a\u001fb", "c")).not.toBe(
+      buildMatchKey("a", "b\u001fc"),
+    );
+    expect(buildMatchKey("a\u001fb", "c").split("\u001f")).toHaveLength(2);
+  });
+
+  it("keeps words apart when a tab or line break separates them", () => {
+    expect(normalizeText("a\tb\nc")).toBe("a b c");
+  });
+});
+
 describe("normalizeText", () => {
   it("reduces a title that is only punctuation to an empty string (4a)", () => {
     expect(normalizeText(" ... !? ")).toBe("");
@@ -52,6 +66,11 @@ describe("normalizeCustomTag", () => {
     expect(normalizeCustomTag("friends")).toBe("friends");
     expect(normalizeCustomTag("   ")).toBe("");
   });
+
+  it("folds full-width and compatibility characters (NFKC)", () => {
+    expect(normalizeCustomTag("ＦＲＩＥＮＤ")).toBe("friend");
+    expect(normalizeCustomTag("ﬁsh")).toBe("fish");
+  });
 });
 
 describe("normalizeIsbn", () => {
@@ -59,6 +78,11 @@ describe("normalizeIsbn", () => {
     expect(normalizeIsbn("9780439023481")).toBe("9780439023481");
     expect(normalizeIsbn("978-0-439-02348-1")).toBe("9780439023481");
     expect(normalizeIsbn(" 978 0439 023481 ")).toBe("9780439023481");
+  });
+
+  it("accepts a 979 ISBN-13 and refuses another prefix with a valid check digit", () => {
+    expect(normalizeIsbn("9791234567896")).toBe("9791234567896");
+    expect(normalizeIsbn("9771234567898")).toBeNull();
   });
 
   it("converts an ISBN-10 to the matching ISBN-13", () => {

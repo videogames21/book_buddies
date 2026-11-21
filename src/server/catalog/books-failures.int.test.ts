@@ -12,7 +12,12 @@ import { resetDatabase } from "../../../tests/integration/db";
 // booksCollection(db), wrapped in a Proxy whose insertOne throws, and appendAudit.
 
 const hooks = vi.hoisted(
-  (): { insertError?: Error; auditError?: Error } => ({}),
+  (): {
+    insertError?: Error;
+    findError?: Error;
+    auditError?: Error;
+    auditThenError?: Error;
+  } => ({}),
 );
 
 vi.mock("./books-collection", async (importOriginal) => {
@@ -26,6 +31,9 @@ vi.mock("./books-collection", async (importOriginal) => {
           const failure = hooks.insertError;
           if (property === "insertOne" && failure)
             return () => Promise.reject(failure);
+          const lookupFailure = hooks.findError;
+          if (property === "findOne" && lookupFailure)
+            return () => Promise.reject(lookupFailure);
           const value = Reflect.get(target, property) as unknown;
           return typeof value === "function"
             ? (value as (...args: unknown[]) => unknown).bind(target)
@@ -41,10 +49,12 @@ vi.mock("@/server/audit/audit-log", async (importOriginal) => {
     await importOriginal<typeof import("@/server/audit/audit-log")>();
   return {
     ...original,
-    appendAudit: (...args: Parameters<typeof original.appendAudit>) =>
-      hooks.auditError !== undefined
-        ? Promise.reject(hooks.auditError)
-        : original.appendAudit(...args),
+    appendAudit: async (...args: Parameters<typeof original.appendAudit>) => {
+      if (hooks.auditError !== undefined) throw hooks.auditError;
+      await original.appendAudit(...args);
+      // The entry is really written, then the add fails: it must roll back with the book.
+      if (hooks.auditThenError !== undefined) throw hooks.auditThenError;
+    },
   };
 });
 
@@ -79,7 +89,9 @@ beforeEach(async () => {
   await resetDatabase();
   setClock(() => NOW);
   hooks.insertError = undefined;
+  hooks.findError = undefined;
   hooks.auditError = undefined;
+  hooks.auditThenError = undefined;
 });
 afterEach(() => {
   resetClock();
@@ -104,6 +116,27 @@ describe("6a saving fails", () => {
     expect(result).toMatchObject({ ok: false, error: { code: "SAVE_FAILED" } });
     expect(await books().countDocuments()).toBe(0);
     expect(await audit().countDocuments()).toBe(0);
+  });
+
+  it("rolls back an audit entry that was already written when the add then fails", async () => {
+    hooks.auditThenError = new Error("fails after the audit write");
+    const result = await addBook(ADMIN, newBook());
+    expect(result).toMatchObject({ ok: false, error: { code: "SAVE_FAILED" } });
+    expect(await books().countDocuments()).toBe(0);
+    expect(await audit().countDocuments()).toBe(0);
+  });
+
+  it("is SAVE_FAILED, not a thrown error, when the duplicate's lookup itself fails", async () => {
+    hooks.insertError = new MongoServerError({
+      message: "E11000 duplicate key",
+      code: 11000,
+      keyPattern: { isbn: 1 },
+    });
+    hooks.findError = new Error("lookup down");
+    expect(await addBook(ADMIN, newBook())).toMatchObject({
+      ok: false,
+      error: { code: "SAVE_FAILED" },
+    });
   });
 
   it("logs the error ID but no title, author or tag", async () => {

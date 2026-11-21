@@ -102,6 +102,14 @@ describe("requireAdmin", () => {
     });
   });
 
+  it("refuses a session whose user ID is not a valid ID, without throwing", async () => {
+    signInAs("not-an-id");
+    expect(await requireAdmin()).toMatchObject({
+      ok: false,
+      error: { code: "NOT_SIGNED_IN" },
+    });
+  });
+
   it("refuses a session whose user no longer exists", async () => {
     signInAs("64b7f0f0f0f0f0f0f0f0f0f0");
     expect(await requireAdmin()).toMatchObject({

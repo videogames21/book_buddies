@@ -16,17 +16,15 @@ import {
 } from "./books-collection";
 import { classifyInsertError, type ExistingBook } from "./insert-error";
 
-// The Catalog's two narrow reads for the onboarding book picker (design/rec.md). The
-// collection, import and admin functions belong to UC-ADM-add-content; this file only
-// assumes its `books` shape: a string `_id`, `title`, `author` and a `status` of draft,
-// active or blocked (DI-catalog-status). Only active books are ever returned, so draft
-// and blocked books never reach a picker.
+// The Catalog's `books` collection: its validator and indexes, the two narrow picker reads
+// (design/rec.md), and the admin's add path and reads (design/adm.md). The picker reads
+// return only active books (DI-catalog-status), so draft and blocked books never reach a picker.
 const BOOKS = BOOKS_COLLECTION;
 
 /**
  * The `books` collection's validator and unique indexes (design/adm.md, Data model).
  * The unique `matchKey` and the partial unique ISBN-13 index are the duplicate check
- * (5a). The validator is the backstop (�8.2.5); it does not list the approved tag
+ * (5a). The validator is the backstop (§8.2.5); it does not list the approved tag
  * values, which live only in src/shared/catalog/tags.ts.
  */
 export async function ensureBookIndexes(db: Db): Promise<void> {

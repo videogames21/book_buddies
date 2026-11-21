@@ -29,7 +29,7 @@ export type AuditEntry = {
   event: "catalog.book_added";
   actorId: string;
   actorRole: "admin";
-  /** The record the event is about: IDs only, never a title, name or text (�8.2.9). */
+  /** The record the event is about: IDs only, never a title, name or text (§8.2.9). */
   recordId: string;
 };
 
@@ -64,5 +64,25 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
       recordId: { bsonType: ["objectId", "string"] },
       occurredAt: { bsonType: "date" },
     },
+    // Each event has its own shape: a note flag names a child and a parent; a catalog
+    // entry names a book and an admin, and has no child.
+    oneOf: [
+      {
+        required: ["childId"],
+        properties: {
+          event: { enum: ["parent-note-flagged"] },
+          actorRole: { enum: ["parent"] },
+          recordId: { bsonType: "objectId" },
+        },
+      },
+      {
+        not: { required: ["childId"] },
+        properties: {
+          event: { enum: ["catalog.book_added"] },
+          actorRole: { enum: ["admin"] },
+          recordId: { bsonType: "string" },
+        },
+      },
+    ],
   });
 }

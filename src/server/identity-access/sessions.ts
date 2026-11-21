@@ -59,7 +59,7 @@ export type AdminSession = { userId: string; role: "admin" };
 export type AdminSessionErrorCode = "NOT_SIGNED_IN" | "NOT_AN_ADMIN";
 
 /**
- * The session check every admin page and action starts with (architecture �8.1).
+ * The session check every admin page and action starts with (architecture §8.1).
  * Admin accounts are created by hand with role "admin"; a parent, a sub parent and a
  * child are all refused.
  */

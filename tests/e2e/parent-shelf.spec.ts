@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { ObjectId } from "mongodb";
-import { closeE2eDb, e2eDb, signInParent } from "./session-fixture";
+import { closeE2eDb, e2eDb, signInAs, signInParent } from "./session-fixture";
 
 // UC-SHLF-parent-view-shelf, end to end. Invented test data only. Nothing in the app
 // writes shelf records yet, so the tests put them in directly.
@@ -327,3 +327,26 @@ test("signed out, the picker goes to sign-in", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/sign-in$/);
 });
+
+for (const role of ["child", "admin"] as const) {
+  test(`authorization: a ${role} session is refused on the shelf and the picker`, async ({
+    page,
+    context,
+  }) => {
+    const { familyId } = await signInParent(context, {
+      parentRole: "main",
+      consentConfirmed: true,
+    });
+    const childId = await insertChild(familyId);
+    const bookId = await insertBook(`Refused ${role} E2E`);
+    await shelve(childId, bookId, "readingNow");
+    await context.clearCookies();
+    await signInAs(context, role);
+
+    const shelf = await page.goto(`/parent/children/${childId}/shelf`);
+    expect(shelf?.status()).toBe(404);
+    await expect(page.getByText(`Refused ${role} E2E`)).toHaveCount(0);
+    const picker = await page.goto("/parent/shelf");
+    expect(picker?.status()).toBe(404);
+  });
+}

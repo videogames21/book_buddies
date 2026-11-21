@@ -65,3 +65,29 @@ export async function signInParent(
   ]);
   return { familyId };
 }
+
+// A signed-in child or admin, for the tests that check a parent page refuses them.
+export async function signInAs(
+  context: BrowserContext,
+  role: "child" | "admin",
+): Promise<void> {
+  const db = await e2eDb();
+  const userId = new ObjectId();
+  await db.collection("users").insertOne({ _id: userId, role });
+  const sessionToken = randomBytes(32).toString("hex");
+  await db.collection("sessions").insertOne({
+    sessionToken,
+    userId,
+    expires: new Date(Date.now() + 60 * 60 * 1000),
+  });
+  await context.addCookies([
+    {
+      name: "next-auth.session-token",
+      value: sessionToken,
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+}

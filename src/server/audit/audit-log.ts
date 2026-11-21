@@ -25,26 +25,64 @@ export async function appendNoteFlagAudit(
       { session: tx },
     );
 }
+export type AuditEntry = {
+  event: "catalog.book_added";
+  actorId: string;
+  actorRole: "admin";
+  /** The record the event is about: IDs only, never a title, name or text (§8.2.9). */
+  recordId: string;
+};
+
+/** Appends one entry inside the caller's transaction, so it exists only if the change does. */
+export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
+  await getDb()
+    .collection("auditLog")
+    .insertOne(
+      {
+        actorId: new ObjectId(entry.actorId),
+        actorRole: entry.actorRole,
+        event: entry.event,
+        recordId: entry.recordId,
+        occurredAt: now(),
+      },
+      { session: tx },
+    );
+}
+
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
-    required: [
-      "actorId",
-      "actorRole",
-      "event",
-      "childId",
-      "recordId",
-      "occurredAt",
-    ],
+    required: ["actorId", "actorRole", "event", "recordId", "occurredAt"],
     additionalProperties: false,
     properties: {
       _id: { bsonType: "objectId" },
       actorId: { bsonType: "objectId" },
-      actorRole: { enum: ["parent"] },
-      event: { enum: ["parent-note-flagged"] },
+      actorRole: { enum: ["parent", "admin"] },
+      event: { enum: ["parent-note-flagged", "catalog.book_added"] },
       childId: { bsonType: "string" },
-      recordId: { bsonType: "objectId" },
+      // An ObjectId for a note flag, the book's UUID string for a catalog entry.
+      recordId: { bsonType: ["objectId", "string"] },
       occurredAt: { bsonType: "date" },
     },
+    // Each event has its own shape: a note flag names a child and a parent; a catalog
+    // entry names a book and an admin, and has no child.
+    oneOf: [
+      {
+        required: ["childId"],
+        properties: {
+          event: { enum: ["parent-note-flagged"] },
+          actorRole: { enum: ["parent"] },
+          recordId: { bsonType: "objectId" },
+        },
+      },
+      {
+        not: { required: ["childId"] },
+        properties: {
+          event: { enum: ["catalog.book_added"] },
+          actorRole: { enum: ["admin"] },
+          recordId: { bsonType: "string" },
+        },
+      },
+    ],
   });
 }

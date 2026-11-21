@@ -27,20 +27,24 @@ npm ci
 npm run demo
 ```
 
-Wait for **BookBuddies demo: http://localhost:3001**, open that URL on the same
-computer and select **Open demo**. Keep the terminal running during the demo.
-The runner builds and starts Next.js
-and a temporary local MongoDB replica set, creates an invented Main Parent with
-confirmed consent, and opens the child form with a real database session. No
-`.env.local`, MongoDB account or parent password is needed. The first run may
+Wait for **BookBuddies demo: http://localhost:3000**, open that URL on the same
+computer and sign in with the invented parent the terminal prints:
+
+- Email: `demo-parent@example.test`
+- Password: `demo-password-123`
+
+Keep the terminal running during the demo. The runner builds and starts Next.js
+and a temporary local MongoDB replica set, and creates that Main Parent with
+confirmed consent. No `.env.local` or MongoDB account is needed. The first run may
 download MongoDB's official binary. Keep an internet connection for the initial
 dependency and binary downloads; no external account is used.
 
 #### Two-minute walkthrough
 
-1. On the empty form, select **Create account** to show the validation messages.
-2. Fill the invented sample below and select a character.
-3. Select **Create account**. Show the **Account created** screen and its generated
+1. Sign in. A parent with no child yet goes straight to the child form.
+2. On the empty form, select **Create account** to show the validation messages.
+3. Fill the invented sample below and select a character.
+4. Select **Create account**. Show the **Account created** screen and its generated
    username and password. The password appears only once; write it down before
    leaving this screen.
 
@@ -55,24 +59,22 @@ dependency and binary downloads; no external account is used.
 | Character     | Any provided character                     |
 
 The working demo continues from **Account created** to the reading-interest form,
-then to **Onboarding complete**. Parent sign-in, password reset, the parent dashboard
-(including Cancel's destination), recommendations and shelves are separate,
-unfinished features. A second creation needs a different username, such as
-`moon_reader_02`, or restart the demo for a fresh family.
+then to **Onboarding complete**. Parent sign-up, sign-out, password reset, the parent
+dashboard, recommendations and shelves are separate, unfinished features. A second
+creation needs a different username, such as `moon_reader_02`, or restart the demo
+for a fresh family.
 
 Press Ctrl+C to stop and remove the temporary data. Running `npm run demo` again
-starts a fresh family. If ports 3000 or 3001 are occupied, use this command on
-macOS, Windows or Linux, then open the printed URL (normally port 3201):
+starts a fresh family. If port 3000 is occupied, use this command on macOS, Windows
+or Linux, then open the printed URL:
 
 ```sh
 npm run demo -- --port 3200
 ```
 
-`--launcher-port` overrides the start page's port independently. `DEMO_PORT` and
-`DEMO_LAUNCHER_PORT` environment variables also work. Both servers bind to
-loopback only. Each teammate runs the demo on their own computer. The separate demo
-launcher never becomes an application route and never uses a configured external
-database. Use invented data only.
+The `DEMO_PORT` environment variable also works. The server binds to loopback only.
+Each teammate runs the demo on their own computer. The demo never uses a configured
+external database. Use invented data only.
 
 The demo serves the production build, so file watchers and hot reloading do not
 run during a presentation. Startup rebuilds the current code automatically.
@@ -84,7 +86,7 @@ run during a presentation. Startup rebuilds the current code automatically.
 | Node version or engine error                        | Run `node --version`; install Node 24+, then run `npm ci` again.                                                   |
 | Port already in use                                 | Stop your other demo/dev terminal, or use `npm run demo -- --port 3200`.                                           |
 | MongoDB binary download fails                       | Reconnect to the internet and rerun. Linux may also need the system libraries named in the download/startup error. |
-| The form redirects to sign-in or has an old session | Reopen the printed launcher URL and select **Open demo**. Use it within four hours of starting.                    |
+| The form redirects to sign-in or has an old session | Sign in again with the invented parent printed in the terminal.                                                    |
 | Build lock or missing build                         | Stop `npm run dev` in this checkout, then rerun `npm run demo`.                                                    |
 | A username is already taken                         | Pick another username or stop and restart for fresh sample data.                                                   |
 
@@ -137,14 +139,14 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 
 ## Child data inventory
 
-| Store                       | Contents                                                                            | Access                                                       |
-| --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `children`                  | Random UUID, family ID, nickname, provided avatar key, creation time                | Family-scoped parent summary; no identifying details         |
-| `childIdentities`           | Child UUID, age, grade, optional parent-entered reading scale/value, creation time  | Insert only in Child Identity Store                          |
-| `users` (child credentials) | Child UUID, username, salted scrypt hash, role, creation time                       | Identity & Access; plaintext password returned once          |
-| `parentNotes`               | Child UUID, optional trimmed note, screening state, save time                       | Accounts & Family insert only; never returned to child/admin |
-| `noteFlags`                 | Note/child IDs, categories, character offsets, detector method/version, state, time | Safety Flagging insert only; no duplicated note text         |
-| `auditLog`                  | Actor/record/child IDs, event/role, time                                            | Append only; no child details or note text                   |
+| Store                       | Contents                                                                            | Access                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `children`                  | Random UUID, family ID, nickname, provided avatar key, creation time                | Family-scoped parent summary; no identifying details               |
+| `childIdentities`           | Child UUID, age, grade, optional parent-entered reading scale/value, creation time  | Insert only in Child Identity Store                                |
+| `users` (child credentials) | Child UUID, username, salted scrypt hash, role, creation time                       | Identity & Access; plaintext password returned once                |
+| `parentNotes`               | Child UUID, optional trimmed note, screening state, save time                       | Accounts & Family insert only; never returned to child/admin       |
+| `noteFlags`                 | Note/child IDs, categories, character offsets, detector method/version, state, time | Safety Flagging insert only; no duplicated note text               |
+| `auditLog`                  | Actor/record/child IDs, event/role, time                                            | Append only; no child details or note text                         |
 | `readingProfiles`           | Child UUID, reading interests (fixed list), favorite catalog book IDs, save time    | Recommendation only; parent-entered; never returned to child/admin |
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.

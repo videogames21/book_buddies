@@ -129,12 +129,12 @@ Decided by the developer, 2026-11-17: NIST-style, length only.
 
 ## Book report (`UC-PAR-report-book` 3)
 
-Decided by the developer, 2026-11-21. The reason list is the use case's team proposal, kept while the client is asked (`OI-46`). The comment limit is **provisional** until the client answers `OI-49`; the use case still says TBD.
+Decided by the developer, 2026-11-21. The reason list is the use case's team proposal, kept while the client is asked (`OI-52`). The comment limit is **provisional** until the client answers `OI-55`; the use case still says TBD.
 
 | Rule | Value |
 |---|---|
 | Reasons | Inappropriate content, Too difficult, Not interested, Other |
 | Reason required | Yes (3a) |
 | Comment | Optional; trimmed; blank is no comment |
-| Comment maximum length (after trimming) | 250 characters, provisional pending `OI-49` |
+| Comment maximum length (after trimming) | 250 characters, provisional pending `OI-55` |
 | Comment required for "Other" | No |

@@ -135,7 +135,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-create-kid-account` | MVP | 🟡 In progress | [design/par.md](../design/par.md) | [action](../src/app/(parent)/parent/children/new/actions.ts), [transaction](../src/server/accounts-family/child-accounts.ts) | [verification map](implementation/child-account.md#tests): units, MongoDB integration, production Playwright | 🟡 Partial: creation slice verified; real parent onboarding and REC POST-6 remain dependencies |
 | `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
-| `UC-PAR-report-book` |  | 📐 Designed | [design/par.md](../design/par.md#uc-par-report-book-report-a-book-for-a-child); 7d deferred to `UC-REC-parent-review`, which owns `removeFromPendingBatchInTx`; 7b deliberately refused (`NOT_ON_SHELF_OR_BATCH`), a temporary departure pending `OI-48` |  |  |  |
+| `UC-PAR-report-book` |  | 📐 Designed | [design/par.md](../design/par.md#uc-par-report-book-report-a-book-for-a-child); 7d deferred to `UC-REC-parent-review`, which owns `removeFromPendingBatchInTx`; 7b deliberately refused (`NOT_ON_SHELF_OR_BATCH`), a temporary departure pending `OI-54` |  |  |  |
 | `UC-PAR-review-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-delete-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |

@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 import { MongoClient, ObjectId, type Db } from "mongodb";
 import type { BrowserContext } from "@playwright/test";
 
-// Test-only session fixture. Sign-in belongs to UC-PAR-onboarding, which is not built,
-// so the tests write an Auth.js database session directly and set its cookie. Never
-// used by the app. Invented accounts only.
+// Test-only session fixture, for tests that start after sign-in: it writes an Auth.js
+// database session directly and sets its cookie. Never used by the app. Invented
+// accounts only.
 
 let client: MongoClient | undefined;
 

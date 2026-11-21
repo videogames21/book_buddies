@@ -146,7 +146,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-REC-recommend-quiz-ai` | Later (`FEAT-ai-recommendation`) | ❌ Not started |  |  |  |  |
 | `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-review` |  | ❌ Not started |  |  |  |  |
-| `UC-SHLF-parent-view-shelf` | MVP | 📐 Designed | [design/shlf.md](../design/shlf.md) |  |  |  |
+| `UC-SHLF-parent-view-shelf` | MVP | ✅ Built | [design/shlf.md](../design/shlf.md) | [shelf page](../src/app/(parent)/parent/children/[childId]/shelf/page.tsx), [ShelfBrowser](../src/app/(parent)/parent/children/[childId]/shelf/shelf-browser.tsx), [picker](../src/app/(parent)/parent/shelf/page.tsx), [Shelf](../src/server/shelf/parent-shelf.ts), [collections](../src/server/shelf/shelf-collections.ts), [Catalog read](../src/server/catalog/books.ts), [children list](../src/server/accounts-family/child-accounts.ts) | Integration: [parent-shelf.int.test.ts](../src/server/shelf/parent-shelf.int.test.ts) (main, Sub Parent, read-only, no metrics, 1a list, 1b, 2a, 2b, 2c, 5a, 5b, rating rule, fresh read, the Catalog read) and [schema-setup.int.test.ts](../tests/infrastructure/schema-setup.int.test.ts) (the three collections). Browser: [parent-shelf.spec.ts](../tests/e2e/parent-shelf.spec.ts) (steps 3–6, 1a, 1b, 2a, 2c, 5a, 5b, refusals), written but not yet run. Gaps: browser tests not run; no cover (`OI-46`); the finish, remove and report links lead to pages not built yet | 🟡 Partial |
 | `UC-SHLF-kid-view-shelf` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-move-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-remove-book` |  | ❌ Not started |  |  |  |  |

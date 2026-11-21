@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.16
+**Version:** 0.17
 
 ---
 
@@ -37,6 +37,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-10-29]_ | 0.14    | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): removed `UC-SHLF-kid-add-note` and all child free text; the optional 250-character parent note, an internal child ID and no real name in `UC-PAR-create-kid-account`; flagged parent notes in `UC-ADM-flag-review` (internal word list, human review, no outside reporting); dropped the 24-hour review rule; configurable retention and consent; the parent weekly dashboard, post-rating recommendations and V1 success measures; the curated seed catalog fields; added `UC-SHLF-par-finish-book`: a parent confirms a child finished a book before the child can rate it, and may add a note for the recommender that `UC-ADM-flag-review` also screens; `UC-SHLF-kid-move-book`, `UC-SHLF-kid-rate-book`, `UC-SHLF-kid-view-shelf` and `UC-SHLF-parent-view-shelf` updated to match; added `UC-SHLF-kid-dashboard`: a screen the child opens from the shelf with parent-approved recommended books, a radar chart of current reading interests and bookshelf activity and history (no badges yet); `UC-ADM-view-usage-stats` now includes the admin's lookup of one child's usage data by internal child ID, recorded in the audit log; the weekly check-in is covered by `FR-NOT-weekly-reminder` in the SRS, so the use cases that said it had no use case now cite it; `UC-SHLF-kid-view-shelf` links to the dashboard; the export and both deletion use cases now name the interest profile, shelf history and usage records (derived and per-child data), matching the inventory in `BR-kid-data-stored`; the admin's child lookup shows nothing for a child whose consent was revoked | _Claude_ |
 | _[2026-11-17]_ | 0.15    | `UC-SHLF-parent-view-shelf`: the confirmed-finished icon and "Edit note" show on a confirmed book in any category, as `UC-SHLF-par-finish-book` POST-1 and `UC-SHLF-kid-move-book` 3d already say; added extension 1b (no linked child) and the no-existence-leak wording in 2c; stated that a rating shows on any entry still on the shelf and is not shown once its entry is removed or the book is blocked (team proposal, `OI-41`). The same rule is now stated in `UC-SHLF-kid-remove-book`, `UC-SHLF-parent-remove-book` and `UC-ADM-block-content`, which had left it open | _Tam Nguyen_, _Claude_ |
 | _[2026-11-17]_ | 0.16    | `UC-PAR-onboarding`, from its design (`design/par.md`): added extension 5b (the confirmation email fails to send; the account is kept and resend is offered); step 7 has the Parent confirm on the page the link opens; 4a's password-reset link leads to the reset flow designed with this use case (`OI-44`); the parent password rule is set (8–128 characters, developer decision); the data tables of `UC-PAR-onboarding` and `UC-PAR-create-kid-account` now carry the values the developer approved in `design/par-field-values.md`; 6a treats the account as expired from the deadline on; open issues cite `OI-44` (no sign-in use case) | _Claude_ |
+| _[2026-11-21]_ | 0.17    | `UC-SHLF-parent-view-shelf`: noted that no catalog document defines a book cover, so the built view shows title and author (`OI-46`) | _Tam Nguyen_, _Claude_ |
 
 ---
 
@@ -1225,6 +1226,7 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 **Assumptions:** A secondary parent sees the same shelf as the primary parent, per `UC-PAR-create-sub-parent-account`. The parent view shows no counts or totals, a team proposal that keeps this view consistent with `BR-kid-no-metrics`. A rating belongs to the child and the book. This view shows it for any entry still on the shelf, whatever its category, so a confirmed book that the child moved back to Reading Now to re-read keeps its icon, its "Edit note" and its rating on screen (team proposal, `OI-41`). A rating whose shelf entry has been removed, by the child, a parent or a block, is kept for the recommender but is not shown in this view (team proposal, `OI-41`).\
 **Open Issues:**
 - Whether a parent should see when a child moved a book, or any history of moves, is not specified anywhere in the requirements.
+- Step 3 shows each book's cover, but no catalog field, form field or seed column defines one. The built view shows title and author until the client answers (`OI-46`).
 - Whether a parent should see a rating while its book is outside Finished, or after its entry was removed or its book blocked, is a team proposal awaiting the client (`OI-41`).
 
 ---

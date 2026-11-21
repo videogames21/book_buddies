@@ -261,3 +261,69 @@ test("2c: another family's child, an unknown ID and a malformed ID all give the 
   await page.goto(`/parent/children/${mine}/shelf`);
   await expect(page).toHaveURL(/\/sign-in$/);
 });
+
+test("1a: a parent with one child goes straight to that child's shelf", async ({
+  page,
+  context,
+}) => {
+  const { familyId } = await signInParent(context, {
+    parentRole: "main",
+    consentConfirmed: true,
+  });
+  const childId = await insertChild(familyId);
+
+  await page.goto("/parent/shelf");
+
+  await expect(page).toHaveURL(
+    new RegExp(`/parent/children/${childId}/shelf$`),
+  );
+  await expect(
+    page.getByRole("heading", { name: "Starfish’s shelf" }),
+  ).toBeVisible();
+});
+
+test("1a: a parent with several children chooses by nickname and lands on that child's shelf", async ({
+  page,
+  context,
+}) => {
+  const { familyId } = await signInParent(context, {
+    parentRole: "main",
+    consentConfirmed: true,
+  });
+  await insertChild(familyId, "Comet");
+  const nova = await insertChild(familyId, "Nova");
+
+  await page.goto("/parent/shelf");
+  await expect(
+    page.getByRole("heading", { name: "Whose shelf?" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link")).toHaveText(["Comet", "Nova"]);
+  await page.getByRole("link", { name: "Nova" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/parent/children/${nova}/shelf$`));
+  await expect(
+    page.getByRole("heading", { name: "Nova’s shelf" }),
+  ).toBeVisible();
+});
+
+test("1b: with no child, a Main Parent is taken to add one and a Sub Parent is asked to have the Main Parent do it", async ({
+  page,
+  context,
+}) => {
+  await signInParent(context, { parentRole: "main", consentConfirmed: true });
+  await page.goto("/parent/shelf");
+  await expect(page).toHaveURL(/\/parent\/children\/new$/);
+
+  await context.clearCookies();
+  await signInParent(context, { parentRole: "sub", consentConfirmed: true });
+  await page.goto("/parent/shelf");
+  await expect(
+    page.getByText("Ask the family’s Main Parent to add a child first."),
+  ).toBeVisible();
+});
+
+test("signed out, the picker goes to sign-in", async ({ page }) => {
+  await page.goto("/parent/shelf");
+
+  await expect(page).toHaveURL(/\/sign-in$/);
+});

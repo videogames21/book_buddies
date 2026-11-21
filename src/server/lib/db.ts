@@ -24,13 +24,18 @@ export function getDb(): Db {
 /** The transaction handle a component passes to another component's insert functions. */
 export type Tx = ClientSession;
 
-/** Runs `work` as one MongoDB transaction; nothing it wrote remains if it throws. */
+/**
+ * Runs `work` as one MongoDB transaction; nothing it wrote remains if it throws. The
+ * driver retries transient write conflicts, so `work` may run more than once. With
+ * `timeoutMS` the whole call, retries included, fails after that long.
+ */
 export async function withTransaction<T>(
   work: (tx: Tx) => Promise<T>,
+  options: { timeoutMS?: number } = {},
 ): Promise<T> {
   const session = getMongoClient().startSession();
   try {
-    return await session.withTransaction(() => work(session));
+    return await session.withTransaction(() => work(session), options);
   } finally {
     await session.endSession();
   }

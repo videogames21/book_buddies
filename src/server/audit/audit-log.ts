@@ -25,6 +25,30 @@ export async function appendNoteFlagAudit(
       { session: tx },
     );
 }
+export type AuditEntry = {
+  event: "catalog.book_added";
+  actorId: string;
+  actorRole: "admin";
+  /** The record the event is about: IDs only, never a title, name or text (�8.2.9). */
+  recordId: string;
+};
+
+/** Appends one entry inside the caller's transaction, so it exists only if the change does. */
+export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
+  await getDb()
+    .collection("auditLog")
+    .insertOne(
+      {
+        actorId: new ObjectId(entry.actorId),
+        actorRole: entry.actorRole,
+        event: entry.event,
+        recordId: entry.recordId,
+        occurredAt: now(),
+      },
+      { session: tx },
+    );
+}
+
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",

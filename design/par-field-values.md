@@ -1,6 +1,6 @@
 # PAR field values
 
-**Area:** `UC-PAR-create-kid-account`, `UC-PAR-onboarding` · **Design:** [par.md](par.md)
+**Area:** `UC-PAR-create-kid-account`, `UC-PAR-onboarding`, `UC-PAR-report-book` · **Design:** [par.md](par.md)
 
 Values the design could not invent (`DI-field-tables`). `/implement` builds the checks from these tables and from nothing else; when a table changes, update the use case's data table to match.
 
@@ -126,3 +126,15 @@ Decided by the developer, 2026-11-17: NIST-style, length only.
 |---|---|
 | Reset link lifetime | 1 hour from when it is sent |
 | Minimum time between reset emails to one account | 5 minutes; a request inside that window sends nothing and gets the same answer |
+
+## Book report (`UC-PAR-report-book` 3)
+
+Decided by the developer, 2026-11-21. The reason list is the use case's team proposal, kept while the client is asked (`OI-46`).
+
+| Rule | Value |
+|---|---|
+| Reasons | Inappropriate content, Too difficult, Not interested, Other |
+| Reason required | Yes (3a) |
+| Comment | Optional; trimmed; blank is no comment |
+| Comment maximum length (after trimming) | 250 characters |
+| Comment required for "Other" | No |

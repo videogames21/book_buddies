@@ -4,10 +4,10 @@
 **Team:** Team 05
 **Area:** `UC-PAR`
 
-> **Realizes:** `UC-PAR-create-kid-account`, `UC-PAR-onboarding`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent`, `FR-ACCT-consent-confirm`, `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`, `DI-consent-record`, `SEC-signin-throttling` (Main Parent sign-in only, `OI-44`)
-> **Depends on:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `DI-retention`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `CI-email-parent`, `SI-email-provider`, `DE-email-provider`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`, `KD-time-rules-on-read`, `OI-21`, `OI-22`
+> **Realizes:** `UC-PAR-create-kid-account`, `UC-PAR-onboarding`, `FR-ACCT-parent-first`, `FR-ACCT-credentials`, `FR-ACCT-child-display` (collecting the nickname), `FR-ACCT-consent`, `FR-ACCT-consent-confirm`, `FR-ONB-profile`, `FR-ONB-level-optional`, `FR-NOTE-parent-note`, `FR-NOTE-flagging`, `FR-DATA-notice`, `DI-consent-record`, `SEC-signin-throttling` (Main Parent sign-in only, `OI-44`), `UC-PAR-report-book`, `FR-PAR-report-book`, `DI-report-exclusion`
+> **Depends on:** `BR-parent-account-linked`, `BR-parent-creates-kid-account`, `BR-parent-account-structure`, `BR-kid-data-stored`, `BR-kid-anonymous-profile`, `BR-coppa-parental-consent`, `BR-coppa-notice`, `BR-coppa-minimization`, `BR-coppa-retention`, `BR-coppa-no-third-party-disclosure`, `BR-no-reading-level-assessment`, `BR-reading-level-parent-entered`, `BR-reading-level-proxy`, `BR-admin-limited-view`, `BR-parent-note`, `BR-note-safety-flagging`, `DI-child-id`, `DI-child-stored`, `DI-child-credentials`, `DI-parent-note`, `DI-minimization`, `DI-integrity`, `DI-pii-segregation`, `DI-field-tables`, `DI-acquire`, `DI-retention`, `SEC-auth`, `SEC-role-authorization`, `SEC-pii-boundary`, `SAF-flag-delivery`, `CI-email-parent`, `SI-email-provider`, `DE-email-provider`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-admin-flag-review`, `KD-time-rules-on-read`, `OI-21`, `OI-22`; for `UC-PAR-report-book`: `BR-parent-report-book`, `BR-parent-ultimate-say`, `BR-parent-shelf-removal`, `KD-book-exclusion`, `SAF-child-content`, `CI-in-app-alerts`, `ROB-no-data-loss`, `USE-parent-light`, `FR-DATA-removal`, `OI-25`, and the shelf data model and "Report" link of [`design/shlf.md`](shlf.md)
 > **See:** [use cases, PAR area](../docs/requirements/use-cases.md#par-parent-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [COPPA design requirements](../docs/coppa/coppa-design-requirements.md), [team decisions](../docs/Team_Decisions.md), [architecture-of-record](architectural-design.md)
-> **Designed against:** `3493672` for `UC-PAR-create-kid-account` (no application code existed then); `d8beec6` for `UC-PAR-onboarding` (the child-account slice is built)
+> **Designed against:** `3493672` for `UC-PAR-create-kid-account` (no application code existed then); `d8beec6` for `UC-PAR-onboarding` (the child-account slice is built); `9783e44` for `UC-PAR-report-book` (Shelf is designed in `design/shlf.md` but has no code; Recommendation batches and Notification have neither)
 
 ---
 
@@ -31,7 +31,7 @@ _**Write it in this order.** Each step is one person's or one pair's work, and t
 4. _**Run the questions test** (the last section) and fix what it finds._
 5. _**Open a pull request.** A teammate who did not write it reviews and approves it. Nobody starts an implementation branch from this design until it is merged._
 
-_**Status of this draft.** Rewritten from scratch by Claude on 2026-11-05 from use cases (v0.14 on), business rules v0.8, SRS v0.9, the glossary, `docs/coppa/`, `docs/Team_Decisions.md`, `CLAUDE.md` and the architecture-of-record v0.9, following `.claude/commands/design.md`. It replaces the 2026-10-27 draft, which collected and stored a child's real name and had no parent note; the client's 2026-10-28 answers made both obsolete. The developer's decisions of 2026-11-05 are folded in. The other PAR use cases are appended as each is designed. `UC-PAR-onboarding` was added on 2026-11-17 against the built child-account code, with the developer's decisions of that day: a minimal Main Parent sign-in, sign-out and password reset are included (no use case covers them yet, `OI-44`), email goes through Mailpit in development and Resend in production, a failed confirmation email keeps the account and offers resend, and the parent password follows a NIST-style length rule._
+_**Status of this draft.** Rewritten from scratch by Claude on 2026-11-05 from use cases (v0.14 on), business rules v0.8, SRS v0.9, the glossary, `docs/coppa/`, `docs/Team_Decisions.md`, `CLAUDE.md` and the architecture-of-record v0.9, following `.claude/commands/design.md`. It replaces the 2026-10-27 draft, which collected and stored a child's real name and had no parent note; the client's 2026-10-28 answers made both obsolete. The developer's decisions of 2026-11-05 are folded in. The other PAR use cases are appended as each is designed. `UC-PAR-onboarding` was added on 2026-11-17 against the built child-account code, with the developer's decisions of that day: a minimal Main Parent sign-in, sign-out and password reset are included (no use case covers them yet, `OI-44`), email goes through Mailpit in development and Resend in production, a failed confirmation email keeps the account and offers resend, and the parent password follows a NIST-style length rule. `UC-PAR-report-book` was added on 2026-11-21 with the developer's decisions of that day: the batch entry point is designed as a contract and built with `UC-REC-parent-review`, the server accepts a report while the book is in neither place (7b), the comment is at most 250 characters, and the reason list stays as proposed while the client is asked (`OI-46`)._
 
 ---
 
@@ -42,6 +42,8 @@ _[One paragraph: what this area does, which components of your [architecture-of-
 The Parent area owns families: Main and Sub Parents, consent, child accounts, the parent's book suggestions and reports, and the parent's data rights. It is the Accounts & Family component of the Application container ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-PAR-create-kid-account`, the first use case designed here, lets the Main Parent create a child once the family's consent is confirmed. The system holds **no real name** for the child; the child is a nickname, an avatar and an internal child ID (`DI-child-id`). One transaction writes the child account (nickname and avatar) in Accounts & Family, the child's age, grade and optional reading level in the Child Identity Store, and the child's username and password hash in Identity & Access (`KD-pii-segregation`, architecture §5.2). If the parent gave a note, the same transaction also writes the note (Accounts & Family) and, when the internal word list matches, its flag (Safety Flagging) and an audit entry. A flagged note needs no alert: it appears in the flag-review list of `UC-ADM-flag-review`. The plaintext password exists only in the response that shows it to the parent. After the parent acknowledges the credentials, the parent is sent into `UC-REC-kid-onboarding`, and returns to a completion message when that use case finishes.
 
 `UC-PAR-onboarding` creates the family that every child hangs off. One transaction writes the Main Parent's user document and database session (Identity & Access) and the family's **Consent Record** (Accounts & Family); the confirmation email goes out through Notification after the commit. A family is identified by its `familyId`; there is no separate family collection, as the child-account code already assumes. "Awaiting confirmation" is not a status field: it is a Consent Record with no confirmation date and a stored `confirmBy` deadline, which every read compares against `now()` (`KD-time-rules-on-read`), and the Scheduled Cleanup cron route only purges what has already expired (6a). The confirmation link carries a single-use token that confirms consent without needing a session. An onboarding gate in Accounts & Family tells every parent entry point where a signed-in Main Parent belongs: awaiting confirmation (6), expired (6a), first child still needed (8a), or done. Sign-in, sign-out and password reset are **not part of this use case**. They are supporting flows with no use case of their own (`OI-44`), designed here for Main Parents at the developer's request (2026-11-17), with sign-in throttled (`SEC-signin-throttling`). Onboarding depends on only two of them: sign-in, so a parent who stops before finishing can come back and resume at 8a, and the password-reset link that 4a offers. They never decide onboarding state; the gate does. Email is sent over SMTP: Mailpit outside production, Resend in production (developer decision 2026-11-17, `DE-email-provider`, `SI-email-provider`). This design refines `KD-auth-sessions` and two lines of the architecture-of-record; see "Changes to the architecture-of-record".
+
+`UC-PAR-report-book` is one transaction coordinated by Accounts & Family, which owns the **Book Report** and the **Per-Child Exclusion** (`KD-book-exclusion`, architecture §5.2). The transaction inserts the exclusion and the report, asks Shelf to delete the child's shelf entry for the book, asks Recommendation to take the book out of the child's pending **Recommendation Batch**, asks Notification for the child's removal notice only when a shelf entry was actually deleted, and appends an audit entry (§8.2.8, §8.2.9). Each component writes only its own collection, through a function that takes the transaction handle (§8.2.4). Ratings and finish confirmations are not touched, because Shelf keeps them in their own collections apart from the entry ([`shlf.md`](shlf.md), key decision "Ratings and finish confirmations are stored apart from the shelf entry" and Data model), which is what POST-6 needs. A parent reaches the report screen from the shelf, at the path [`shlf.md`](shlf.md) already links to, or from a batch under review; the batch entry point and Recommendation's batch function are designed here as a contract and built with `UC-REC-parent-review`, which has no design yet (developer decision 2026-11-21). Recommendation and manual search will read the exclusions through one Accounts & Family function. The admin's list of reported books reads the report records and belongs to `UC-ADM-block-content`.
 
 ## Components & classes
 
@@ -184,6 +186,56 @@ classDiagram
         <<new, Scheduled Cleanup>>
         GET /api/cron/cleanup
     }
+    class ReportBookPage {
+        <<new, UC-PAR-report-book>>
+        /parent/children/[childId]/shelf/[bookId]/report
+    }
+    class ReportForm {
+        <<new, client component>>
+        form, confirm, done
+    }
+    class reportActions {
+        <<new, UC-PAR-report-book>>
+        +reportBook(input) ActionResult
+    }
+    class bookReports {
+        <<new, Accounts and Family>>
+        +reportBook(session, input) ReportResult
+        +isExcluded(childId, bookId) boolean
+        +listExcludedBookIds(childId) string[]
+    }
+    class shelfEntries {
+        <<new, Shelf>>
+        +isOnShelf(childId, bookId) boolean
+        +removeShelfEntryInTx(tx, childId, bookId) boolean
+    }
+    class batches {
+        <<contract, Recommendation, built with UC-REC-parent-review>>
+        +removeFromPendingBatchInTx(tx, childId, bookId)
+    }
+    class notices {
+        <<new, Notification>>
+        +createRemovalNoticeInTx(tx, childId, bookId)
+    }
+    class catalogBooks {
+        <<reused, Catalog>>
+        +findActiveBookIds(ids) string[]
+        +getBooksForShelf(ids) ShelfBook[]
+    }
+    ReportBookPage --> sessions
+    ReportBookPage --> bookReports
+    ReportBookPage --> shelfEntries
+    ReportBookPage --> catalogBooks
+    ReportBookPage --> ReportForm
+    ReportForm --> reportActions
+    reportActions --> sessions
+    reportActions --> bookReports
+    bookReports --> childAccounts
+    bookReports --> catalogBooks
+    bookReports --> shelfEntries
+    bookReports --> batches
+    bookReports --> notices
+    bookReports --> auditLog
     SignUpPage --> onboardingActions
     SignInPage --> onboardingActions
     ConfirmConsentPage --> onboardingActions
@@ -260,6 +312,20 @@ Added for `UC-PAR-onboarding` (all new unless marked reused):
 - `src/app/api/cron/cleanup/route.ts` and `vercel.json` (daily schedule): the Scheduled Cleanup route. It accepts only `Authorization: Bearer <CRON_SECRET>` and calls `purgeExpiredUnconfirmed` (§8.1 trust boundary, §8.2.3).
 - `src/server/lib/config.ts` (reused): gains `APP_URL` (to build the link), `SMTP_URL`, `MAIL_FROM`, `CRON_SECRET`, `CONSENT_CONFIRMATION_DAYS` (default 14, `OI-22`) and `CONSENT_METHOD` (an enum whose only value is `email-plus`, `OI-21`) (§8.2.6).
 - Reused as they are: `action-result.ts`, `clock.ts`, `db.ts` (`withTransaction`), `log.ts`, `audit-log.ts`, and the `/privacy-notice` placeholder page.
+
+Added for `UC-PAR-report-book` (all new unless marked reused or contract):
+
+- `src/app/(parent)/parent/children/[childId]/shelf/[bookId]/report/page.tsx`: the shelf entry point, at the path [`shlf.md`](shlf.md) links "Report" to. A server component, dynamic. It calls `requireParent()` (no session: redirect to `/sign-in`; not a parent: `notFound()`), then, in this order, `getChildForFamily`, `isExcluded` (PRE-4), `isOnShelf` (PRE-3) and `getBooksForShelf([bookId])` for the title. Another family's child or an unknown or malformed child ID gives the same `404` as the shelf page. If `isExcluded` is true it shows "already reported" and no form, **before** the shelf check: a report deletes the shelf entry in the same transaction, so a parent who opens Report from a stale shelf page after the other parent reported the book has an exclusion and no entry, and must see 7c, not a `404`. A book not on this child's shelf and a book the Catalog does not return then give the `404`. Otherwise it renders `ReportForm` with the title, the child's nickname and the path back to the shelf (step 2).
+- `.../report/report-form.tsx` (client component): three states in component state, with no request until the last: the form (reason, optional comment, "Continue"; step 3–4, 3a), the confirmation (the wording of step 5, "Confirm" and "Go back"; 5a returns to the form with the reason and comment kept, `ROB-no-data-loss`), and the result (step 8, with a link back to where the parent started). "Cancel" on the form is a link back (3b). The submit button is disabled while the action is pending. On `SAVE_FAILED` it stays on the confirmation with the error and keeps the input (7a); on `ALREADY_REPORTED` it shows that the book is already reported (7c). The comment box carries a hint not to include the child's name or other details, because the admin reads it (`BR-admin-limited-view`).
+- `src/app/(parent)/parent/children/[childId]/report-book/actions.ts` and `schema.ts`: `reportBook`, shared by both entry points, and its zod schema, shared by form and action (§8.2.5): `childId`, `bookId`, `reason` (one of the values in [`par-field-values.md`](par-field-values.md)), `comment` (trimmed once; blank is no comment; the limit in that file), and `confirmed`, which must be the literal `true`. Order (§8.2.3): `requireParent()`, validate, call `reportBook` in Accounts & Family. The family comes from the session, never the request.
+- `src/server/accounts-family/book-reports.ts` (server-only): owns `bookReports` and `childBookExclusions`. `reportBook(session, input)` checks the book with `findActiveBookIds`, then opens the transaction and, as its first read, checks the child against the session's family with `getChildForFamily(familyId, childId, tx)`; the rest follows the sequence below, and it returns `{ removedFromShelf }`. Errors map as follows (see the key decision on errors): a duplicate key (MongoDB code 11000) on the exclusions' unique index is `ALREADY_REPORTED`; every other thrown error is `SAVE_FAILED` with an error ID from `logUnexpectedError`. `isExcluded(childId, bookId)` serves the page. `listExcludedBookIds(childId)` is the one read Recommendation and manual search use to apply `KD-book-exclusion`; nothing calls it yet. No function deletes an exclusion or changes a report's status; the data-deletion use cases and `UC-ADM-block-content` add their own when they are designed.
+- `src/server/shelf/shelf-entries.ts` (server-only; Shelf's first code, on the `SHELF_ENTRY` model in [`shlf.md`](shlf.md)): `isOnShelf(childId, bookId)` and `removeShelfEntryInTx(tx, childId, bookId)`, which deletes the entry and returns the deleted entry's ID, or nothing if there was none. It touches no rating or finish confirmation, which `shlf.md` stores in their own collections, keyed by child and book (its key decision "Ratings and finish confirmations are stored apart from the shelf entry", and its Data model). `UC-SHLF-parent-remove-book` reuses it.
+- `src/server/accounts-family/child-accounts.ts` (reused): `getChildForFamily` gains an optional transaction handle, so `reportBook` reads the child inside its transaction. Existing callers are unchanged.
+- `src/server/recommendation/batches.ts`, **contract only**: `removeFromPendingBatchInTx(tx, childId, bookId)` takes the book out of the child's pending batch with the same effect as a parent's removal in `UC-REC-parent-review` step 4, and leaves the batch pending. It is written with `UC-REC-parent-review`, whose design chooses the batch's shape. Until then `reportBook` has no batch step; `/implement` for that use case adds the one call inside this transaction, and builds the batch entry page, which renders the same `ReportForm` and calls the same `reportBook`, with "in this child's pending batch" as its PRE-3 check.
+- `src/server/notification/notices.ts` (server-only; Notification's first in-app store): `createRemovalNoticeInTx(tx, childId, bookId)` writes a `book-removed` notice holding the book ID only: no reason, no parent (§8.2.11). `UC-SHLF-parent-remove-book` writes the same kind. Showing and marking notices seen belongs to the child-side designs.
+- `src/server/catalog/books.ts` (reused): `findActiveBookIds` for the action's book check; `getBooksForShelf`, the read [`shlf.md`](shlf.md) adds, for the page's title. No new Catalog read.
+- `src/server/audit/audit-log.ts` (reused): gains `appendBookReportAudit(tx, actorId, childId, reportId)` (event `book.reported`) and `appendShelfRemovalAudit(tx, actorId, childId, shelfEntryId)` (event `shelf.parent-removed`), which `UC-SHLF-parent-remove-book` reuses; the validator's `event` enum gains both. §8.2.9 lists parent book reports and parent shelf removals separately, so a report that removes a shelf entry writes both.
+- `src/server/setup/ensure-indexes.ts` (reused): calls the new collections' setup (see Data model).
 
 ## Sequence
 
@@ -559,6 +625,80 @@ sequenceDiagram
     UI-->>P: Redirect to /sign-in, "password changed"
 ```
 
+### UC-PAR-report-book: report a book for a child
+
+Shown from the shelf. From a batch under review the page differs only in its PRE-3 check, and 7d is the batch step inside the same transaction.
+
+```mermaid
+sequenceDiagram
+    actor P as Parent (Main or Sub)
+    participant UI as Report page
+    participant ACT as reportBook action
+    participant IA as Identity & Access
+    participant AF as Accounts & Family
+    participant SH as Shelf
+    participant REC as Recommendation
+    participant NOT as Notification
+    participant CAT as Catalog
+    participant DB as Database
+    P->>UI: Tap "Report" on a book on the child's shelf (step 1)
+    UI->>IA: requireParent()
+    UI->>AF: getChildForFamily (PRE-2)
+    alt another family or unknown child
+        UI-->>P: 404
+    end
+    UI->>AF: isExcluded (PRE-4), before the shelf check
+    alt already reported (PRE-4, 7c)
+        UI-->>P: "Already reported", no form
+    end
+    UI->>SH: isOnShelf (PRE-3)
+    UI->>CAT: getBooksForShelf([bookId])
+    alt not on the shelf, or the Catalog does not return it
+        UI-->>P: 404
+    end
+    UI-->>P: Report screen: title and the child's nickname (step 2)
+    alt cancel (3b)
+        P->>UI: Back to the shelf, no request
+    end
+    P->>UI: Choose a reason, maybe a comment (step 3), "Continue" (step 4)
+    Note over UI: No reason: the form refuses to continue (3a)
+    UI-->>P: Final, no longer appears for this child, false reports may be punished (step 5)
+    alt decline (5a)
+        UI-->>P: Back to the form, input kept
+    end
+    P->>UI: Confirm (step 6)
+    UI->>ACT: reportBook(childId, bookId, reason, comment, confirmed)
+    ACT->>IA: requireParent()
+    ACT->>ACT: Validate with the zod schema (3a, confirmation)
+    ACT->>AF: reportBook(session, input) (step 7)
+    AF->>CAT: findActiveBookIds([bookId])
+    AF->>DB: Begin transaction
+    AF->>AF: getChildForFamily(session family, childId, tx), CHILD_NOT_FOUND if absent
+    AF->>DB: Insert the exclusion, unique on child and book (step 7)
+    alt duplicate key (7c)
+        DB-->>AF: transaction aborted
+        AF-->>ACT: ALREADY_REPORTED
+    end
+    AF->>DB: Insert the report: book, child, reporter and role, reason, comment, open, time (step 7)
+    AF->>SH: removeShelfEntryInTx (step 7), returns the deleted entry's ID or nothing
+    AF->>REC: removeFromPendingBatchInTx (step 7, 7d; wired with UC-REC-parent-review)
+    opt a shelf entry was deleted (POST-4; not in 7b or 7d)
+        AF->>NOT: createRemovalNoticeInTx: book only, no reason, no parent (step 7, 7e)
+        AF->>DB: Append audit entry shelf.parent-removed, IDs only (§8.2.9)
+    end
+    AF->>DB: Append audit entry book.reported, IDs only (§8.2.9)
+    alt any write fails (7a)
+        DB-->>AF: transaction aborted, nothing kept
+        AF-->>ACT: SAVE_FAILED
+    end
+    AF->>DB: Commit
+    AF-->>ACT: removedFromShelf
+    ACT-->>UI: ok
+    UI-->>P: Report sent, the book will no longer appear for the child (step 8)
+```
+
+The two audit appends are the only interactions with no use case step; §8.2.9 requires one for every parent book report and one for every parent shelf removal. A transient transaction error anywhere in the transaction reruns the whole of it (see the key decision on errors).
+
 ## API contract
 
 _[One row per endpoint, scheduled job, or message this area adds or changes, appended per use case. **This section is never dropped**: before the code exists it is the only thing the person (or agent session) building the front end and the one building the back end both read. Name the caller and who may call it, the request fields, the success response, and the error each extension returns. Leave field types and exact JSON to the agent unless a wrong guess would break something, such as a format another system depends on. Use the error shape your architecture-of-record's section 8.2 fixes; do not invent one here._
@@ -584,6 +724,11 @@ _Pages change data through server actions (§8.2.3), and every result uses the `
 | Server action `requestPasswordReset` (supporting flow, `OI-44`) | Anyone | Email | `ok`, the same answer whether or not an account exists and whether or not an email was sent | `INVALID_EMAIL` for a malformed address only. A send failure is logged and still answers `ok`, so the answer reveals nothing. |
 | Page `/reset-password` (supporting flow, `OI-44`) | Anyone holding the link | The token, in the URL fragment | The new-password form | None at load: nothing changes until the form is submitted. |
 | Server action `resetPassword` (supporting flow, `OI-44`) | Anyone holding the token; no session needed | Token, new password | `ok`; the password is replaced, every session of that parent is ended, and the page redirects to `/sign-in` | `RESET_LINK_INVALID` for an unknown, used, replaced or expired token, with no hint which. `WEAK_PASSWORD` (the 4c rule), with the token still usable. `SAVE_FAILED` with an error ID, nothing changed. |
+| Page `/parent/children/[childId]/shelf/[bookId]/report` (UC-PAR-report-book steps 1–2, from `UC-SHLF-parent-view-shelf`) | A signed-in Main or Sub Parent of the child's family (`OI-25`) | The child and book IDs in the path | The report screen: the book's title, the child's nickname, the reason list, the comment box, and the step 5 wording; a link back to the shelf | No session: redirect to `/sign-in`. Another family's child, an unknown or malformed ID, a book not on this child's shelf, a book the Catalog does not return, a child or admin session: the same `404` as the shelf page. PRE-4: "already reported", no form, checked before the shelf, so it shows even though the report removed the entry. |
+| Batch entry page (UC-PAR-report-book from `UC-REC-parent-review` step 4) | As above | Its path is `UC-REC-parent-review`'s to choose | The same `ReportForm` and the same action | As above, with "in this child's pending batch" as the PRE-3 check. Built with `UC-REC-parent-review`. |
+| Server action `reportBook` (UC-PAR-report-book steps 6–8) | A signed-in Main or Sub Parent; the family comes from the session | `childId`, `bookId`, `reason`, `comment` (optional), `confirmed` | `ok` with `removedFromShelf` (true or false) and nothing else | 3a: `REASON_REQUIRED`, or `INVALID_REASON` for a value not on the list. `COMMENT_TOO_LONG`. `NOT_CONFIRMED` when `confirmed` is not `true`. A child outside the session's family, or unknown: `CHILD_NOT_FOUND`, the same answer for both. A book that is not an active catalog book: `BOOK_NOT_FOUND`. 7c: `ALREADY_REPORTED`. 7a: `SAVE_FAILED` with an error ID, nothing stored. 7b, 7d and 7e are not errors. Not a parent: refused (§8.1). |
+
+No response of this use case says which parent reported a book, whether the admin has acted on a report, or any child detail beyond the nickname. The child's removal notice holds the book ID only: no reason, no comment and no parent (`BR-parent-report-book`, §8.2.11).
 
 The password reset email goes only to the Main Parent's own address. It holds the link and when it expires, says to ignore it if the parent did not ask, and holds no child data.
 
@@ -668,6 +813,30 @@ _A decision that affects the whole system rather than this area is an architectu
 **A reset ends every session of that parent and clears the throttle, in one transaction with the new hash and an audit entry.** A parent may be resetting because someone else knows the password. §8.2.9 lists password resets. Rejected: keeping existing sessions, which would leave an intruder signed in.
 
 **Reset emails are spaced per account.** Anyone can type any email into `/forgot-password`, so the system sends at most one reset email per account within the minimum spacing in `par-field-values.md`, and still gives the same answer. Rejected: no limit, which would let anyone flood a parent's inbox; and the sign-in throttle, which counts wrong passwords, not emails sent.
+
+### UC-PAR-report-book
+
+**The report and the exclusion are two records, both in Accounts & Family.** The exclusion never changes once written (POST-7); the report's status is changed by `UC-ADM-block-content`. Rejected: one document holding both, where the admin's status change and the report's later handling would write to the record that must never change (`DI-report-exclusion` asks for a separate exclusion).
+
+**"Already reported" is a unique index on the exclusion's child and book, and the exclusion is inserted first.** When two parents report the same book at once, one commits and the other's transaction aborts with a duplicate key, which becomes `ALREADY_REPORTED` (7c). Rejected: checking, then inserting, which lets both reports through.
+
+**Which errors become `ALREADY_REPORTED`, which become `SAVE_FAILED`, and what retries.** `withTransaction` in [`db.ts`](../src/server/lib/db.ts) calls the driver's `ClientSession.withTransaction`, which reruns the whole callback when an error carries the `TransientTransactionError` label and retries the commit on `UnknownTransactionCommitResult`, until the driver's time limit; `db.ts` adds no retry of its own. So two simultaneous reports first meet as a write conflict on the exclusion's key, a transient error, and the loser is rerun; on the rerun the winner has committed and the insert fails with duplicate key 11000, which is not transient, so it leaves `withTransaction` and becomes `ALREADY_REPORTED` (7c). Only code 11000 on the `childBookExclusions` index maps to 7c; every other error, including a transient one still failing at the driver's time limit, is `SAVE_FAILED` with an error ID (7a). Because the callback can run more than once, it holds no state outside the transaction: the report ID and the timestamps are created inside it. This is the same pattern as `addBook` (`design/adm.md`, Key decisions). Rejected: treating a write conflict as a failure, which would tell the second parent `SAVE_FAILED` instead of 7c.
+
+**The child is read inside the transaction.** `reportBook` reads the child with the transaction's handle as its first step, so the family check and the writes see one snapshot. Rejected: checking before the transaction (the first draft), which widens the window in which `UC-PAR-delete-kid-account` can delete the child between the check and the writes. A snapshot read does not conflict with a concurrent delete, so it narrows that race and does not close it; see Open questions.
+
+**The page checks PRE-3; the action does not (7b).** The action requires a child in the session's family and an active catalog book, and nothing more. 7b says a report still counts when the book left the shelf or batch after the parent opened it, and the server cannot tell "was there when the screen opened" without a history it does not keep (developer decision 2026-11-21; the use case's field rule is edited to match). A request made without the page can only exclude a book for the caller's own child, once per book. Rejected: requiring the book on the shelf or in a pending batch at the action, which would refuse the report in 7b.
+
+**A notice is written exactly when the shelf delete removed an entry.** That one rule covers POST-4, 7b (nothing was removed) and 7d (the child never saw a batch book), and a book that is both in a batch and on the shelf. Rejected: deciding by the page the parent came from, which gets that last case wrong.
+
+**The removal notice is the same kind a parent's plain removal writes.** The child cannot tell a report from a removal (`UC-SHLF-parent-remove-book`, "same notice, no reason"). Rejected: a report-specific notice, which tells the child a report happened.
+
+**Exclusions reach Recommendation and search as a list of book IDs from Accounts & Family.** `listExcludedBookIds(childId)` returns them and the caller adds them to its Catalog query as `$nin`, beside the blocked-book filter. Rejected: those components reading `childBookExclusions` themselves, or a `$lookup` into it, which §8.2.4 forbids. This refines `KD-book-exclusion`; see "Changes to the architecture-of-record".
+
+**The confirmation is checked by the server.** The form and the warning are two screens in the browser, but the action refuses any request whose `confirmed` is not the literal `true`. Rejected: trusting the page, since any action can be called directly (§8.1).
+
+**The batch step is a Recommendation function joined to this transaction, written with `UC-REC-parent-review`.** It keeps the batch's shape that use case's to choose (developer decision 2026-11-21). Rejected: fixing the batch schema here, before the use case that owns batches is designed; and leaving the batch entry point out of this design, which would leave POST-3 half designed.
+
+**A book blocked between opening the page and confirming gets `BOOK_NOT_FOUND`.** The action uses the Catalog's existing active-only read. Rejected: a Catalog read that returns blocked books, which would be an exception to the Catalog's rule (architecture §5.2) for a rare race. The accepted cost is under Open questions.
 
 ## Data model
 
@@ -791,6 +960,50 @@ Every child field has a stated purpose, as `DI-minimization` and `BR-coppa-minim
 
 The indexes are created by an idempotent setup script, run before the first deploy and by the integration-test setup. MongoDB schema validation is the backstop for required fields (§8.2.5).
 
+`UC-PAR-report-book` adds three collections and writes to Shelf's `SHELF_ENTRY` ([`shlf.md`](shlf.md)):
+
+```mermaid
+erDiagram
+    CHILD ||--o{ BOOK_REPORT : "reported for"
+    CHILD ||--o{ CHILD_BOOK_EXCLUSION : "excludes"
+    BOOK_REPORT ||--|| CHILD_BOOK_EXCLUSION : "created with"
+    CHILD ||--o{ NOTICE : "receives"
+    BOOK_REPORT {
+        id _id
+        string childId
+        string bookId
+        id reportedByUserId
+        string reporterRole "main or sub"
+        string reason "from par-field-values.md"
+        string comment "absent if none, at most 250"
+        string status "open; later blocked or discarded"
+        date reportedAt "UTC"
+    }
+    CHILD_BOOK_EXCLUSION {
+        string childId
+        string bookId "unique with childId"
+        id reportId
+        date createdAt "UTC"
+    }
+    NOTICE {
+        id _id
+        string childId
+        string kind "book-removed"
+        string bookId
+        date createdAt "UTC"
+        date seenAt "absent until seen"
+    }
+```
+
+- `bookReports` (Accounts & Family): indexed on `{ status, reportedAt }` for the admin's list and on `childId` for the data-rights use cases. This use case writes only `open`; `UC-ADM-block-content` owns the other values.
+- `childBookExclusions` (Accounts & Family): unique on `{ childId, bookId }`, which is 7c. Nothing in this use case deletes one; the data-deletion use cases remove them with the rest of the child's data (`FR-DATA-removal`).
+- `notices` (Notification): indexed on `{ childId, seenAt }`. No expiry and no deadline (7e).
+- `SHELF_ENTRY`: the entry is deleted; ratings and finish confirmations are separate records and stay (POST-6).
+- `auditLog`: the `event` enum gains `book.reported` (record: the report ID) and `shelf.parent-removed` (record: the deleted shelf entry's ID, written only when an entry was removed). Both hold the reporter's user ID, role `parent` and the child ID.
+- Each new collection gets a validator through `ensureCollection` (§8.2.5).
+
+No new item is stored about a child: reports, per-child exclusions and in-app notices are already a row of `BR-kid-data-stored`.
+
 ## Reuse & cross-cutting
 
 _[Which existing services, components, and conventions this area uses rather than rebuilding: authentication, the error handler, email, the clock, another area's service. Cite your architecture-of-record's section 8.2 for each convention by name rather than restating it.]_
@@ -817,6 +1030,8 @@ Not used by `UC-PAR-create-kid-account`: Notification and the Email Service (not
 - **Configuration:** the consent window and method come from the config module (§8.2.6), so legal review can change them without a code change (`OI-21`, `OI-22`).
 - **Logging:** never the parent's name, email, password, the confirmation token or the session token (§8.2.7). Refused sign-ins and cleanup runs are logged as security events with an ID and no account detail.
 - **Auditing:** one entry per purged unconfirmed account (`account.unconfirmed-purged`, the user ID and family ID only). Sign-up and confirmation are not in the §8.2.9 list; the Consent Record itself is the proof of consent. A password reset is: `account.password-reset`, the user ID only.
+
+`UC-PAR-report-book` reuses `requireParent()`, `getChildForFamily` (the family scope inside data access, §8.1), the result helper (§8.2.1), `now()` (§8.2.2), `withTransaction` (§8.2.8, which already lists this transaction), the audit log (§8.2.9, which already lists parent book reports), `findActiveBookIds`, and Shelf's `getBooksForShelf` from [`shlf.md`](shlf.md). It adds Notification's in-app store. Logging never includes the comment, the reason or the nickname (§8.2.7). The notice follows §8.2.11. Not used: the Child Identity Store, Safety Flagging (no rule asks to screen a report comment), and email.
 
 ## Tests
 
@@ -894,6 +1109,30 @@ _[One row per flow: the main success scenario and **every** extension of every u
 | Supporting flow: password reset, no click (`OI-44`) | end-to-end | Loading `/reset-password` from the link, without submitting, changes nothing; the token never appears in a request URL |
 | Supporting flow: reset purge (`OI-44`) | integration | The cleanup route removes reset records past their expiry and leaves unexpired ones |
 | UC-PAR-onboarding admin boundary | integration | No function an admin session can call returns a Consent Record's fields beyond whether one exists (`DI-consent-record`) |
+| UC-PAR-report-book main | integration | Under a fixed clock, a Main Parent's report writes one report (`open`, reporter and role, reason, comment, `reportedAt`), one exclusion, deletes the shelf entry, writes one `book-removed` notice holding the book ID only, and two audit entries with IDs only (`book.reported` with the report ID, `shelf.parent-removed` with the deleted entry's ID); the result is `removedFromShelf` true |
+| UC-PAR-report-book main, Sub Parent | integration | A Sub Parent's report is saved the same way, with reporter role `sub` |
+| UC-PAR-report-book main | end-to-end | From the shelf: Report, choose a reason, Continue, see the warning, Confirm, see the step 8 message; the book is gone from the parent's shelf |
+| UC-PAR-report-book POST-2 | integration | `listExcludedBookIds` returns the book for the reported child and not for a sibling |
+| UC-PAR-report-book POST-6 | integration | The child's rating and finish confirmation for the book remain; another child's shelf entry for the same book is untouched |
+| UC-PAR-report-book POST-7 | integration | No exported function deletes an exclusion or changes a report's status |
+| UC-PAR-report-book 2 | integration | The page shows the title and the nickname and no age, grade or reading level; another family's child, an unknown or malformed ID, a book not on the shelf, and a child or admin session all get the same `404` |
+| UC-PAR-report-book 3a | unit and component | A missing reason is refused with `REASON_REQUIRED`, a value off the list with `INVALID_REASON`; the form does not continue without a reason |
+| UC-PAR-report-book comment | unit | A 250-character comment is accepted, 251 is refused with `COMMENT_TOO_LONG`; a blank comment is stored as no comment |
+| UC-PAR-report-book 3b | end-to-end | Cancelling returns to the shelf and writes nothing |
+| UC-PAR-report-book 5a | component | Declining the confirmation returns to the form with the reason and comment kept, and makes no request |
+| UC-PAR-report-book 6, unconfirmed | unit | A request with `confirmed` missing or false is refused with `NOT_CONFIRMED` |
+| UC-PAR-report-book 7a | integration | When the notice insert fails, no report, exclusion, audit entry (of either event) or notice exists and the shelf entry is still there; the result is `SAVE_FAILED` with an error ID; a retry succeeds |
+| UC-PAR-report-book 7b | integration | With the shelf entry already gone, the report and exclusion are saved, no notice and no `shelf.parent-removed` entry are written (only `book.reported`), and the result is `removedFromShelf` false |
+| UC-PAR-report-book 7c, error mapping | integration | A duplicate key on the exclusions index returns `ALREADY_REPORTED`; any other error thrown inside the transaction returns `SAVE_FAILED` with an error ID |
+| UC-PAR-report-book child check | integration | With the child deleted before the report (fixture), the result is `CHILD_NOT_FOUND` and nothing is written; the read uses the transaction's handle |
+| UC-PAR-report-book 7c | integration | A second report of the same book for the same child, by either parent, returns `ALREADY_REPORTED` and writes nothing; two simultaneous reports leave exactly one report and one exclusion |
+| UC-PAR-report-book 7c, page | integration | With a report and exclusion for the book and **no shelf entry** (the state a committed report leaves), the page shows "already reported" and no form, not the `404` |
+| UC-PAR-report-book 7d | integration (built with `UC-REC-parent-review`) | Reported from a pending batch, the book leaves the batch, the batch stays pending, and no notice is written |
+| UC-PAR-report-book 7e | integration | The notice has no expiry and stays unseen until the child-side code marks it seen |
+| UC-PAR-report-book authorization | integration | Another family's child gets `CHILD_NOT_FOUND` and nothing is written; a family ID in the request is ignored; child and admin sessions are refused |
+| UC-PAR-report-book book check | integration | A draft, blocked or unknown book ID gets `BOOK_NOT_FOUND` and nothing is written |
+| UC-PAR-report-book child-facing | integration | The notice record holds no reason, comment or parent ID |
+| UC-PAR-report-book logging | integration | After a success and a 7a failure, the logs hold no comment, reason or nickname |
 
 ## Changes to the architecture-of-record
 
@@ -908,6 +1147,12 @@ For `UC-PAR-onboarding`, edited in `architectural-design.md` in this pull reques
 - §8.1 Authentication and `KD-auth-sessions`: sessions are written by Identity & Access in the Auth.js adapter's document shape, from the sign-up transaction and from sign-in, instead of through the Credentials provider and its glue. Added as a dated refinement of the decision; the decision itself (database sessions, not JWT) is unchanged.
 - §5.1: the Email Service is Resend in production, reached over SMTP; Mailpit stands in for it outside production.
 - §8.2.7: consent confirmation and password reset tokens join the list of what is never logged.
+
+For `UC-PAR-report-book`, edited in `architectural-design.md` in this pull request:
+
+- `KD-book-exclusion`: a dated refinement. Accounts & Family returns a child's excluded book IDs, and Recommendation and manual search pass them into their Catalog query; no other component reads the exclusions' collection.
+- §5.2 Notification: names `src/server/notification/notices.ts` as its first in-app store, created by this design.
+- Revision history: a v0.15 row.
 
 ## Open questions & risks
 
@@ -968,6 +1213,32 @@ Other open items and accepted risks for `UC-PAR-onboarding`:
 - **A COPPA data inventory in the README (team).** `docs/coppa/coppa-design-requirements.md` §3.9 proposes it; no business rule has adopted it, so this design does not require it.
 - **No limit on children per family.** Per the use case's Assumptions. A double submit with a different username would create a second child; accepted.
 - **Accepted risk: the transaction spans four components.** One function in Accounts & Family coordinates writes owned by Child Identity Store, Identity & Access and Safety Flagging. It is the only way to keep the records all-or-nothing in MongoDB, and the tests for 5a and 6a guard it.
+
+`UC-PAR-report-book`, what this design had to assume. The developer settled the first four on 2026-11-21; the values are in [`par-field-values.md`](par-field-values.md).
+
+- **The batch entry point (developer).** Designed as a contract; the page and `removeFromPendingBatchInTx` are built with `UC-REC-parent-review`, which has no design and, per its own Open Issues, no `FEAT-*`. Until then only the shelf path exists, and the 7d test waits. **Kept, with this reason:** pending batches are created only by `UC-REC-recommend-quiz-rules` and reviewed only in `UC-REC-parent-review`, neither built, so no pending batch can exist for the report to miss until the use case that wires the batch step exists.
+- **Ratings stored apart from the shelf entry (resolved).** Confirmed in [`shlf.md`](shlf.md): its key decision "Ratings and finish confirmations are stored apart from the shelf entry, keyed by child and book" and its Data model (`SHELF_ENTRY`, `RATING` and `FINISH_CONFIRMATION` are three collections, each unique on child and book). Deleting the entry leaves the rating and confirmation, which is POST-6.
+- **7b against the "Reported book" field rule (developer).** The use case's rule said the book must be in the batch or on the shelf; 7b says a report counts after the book left. Resolved for 7b: the rule now reads "when the report screen opened", and the page, not the action, checks it.
+- **Comment length (developer).** At most 250 characters after trimming, the parent note's limit; blank is no comment. The use case's "TBD" is replaced.
+- **Reason list (developer; client, `OI-46`).** Kept as proposed: inappropriate content, too difficult, not interested, other. Whether "too difficult" and "not interested" belong in a final report that warns of punishment, rather than a plain shelf removal, is for the client.
+- **"Other" needs no comment (team).** Proposed; no requirement asks for one.
+- **Step 8 goes back where the parent started (team).** The result screen links back to the shelf, or to the batch from the batch page.
+- **One notice kind for removals (team).** `UC-SHLF-parent-remove-book` must write the same `book-removed` notice.
+
+Other open items and accepted risks for `UC-PAR-report-book`:
+
+- **Shelf has no code yet.** `/implement` for this use case either lands after `UC-SHLF-parent-view-shelf` or creates Shelf's entries collection on the model in [`shlf.md`](shlf.md).
+- **A book blocked between the page and Confirm, accepted.** The report is refused with `BOOK_NOT_FOUND` and nothing is saved; if the admin later unblocks the book (`UC-ADM-unblock-content`), it can reach that child again. Rare, and it keeps the Catalog's active-only reads.
+- **What the admin sees (with `UC-ADM-block-content`).** The report stores the internal child ID and the reporter's user ID. How the reported-books list shows them as "opaque account references" (`BR-admin-limited-view`) is that design's; this design adds no admin read, so the admin-boundary test lands there.
+- **The comment can carry the child's identity to the admin.** Only the form's hint guards against it; no rule asks for screening, and the word list is for parent notes (`BR-note-safety-flagging`).
+- **The notice holds a book ID, not a title.** If the book is later blocked, the Catalog's reads leave it out, so the child-side display may have no title to show. The child-side designs decide what the notice says then.
+- **Excluded books elsewhere.** This transaction covers the shelf and the pending batch only. Every other place a reported book could still reach the child must apply `listExcludedBookIds` in its own design, or `BR-parent-report-book`'s "never appears for that child again" fails: `UC-REC-recommend-quiz-rules` (new batches), `UC-SHLF-manual-search` (results), `UC-PAR-suggest-book` (new suggestions, and suggestions already waiting for the child), `UC-PAR-approve-shelf-request` (a shelf request still pending for the book), `UC-REC-kid-review` (a released batch the child is still reacting to) and `UC-SHLF-kid-dashboard` (parent-approved recommended books, and any list of rated books, since the rating is kept).
+- **Risk: if the build order changes.** If `UC-REC-recommend-quiz-rules` and `UC-REC-parent-review` are built before the batch step is wired into this transaction, a book reported from the shelf stays in a pending batch and the parent could approve it, against POST-2 and POST-3. Whichever is built first, batch approval and release (`UC-REC-parent-review` steps 5–6, extension 2a) must drop excluded books with `listExcludedBookIds`, which also covers a report that lands after the batch was generated.
+- **Risk: a child deleted during a report.** The child is read inside the transaction, but a snapshot read does not conflict with `UC-PAR-delete-kid-account` committing a delete in between, so a report and exclusion for a deleted child can survive. Closing it is that use case's design: it must delete a child's reports and exclusions by child ID in the same transaction that deletes the child, or serialize with reports through a counter on the child, as `childCreationVersion` does for consent (`OI-36`). Rare; `FR-DATA-removal`.
+- **Revoked consent and suspended parents.** No extra check: a suspended parent has no session (§8.1), and how revocation affects a child is `OI-45`.
+- **A loose citation in the use case (resolved).** `BR-parent-content-removal` (removing flagged words, reporting abuse signals) does not govern book reports and is no longer cited by `UC-PAR-report-book` (use cases v0.17, developer decision 2026-11-21).
+- **Who reported is shown to no parent (client, `OI-47`).** The use case's "Reported by" row now matches this design: no screen or response of this use case names the reporting parent, and 7c says only "already reported". Whether `UC-PAR-review-child-data`'s export includes the reporter is that design's, pending `OI-47`.
+- **Audit event names (team, follow-up).** Neither §8.2.9 nor the `auditLog` validator states a naming convention; the validator only enumerates `parent-note-flagged`. This design uses the dotted style the rest of this document uses (`book.reported`, `shelf.parent-removed`). The existing mismatch, `note.flagged` here against `parent-note-flagged` in [`audit-log.ts`](../src/server/audit/audit-log.ts), is left for a separate change; `/implement` for this use case should settle one style before adding the new enum values.
 
 ---
 

@@ -7,7 +7,7 @@ import {
 } from "next-auth";
 import { cookies } from "next/headers";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { getConfig } from "@/server/lib/config";
+import { getAppUrl, getConfig } from "@/server/lib/config";
 import { getMongoClient } from "@/server/lib/db";
 import { SESSION_MAX_AGE_SECONDS, sessionCookie } from "./session-cookie";
 
@@ -25,6 +25,8 @@ declare module "next-auth" {
 export async function auth() {
   // Establish the request boundary before reading runtime-only configuration.
   await cookies();
+  // APP_URL is the app's one origin setting; Auth.js reads this name for it.
+  process.env.NEXTAUTH_URL = getAppUrl();
   return getServerSession({
     adapter: MongoDBAdapter(() => getMongoClient(), {
       databaseName: getConfig().MONGODB_DB,

@@ -51,6 +51,29 @@ it("reads the consent window from the environment, so legal review needs no code
   expect(getConfig().CONSENT_CONFIRMATION_DAYS).toBe(30);
 });
 
+it("treats blank settings that have defaults as unset", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("MONGODB_DB", "");
+  vi.stubEnv("CONSENT_CONFIRMATION_DAYS", "");
+  vi.stubEnv("CONSENT_METHOD", "");
+  const { getConfig } = await import("./config");
+  expect(getConfig()).toMatchObject({
+    MONGODB_DB: "bookbuddies",
+    CONSENT_CONFIRMATION_DAYS: 14,
+    CONSENT_METHOD: "email-plus",
+  });
+});
+
+it("still refuses a blank required setting", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  const { getConfig } = await import("./config");
+  expect(() => getConfig()).toThrow("Invalid environment: AUTH_SECRET");
+});
+
 it("fails closed in production when email and the app URL are not configured", async () => {
   vi.resetModules();
   vi.stubEnv("NODE_ENV", "production");

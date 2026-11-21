@@ -3,17 +3,18 @@ import { z } from "zod";
 
 // The validated environment (architecture §8.2.6). Read lazily, so a build
 // without database variables still compiles.
+// A blank line in .env counts as unset, so a default or "optional" still applies.
+const blankAsUnset = <Schema extends z.ZodType>(schema: Schema) =>
+  z.preprocess((value) => (value === "" ? undefined : value), schema);
+
 const optionalString = (schema: z.ZodType<string>) =>
-  z.preprocess(
-    (value) => (value === "" ? undefined : value),
-    schema.optional(),
-  );
+  blankAsUnset(schema.optional());
 
 const configSchema = z.object({
   AUTH_SECRET: z.string().min(1),
   PRIVACY_NOTICE_URL: optionalString(z.url()),
   MONGODB_URI: z.string().min(1),
-  MONGODB_DB: z.string().min(1).default("bookbuddies"),
+  MONGODB_DB: blankAsUnset(z.string().min(1).default("bookbuddies")),
   // UC-PAR-onboarding. The base URL the emailed links are built on.
   APP_URL: optionalString(z.url()),
   // Mailpit outside production; Resend's SMTP interface in production (design/par.md).
@@ -22,9 +23,11 @@ const configSchema = z.object({
   // The Scheduled Cleanup route refuses every request while this is unset (§8.1).
   CRON_SECRET: optionalString(z.string().min(32)),
   // Placeholder 14 days until legal review (OI-22); counted from the acknowledgment.
-  CONSENT_CONFIRMATION_DAYS: z.coerce.number().int().min(1).max(90).default(14),
+  CONSENT_CONFIRMATION_DAYS: blankAsUnset(
+    z.coerce.number().int().min(1).max(90).default(14),
+  ),
   // The only accepted method for V1 (OI-21, client answers 2026-10-28, Q13).
-  CONSENT_METHOD: z.enum(["email-plus"]).default("email-plus"),
+  CONSENT_METHOD: blankAsUnset(z.enum(["email-plus"]).default("email-plus")),
 });
 
 export type Config = z.infer<typeof configSchema>;

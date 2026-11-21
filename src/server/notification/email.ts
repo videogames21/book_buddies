@@ -12,11 +12,23 @@ export type EmailMessage = { to: string; subject: string; text: string };
 /** `ok` only; a failure's exception never leaves this module (§8.2.1). */
 export type SendResult = { ok: boolean };
 
+// Sign-up waits on this send, so an unreachable server must fail quickly. Nodemailer's
+// defaults are 2 minutes to connect and 10 minutes of socket inactivity.
+const SMTP_TIMEOUT_MS = 10_000;
+
 let transport: { url: string; transporter: Transporter } | undefined;
 
 function transporterFor(url: string): Transporter {
   if (transport?.url !== url) {
-    transport = { url, transporter: nodemailer.createTransport(url) };
+    transport = {
+      url,
+      transporter: nodemailer.createTransport({
+        url,
+        connectionTimeout: SMTP_TIMEOUT_MS,
+        greetingTimeout: SMTP_TIMEOUT_MS,
+        socketTimeout: SMTP_TIMEOUT_MS,
+      }),
+    };
   }
   return transport.transporter;
 }

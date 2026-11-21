@@ -23,3 +23,4 @@ _Backfilled 2026-10-25 from team decisions that other documents already record w
 | 2026-10-26 | Stage 1 of the recommender filters by the child's age and grade. | Accepted | `OI-2` (Resolved, mechanics); `BR-reading-level-proxy`; `FR-REC-rules` |
 | 2026-10-26 | The admin may see the Main Parent's and Sub Parents' names, usernames and emails, never a password; this is what "parent credentials" means. | Accepted | `BR-admin-limited-view`; `SEC-pii-boundary`; use cases' field tables |
 | 2026-10-26 | Whether content moderation may use an outside service waits for the client's reply. | Waiting on client (`OI-19`, briefing question 6) | architectural-design.md §8.1 |
+| 2026-11-18 | Data access uses the native MongoDB driver, with no Mongoose, for every component (PAR, REC, ADM). A person still confirms the `mongodb` package and version before it is added. | Accepted | architectural-design.md §8.2.4; `design/adm.md` Key decisions |

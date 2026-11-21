@@ -28,22 +28,16 @@ export async function appendNoteFlagAudit(
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
-    required: [
-      "actorId",
-      "actorRole",
-      "event",
-      "childId",
-      "recordId",
-      "occurredAt",
-    ],
+    required: ["actorId", "actorRole", "event", "recordId", "occurredAt"],
     additionalProperties: false,
     properties: {
       _id: { bsonType: "objectId" },
       actorId: { bsonType: "objectId" },
-      actorRole: { enum: ["parent"] },
-      event: { enum: ["parent-note-flagged"] },
+      actorRole: { enum: ["parent", "admin"] },
+      event: { enum: ["parent-note-flagged", "catalog.book_added"] },
       childId: { bsonType: "string" },
-      recordId: { bsonType: "objectId" },
+      // An ObjectId for a note flag, the book's UUID string for a catalog entry.
+      recordId: { bsonType: ["objectId", "string"] },
       occurredAt: { bsonType: "date" },
     },
   });

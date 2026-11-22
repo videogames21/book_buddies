@@ -114,6 +114,7 @@ test("main: the four categories show in order and a tapped book shows its rating
   await page.getByRole("button", { name: /Lantern Hill E2E/ }).click();
 
   const panel = page.getByRole("complementary", { name: "Selected book" });
+  await expect(panel).toBeFocused();
   await expect(panel.getByText("Loved it")).toBeVisible();
   await expect(panel.getByRole("link", { name: "Edit note" })).toHaveAttribute(
     "href",
@@ -131,6 +132,10 @@ test("main: the four categories show in order and a tapped book shows its rating
   await expect(
     page.getByRole("complementary", { name: "Selected book" }),
   ).toHaveCount(0);
+  // Closing returns focus to the book that was open.
+  await expect(
+    page.getByRole("button", { name: /Lantern Hill E2E/ }),
+  ).toBeFocused();
 });
 
 test("choosing a book makes no request and changes no address", async ({

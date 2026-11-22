@@ -61,7 +61,7 @@ describe("getShelfForParent (UC-SHLF-parent-view-shelf)", () => {
 
     const view = await getShelfForParent(familyId, childId);
 
-    expect(view?.child).toEqual({ nickname: "Starfish", avatar: "1-1" });
+    expect(view?.child).toEqual({ nickname: "Starfish" });
     expect(view?.categories.map((group) => group.category)).toEqual([
       "readingNow",
       "wantToRead",
@@ -145,10 +145,7 @@ describe("getShelfForParent (UC-SHLF-parent-view-shelf)", () => {
       ["author", "bookId", "confirmed", "rating", "title"].sort(),
     );
     expect(Object.keys(view ?? {}).sort()).toEqual(["categories", "child"]);
-    expect(Object.keys(view?.child ?? {}).sort()).toEqual([
-      "avatar",
-      "nickname",
-    ]);
+    expect(Object.keys(view?.child ?? {})).toEqual(["nickname"]);
     for (const group of view?.categories ?? []) {
       expect(Object.keys(group).sort()).toEqual(["category", "entries"]);
     }

@@ -136,7 +136,7 @@ This use case only reads, so its rows are pages and the server function behind t
 
 Fields never in the response: the child's real name (the system holds none), age, grade or reading level; any number at all, including in headings, badges and labels (`BR-kid-no-metrics` applied to this view as the use case proposes; `OI-31` is still open on the parent dashboard); the parent's finish note, which belongs to `UC-SHLF-par-finish-book`.
 
-**What the page hands to `ShelfBrowser`** (`ParentShelfView`): the child's nickname and avatar, and the four categories in fixed order, each holding its entries; each entry has only `bookId`, `title`, `author`, `confirmed` (true or false) and `rating` (one of the four values, or none). It has no dates, no `childId`, no confirming parent and no counts. "No number" means nothing displayed as a count or total, and the response does not carry fields the page has no use for.
+**What the page hands to `ShelfBrowser`** (`ParentShelfView`): the child's nickname, and the four categories in fixed order, each holding its entries; each entry has only `bookId`, `title`, `author`, `confirmed` (true or false) and `rating` (one of the four values, or none). It has no dates, no `childId`, no confirming parent and no counts. "No number" means nothing displayed as a count or total, and the response does not carry fields the page has no use for.
 
 **Links this view renders**, none of which write anything here:
 

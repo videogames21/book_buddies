@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ParentShelfView } from "@/server/shelf/parent-shelf";
 import styles from "./shelf.module.css";
 
@@ -33,11 +33,19 @@ export function ShelfBrowser({
   childId: string;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const all = view.categories.flatMap((group) =>
     group.entries.map((entry) => ({ ...entry, category: group.category })),
   );
   const selected = all.find((entry) => entry.bookId === selectedId) ?? null;
   const base = `/parent/children/${childId}/shelf`;
+
+  // The panel sits after the last category, so a tap near the top of a long shelf would show
+  // nothing where the parent is looking. Moving focus to the panel scrolls it into view and
+  // tells a screen reader that something opened.
+  useEffect(() => {
+    if (selectedId !== null) panelRef.current?.focus();
+  }, [selectedId]);
 
   return (
     <main className={styles.page}>
@@ -64,6 +72,7 @@ export function ShelfBrowser({
                 <li key={entry.bookId}>
                   <button
                     type="button"
+                    id={`shelf-book-${entry.bookId}`}
                     className={styles.book}
                     aria-pressed={entry.bookId === selectedId}
                     onClick={() => {
@@ -89,7 +98,12 @@ export function ShelfBrowser({
         </section>
       ))}
       {selected && (
-        <aside className={styles.panel} aria-label="Selected book">
+        <aside
+          ref={panelRef}
+          tabIndex={-1}
+          className={styles.panel}
+          aria-label="Selected book"
+        >
           <h2>{selected.title}</h2>
           <p>{selected.author}</p>
           {selected.rating && (
@@ -133,6 +147,8 @@ export function ShelfBrowser({
           <button
             type="button"
             onClick={() => {
+              // Return focus to the book that was open, so the parent keeps their place.
+              document.getElementById(`shelf-book-${selected.bookId}`)?.focus();
               setSelectedId(null);
             }}
           >

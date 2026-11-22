@@ -28,7 +28,7 @@ export type ShelfBookView = {
 };
 
 export type ParentShelfView = {
-  child: { nickname: string; avatar: string };
+  child: { nickname: string };
   /** All four categories, always in the fixed order, each newest move first. */
   categories: { category: ShelfCategory; entries: ShelfBookView[] }[];
 };
@@ -94,7 +94,7 @@ export async function getShelfForParent(
   }
 
   return {
-    child: { nickname: child.nickname, avatar: child.avatar },
+    child: { nickname: child.nickname },
     categories: SHELF_CATEGORIES.map((category) => ({
       category,
       entries: grouped.get(category) ?? [],

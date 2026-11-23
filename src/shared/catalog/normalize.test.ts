@@ -95,6 +95,11 @@ describe("normalizeIsbn", () => {
     expect(normalizeIsbn("080442957x")).toBe("9780804429573");
   });
 
+  it("accepts an ISBN whose check digit is 0, as ISBN-13 and as the ISBN-10 that converts to it", () => {
+    expect(normalizeIsbn("9784390234870")).toBe("9784390234870");
+    expect(normalizeIsbn("4390234870")).toBe("9784390234870");
+  });
+
   it("gives the same result for one book entered as ISBN-10 and as ISBN-13", () => {
     expect(normalizeIsbn("0439023483")).toBe(normalizeIsbn("9780439023481"));
   });

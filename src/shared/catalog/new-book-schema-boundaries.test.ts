@@ -189,6 +189,25 @@ describe("input types and bounds", () => {
   });
 });
 
+describe("length is counted in characters, not UTF-16 units", () => {
+  it("accepts 200 emoji and refuses 201 in a title, an author and a custom tag", () => {
+    const emoji = (count: number) => "😀".repeat(count);
+    expect(
+      parse({ ...valid, title: emoji(200), author: emoji(200) }).success,
+    ).toBe(true);
+    expect(errorOf({ ...valid, title: emoji(201) }).code).toBe(
+      "TITLE_TOO_LONG",
+    );
+    expect(errorOf({ ...valid, author: emoji(201) }).code).toBe(
+      "AUTHOR_TOO_LONG",
+    );
+    expect(parse({ ...valid, customTags: [emoji(30)] }).success).toBe(true);
+    expect(errorOf({ ...valid, customTags: [emoji(31)] }).code).toBe(
+      "INVALID_CUSTOM_TAG",
+    );
+  });
+});
+
 describe("the year is checked in UTC", () => {
   it("accepts a new UTC year on its first instant, not the instant before", () => {
     const newYear = new Date("2027-01-01T00:00:00Z");

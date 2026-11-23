@@ -48,6 +48,7 @@ _[These are slugs, like every other identifier in your project, so an inserted d
 | 0.12 | 2026-11-18 | Team 05 (with Claude) | `design/shlf.md` written for `UC-SHLF-parent-view-shelf`: the Catalog names the shelf read (`getBooksForShelf`), added to `src/server/catalog/books.ts` beside the two reads from `design/rec.md`. |
 | 0.13 | 2026-11-17 | Team 05 (with Claude) | `design/adm.md` written for `UC-ADM-add-content`: the Catalog's `books` collection, its indexes and add path, and `requireAdmin()` in Identity & Access. Assumes the v0.12 row from `design/shlf.md` is merged first; renumber if not. `OI-42` and `OI-43` filed. §8.2.4 records the native MongoDB driver as a team decision for every component |
 | 0.14 | 2026-11-17 | Team 05 (with Claude) | From the `UC-PAR-onboarding` design in `design/par.md`: sessions are written by Identity & Access in the Auth.js adapter's shape rather than through the Credentials provider (refines `KD-auth-sessions`, §8.1); the Email Service is Resend in production, reached over SMTP, with Mailpit outside production (§5.1, developer decision); consent confirmation and password reset tokens are never logged (§8.2.7); a Main Parent can sign out and reset a forgotten password through an emailed link (§8.1, `OI-44`) |
+| 0.15 | 2026-11-21 | Team 05 (with Claude) | From the `UC-PAR-report-book` design in `design/par.md`: a dated refinement of `KD-book-exclusion` (Accounts & Family returns a child's excluded book IDs for other components to filter on), and nothing else; the child removal notice uses `childNotices` as `design/shlf.md` (#106) fixes it. |
 
 ---
 
@@ -419,6 +420,7 @@ _BookBuddies' decisions. Accepted ones were made by the team; Proposed ones were
 - **Decision:** A report writes a row to the per-child exclusions held by Accounts & Family. Recommendation and manual search filter on those rows in the same query that filters blocked books. No code path deletes an exclusion. An admin block is a separate, global status on the Catalog (`UC-ADM-block-content`); discarding a report closes only that report.
 - **Rejected:** (a) Blocking the book for every family on a parent's report, which would let one parent remove a book from everyone's choices and make the admin a gate on every parent's decision. (b) Removing the book from the child's shelf only, which lets it return in the next recommendation.
 - **Trade-off:** Every recommendation and search query gets one more filter. The exclusion list is small, because reports are rare, so the cost is negligible. A missing filter in one query would show a reported book, which is why section 8.2.10 tests it.
+- **Refinement, 2026-11-21** (`design/par.md`, `UC-PAR-report-book`): "in the same query" means Accounts & Family returns the child's excluded book IDs (`listExcludedBookIds`) and Recommendation and manual search add them to their Catalog query beside the blocked-book filter. No other component reads the exclusions' collection (8.2.4).
 
 **`KD-time-rules-on-read`: deadlines are checked when data is read.** _Proposed._
 

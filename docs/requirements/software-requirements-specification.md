@@ -3,7 +3,7 @@
 **Project:** BookBuddies  
 **Team:** Team 05  
 **Client:** Dr. Yang Yang  
-**Version:** 0.9
+**Version:** 0.12
 
 ---
 

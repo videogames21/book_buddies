@@ -2,6 +2,7 @@ import "server-only";
 import { ObjectId } from "mongodb";
 import { getDb, type Tx } from "@/server/lib/db";
 import { deleteSessionsOfUser } from "./sessions";
+import { clearSignInAttempts } from "./sign-in-throttle";
 
 // Main Parent accounts in Identity & Access's `users` collection (UC-PAR-onboarding).
 // The fields requireParent() reads (role, parentRole, familyId), plus the name, the
@@ -87,15 +88,22 @@ export async function findParentByEmail(
   };
 }
 
-/** Deletes a parent's user document (name, email, hash) and all their sessions. */
+/**
+ * Deletes a parent's user document (name, email, hash), all their sessions and the
+ * sign-in throttle row keyed by their email.
+ */
 export async function deleteParentAccount(
   tx: Tx,
   userId: string,
 ): Promise<void> {
-  await getDb()
-    .collection(USERS)
-    .deleteOne({ _id: new ObjectId(userId) }, { session: tx });
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOneAndDelete(
+      { _id: new ObjectId(userId) },
+      { projection: { email: 1 }, session: tx },
+    );
   await deleteSessionsOfUser(userId, tx);
+  if (user?.email) await clearSignInAttempts(user.email, tx);
 }
 
 function isDuplicateEmail(err: unknown): boolean {

@@ -25,6 +25,27 @@ export async function appendNoteFlagAudit(
       { session: tx },
     );
 }
+
+/** UC-PAR-onboarding 6a: an unconfirmed account was deleted. IDs only, no actor account. */
+export async function appendUnconfirmedPurgeAudit(
+  tx: Tx,
+  userId: string,
+  familyId: string,
+): Promise<void> {
+  await getDb()
+    .collection("auditLog")
+    .insertOne(
+      {
+        actorRole: "system",
+        event: "account.unconfirmed-purged",
+        userId: new ObjectId(userId),
+        familyId: new ObjectId(familyId),
+        occurredAt: now(),
+      },
+      { session: tx },
+    );
+}
+
 // One shape per event, IDs only (§8.2.9). The purge is run by the cron, so it has no
 // actor account: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
 // own act on their own account (OI-44).

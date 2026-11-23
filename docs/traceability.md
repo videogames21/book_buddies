@@ -93,7 +93,7 @@ _BookBuddies' rules. "Enforced by" lists every use case whose Business Rules fie
 | `BR-parent-rec-not-forced` | Meeting 2 notes, "Recommendation Algorithm", "Parent and Kid Roles" | `UC-PAR-suggest-book`, `UC-REC-parent-review`, `UC-REC-kid-review`; `FR-REC-parent-suggest` |
 | `BR-notes-visible-to-parent` | Meeting 2 notes, "Book Notes and Privacy" | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-add-note`, `UC-ADM-flag-review`, `UC-PAR-review-child-data`; `FR-NOTE-reflection`, `SEC-no-private-notes` |
 | `BR-24hr-review-window` | Concept brief, "Parental Controls…" (unconfirmed, `OI-16`) | `UC-ADM-suspend-account`; `FR-PAR-review-window` (TBD). Deliberately unenforced until `OI-16` is answered. |
-| `BR-parent-content-removal` | Concept brief, "Parental Controls…" | `UC-PAR-report-book`, `UC-SHLF-kid-add-note`, `UC-ADM-flag-review`; `FR-PAR-content-removal`. No use case lets a parent remove flagged content. |
+| `BR-parent-content-removal` | Concept brief, "Parental Controls…" | `UC-SHLF-kid-add-note`, `UC-ADM-flag-review`; `FR-PAR-content-removal`. No use case lets a parent remove flagged content. |
 | `BR-parent-report-book` | Client, in conversation with the team, 2026-10-13 (no source document yet) | `UC-PAR-report-book`, `UC-ADM-block-content`, `UC-PAR-suggest-book`, `UC-REC-recommend-quiz-rules`, `UC-SHLF-manual-search` (per-child exclusions), `UC-ADM-unblock-content`, `UC-PAR-approve-shelf-request`, `UC-PAR-delete-child-data`, `UC-ADM-suspend-parent-account`; `FR-PAR-report-book`, `FR-ADM-report-review`, `FR-REC-rules`, `FR-SEARCH-manual`, `FR-ACCT-sub-parent-invite`, `DI-report-exclusion`, `SAF-child-content` |
 | `BR-no-open-discovery` | Concept brief, "What's not included in adult-facing profile"; PM deck, Screen 5 | **No use case.** `CO-no-social` |
 | `BR-group-adult-approval` | Profiles notes, "Adult-facing profile"; PM deck, Screen 5 | None: groups are removed until further notice. |
@@ -135,7 +135,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-create-kid-account` | MVP | 🟡 In progress | [design/par.md](../design/par.md) | [action](../src/app/(parent)/parent/children/new/actions.ts), [transaction](../src/server/accounts-family/child-accounts.ts) | [verification map](implementation/child-account.md#tests): units, MongoDB integration, production Playwright | 🟡 Partial: creation slice verified; real parent onboarding and REC POST-6 remain dependencies |
 | `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
-| `UC-PAR-report-book` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-report-book` |  | 📐 Designed | [design/par.md](../design/par.md#uc-par-report-book-report-a-book-for-a-child); 7d deferred to `UC-REC-parent-review`, which owns `removeFromPendingBatchInTx`; 7b deliberately refused (`NOT_ON_SHELF_OR_BATCH`), a temporary departure pending `OI-54` |  |  |  |
 | `UC-PAR-review-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-delete-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |
@@ -147,7 +147,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-review` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-parent-view-shelf` | MVP | 📐 Designed | [design/shlf.md](../design/shlf.md) |  |  |  |
-| `UC-SHLF-kid-view-shelf` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-kid-view-shelf` |  | 📐 Designed | [design/shlf.md](../design/shlf.md) |  |  |  |
 | `UC-SHLF-kid-move-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-remove-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-rate-book` |  | ❌ Not started |  |  |  |  |

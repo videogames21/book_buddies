@@ -1,7 +1,7 @@
 import "server-only";
 import type { Db } from "mongodb";
 import { ensureAccountsFamilyIndexes } from "@/server/accounts-family/child-accounts";
-import { ensureConsentRecordIndexes } from "@/server/accounts-family/families";
+import { ensureConsentRecordIndexes } from "@/server/accounts-family/consent-record-schema";
 import { ensureChildIdentityIndexes } from "@/server/child-identity/child-identity";
 import { ensureIdentityAccessIndexes } from "@/server/identity-access/indexes";
 import { ensureSignInAttemptIndexes } from "@/server/identity-access/sign-in-throttle";

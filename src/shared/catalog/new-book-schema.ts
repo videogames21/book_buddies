@@ -89,7 +89,10 @@ function readText(
   const tooLong = field === "title" ? "TITLE_TOO_LONG" : "AUTHOR_TOO_LONG";
   if (typeof value !== "string") throw new Invalid(required, field);
   // Control characters are removed too: children see these fields.
-  const text = value.replace(/\p{Cc}/gu, "").trim().replace(/\s+/gu, " ");
+  const text = value
+    .replace(/\p{Cc}/gu, "")
+    .trim()
+    .replace(/\s+/gu, " ");
   // A title or author that is empty once normalized (only punctuation) counts as empty.
   if (normalizeText(text) === "") throw new Invalid(required, field);
   if (Array.from(text).length > maxLength) throw new Invalid(tooLong, field);

@@ -49,38 +49,69 @@ export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
     );
 }
 
+// One shape per event, IDs only (§8.2.9). The purge is run by the cron, so it has no
+// actor account: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
+// own act on their own account (OI-44).
+// A catalog entry names a book and an admin, and has no child.
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
-    required: ["actorId", "actorRole", "event", "recordId", "occurredAt"],
-    additionalProperties: false,
-    properties: {
-      _id: { bsonType: "objectId" },
-      actorId: { bsonType: "objectId" },
-      actorRole: { enum: ["parent", "admin"] },
-      event: { enum: ["parent-note-flagged", "catalog.book_added"] },
-      childId: { bsonType: "string" },
-      // An ObjectId for a note flag, the book's UUID string for a catalog entry.
-      recordId: { bsonType: ["objectId", "string"] },
-      occurredAt: { bsonType: "date" },
-    },
-    // Each event has its own shape: a note flag names a child and a parent; a catalog
-    // entry names a book and an admin, and has no child.
     oneOf: [
       {
-        required: ["childId"],
+        required: [
+          "actorId",
+          "actorRole",
+          "event",
+          "childId",
+          "recordId",
+          "occurredAt",
+        ],
+        additionalProperties: false,
         properties: {
-          event: { enum: ["parent-note-flagged"] },
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
           actorRole: { enum: ["parent"] },
+          event: { enum: ["parent-note-flagged"] },
+          childId: { bsonType: "string" },
           recordId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
         },
       },
       {
-        not: { required: ["childId"] },
+        required: ["actorRole", "event", "userId", "familyId", "occurredAt"],
+        additionalProperties: false,
         properties: {
-          event: { enum: ["catalog.book_added"] },
+          _id: { bsonType: "objectId" },
+          actorRole: { enum: ["system"] },
+          event: { enum: ["account.unconfirmed-purged"] },
+          userId: { bsonType: "objectId" },
+          familyId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      {
+        required: ["actorId", "actorRole", "event", "userId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["account.password-reset"] },
+          userId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      {
+        required: ["actorId", "actorRole", "event", "recordId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
           actorRole: { enum: ["admin"] },
+          event: { enum: ["catalog.book_added"] },
+          // The book's UUID string.
           recordId: { bsonType: "string" },
+          occurredAt: { bsonType: "date" },
         },
       },
     ],

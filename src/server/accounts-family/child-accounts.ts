@@ -190,6 +190,14 @@ export async function ensureAccountsFamilyIndexes(db: Db): Promise<void> {
     .createIndex({ familyId: 1 }, { name: "familyId" });
 }
 
+/** Whether the family has at least one child. Callers authenticate first. */
+export async function familyHasChild(familyId: string): Promise<boolean> {
+  const child = await getDb()
+    .collection(CHILDREN)
+    .findOne({ familyId: new ObjectId(familyId) }, { projection: { _id: 1 } });
+  return child !== null;
+}
+
 /** Family-scoped summary only. Pages authenticate before calling this function. */
 export async function getChildForFamily(familyId: string, childId: string) {
   return getDb()

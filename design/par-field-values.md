@@ -118,6 +118,7 @@ Decided by the developer, 2026-11-17: NIST-style, length only.
 | Failures before a delay | 5 failed sign-ins on one account key (the lowercased email) |
 | First delay | 30 seconds before the next attempt is allowed |
 | Delay growth and cap | Doubles with each further failure, capped at 15 minutes |
+| Count reset | 24 hours after the last wait ends; the daily cleanup then deletes the row |
 | Lockout | None; a successful sign-in or a password reset clears the count |
 
 ## Password reset (`OI-44`)

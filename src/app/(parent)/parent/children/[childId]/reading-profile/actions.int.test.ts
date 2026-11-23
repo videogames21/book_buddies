@@ -24,7 +24,7 @@ const signInAs = (userId: string | null) =>
 // Invented data only.
 async function consentedFamily(parentRole: "main" | "sub" = "main") {
   const parent = await insertParent({ parentRole });
-  await insertConsentRecord(parent.familyId, true);
+  await insertConsentRecord(parent, true);
   const childId = await insertChild(parent.familyId);
   return { ...parent, childId };
 }
@@ -113,9 +113,9 @@ describe("saveReadingProfile (UC-REC-kid-onboarding)", () => {
 
   it("consent: unconfirmed, revoked or missing consent is CONSENT_NOT_CONFIRMED", async () => {
     const unconfirmed = await insertParent({ parentRole: "main" });
-    await insertConsentRecord(unconfirmed.familyId, false);
+    await insertConsentRecord(unconfirmed, false);
     const revoked = await insertParent({ parentRole: "main" });
-    await insertConsentRecord(revoked.familyId, true);
+    await insertConsentRecord(revoked, true);
     await getDb()
       .collection("consentRecords")
       .updateOne(

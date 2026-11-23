@@ -88,7 +88,8 @@ function readText(
   const required = field === "title" ? "TITLE_REQUIRED" : "AUTHOR_REQUIRED";
   const tooLong = field === "title" ? "TITLE_TOO_LONG" : "AUTHOR_TOO_LONG";
   if (typeof value !== "string") throw new Invalid(required, field);
-  const text = value.trim().replace(/\s+/gu, " ");
+  // Control characters are removed too: children see these fields.
+  const text = value.replace(/\p{Cc}/gu, "").trim().replace(/\s+/gu, " ");
   // A title or author that is empty once normalized (only punctuation) counts as empty.
   if (normalizeText(text) === "") throw new Invalid(required, field);
   if (Array.from(text).length > maxLength) throw new Invalid(tooLong, field);
@@ -105,6 +106,9 @@ function readWholeNumber(value: unknown): number | null {
 
 function readYear(value: unknown, now: Date): number {
   if (isEmpty(value)) throw new Invalid("YEAR_REQUIRED", "year");
+  // Check the typed length before converting, so "02001" is not read as 2001.
+  if (typeof value === "string" && !/^\d{4}$/u.test(value.trim()))
+    throw new Invalid("INVALID_YEAR", "year");
   const year = readWholeNumber(value);
   const isFourDigits = year !== null && year >= 1000 && year <= 9999;
   if (
@@ -326,7 +330,7 @@ export function newBookErrorMessage(
     case "INVALID_TAG":
       return `That value is not on the approved ${label} list.`;
     case "INVALID_AGE":
-      return `Enter ${label} as a whole number, zero or more.`;
+      return `Enter ${label} as a whole number from 0 to ${String(LIMITS.ageStorageMax)}.`;
     case "INVALID_AGE_RANGE":
       return "The suggested age min cannot be above the suggested age max.";
     case "INVALID_READING_LEVEL":

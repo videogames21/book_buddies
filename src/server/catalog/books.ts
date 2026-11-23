@@ -177,8 +177,11 @@ export type AdminBookRow = {
   status: BookStatus;
 };
 
-/** Every book, blocked ones included, newest first (the catalog list, step 7). Admin pages only. */
-export async function listBooksForAdmin(): Promise<AdminBookRow[]> {
+/** Every book, blocked ones included, newest first (the catalog list, step 7). Needs an admin session (§8.1). */
+export async function listBooksForAdmin(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the type is the check
+  _session: AdminSession,
+): Promise<AdminBookRow[]> {
   const books = await booksCollection(getDb())
     .find({}, { projection: { title: 1, author: 1, year: 1, status: 1 } })
     .sort({ createdAt: -1, _id: 1 })
@@ -192,8 +195,11 @@ export async function listBooksForAdmin(): Promise<AdminBookRow[]> {
   }));
 }
 
-/** The distinct custom tags across all books, sorted. Admin pages only. */
-export async function listCustomTags(): Promise<string[]> {
+/** The distinct custom tags across all books, sorted. Needs an admin session (§8.1). */
+export async function listCustomTags(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the type is the check
+  _session: AdminSession,
+): Promise<string[]> {
   const values: unknown[] =
     await booksCollection(getDb()).distinct("customTags");
   return values

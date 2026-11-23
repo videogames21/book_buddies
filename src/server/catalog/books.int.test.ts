@@ -161,7 +161,7 @@ describe("addBook, 4d custom tags", () => {
     );
     const stored = await books().find({ title: "The Moon Garden" }).toArray();
     expect(stored[0].customTags).toEqual(["friend"]);
-    expect(await listCustomTags()).toEqual(["friend", "zebra"]);
+    expect(await listCustomTags(ADMIN)).toEqual(["friend", "zebra"]);
   });
 });
 
@@ -170,7 +170,7 @@ describe("listCustomTags", () => {
     await insertBook("draft", "One", { customTags: ["zebra", "mango"] });
     await insertBook("blocked", "Two", { customTags: ["apple", "mango"] });
     await insertBook("active", "Three", {});
-    expect(await listCustomTags()).toEqual(["apple", "mango", "zebra"]);
+    expect(await listCustomTags(ADMIN)).toEqual(["apple", "mango", "zebra"]);
   });
 });
 
@@ -276,7 +276,7 @@ describe("Catalog reads", () => {
       created("2026-03-01T00:00:00Z"),
     );
 
-    const rows = await listBooksForAdmin();
+    const rows = await listBooksForAdmin(ADMIN);
     const [firstTie, secondTie] = [tieA, tieB].sort();
     expect(rows.map((row) => row.id)).toEqual([
       firstTie,
@@ -306,7 +306,7 @@ describe("Catalog reads", () => {
       /secret|650L|customTags|readingLevel/,
     );
     // The admin list shows neither either: it is title, author, year and status.
-    expect(JSON.stringify(await listBooksForAdmin())).not.toMatch(
+    expect(JSON.stringify(await listBooksForAdmin(ADMIN))).not.toMatch(
       /secret|650L|customTags|readingLevel/,
     );
   });

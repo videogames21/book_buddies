@@ -13,4 +13,15 @@ export async function ensureIdentityAccessIndexes(db: Db): Promise<void> {
       partialFilterExpression: { username: { $type: "string" } },
     },
   );
+  // UC-PAR-onboarding 4a: one account per email, race-free. Emails are stored
+  // lowercased, so the index is case-insensitive too; it covers every user that has
+  // one (Main Parent, Sub Parent, admin), and children have none.
+  await db.collection("users").createIndex(
+    { email: 1 },
+    {
+      name: "email_unique",
+      unique: true,
+      partialFilterExpression: { email: { $type: "string" } },
+    },
+  );
 }

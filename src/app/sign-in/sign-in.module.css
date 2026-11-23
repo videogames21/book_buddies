@@ -1,0 +1,60 @@
+.page {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 5rem;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.form h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 6vw, 2.6rem);
+  line-height: 1.15;
+  font-weight: 500;
+  margin: 0.25rem 0;
+}
+.brand {
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 0;
+  color: #49625a;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+.form input {
+  width: 100%;
+  min-height: 2.9rem;
+  border: 1px solid #8e9a90;
+  border-radius: 4px;
+  background: #fffef9;
+  color: inherit;
+  padding: 0.65rem 0.8rem;
+}
+.form button {
+  min-height: 2.9rem;
+  margin-top: 1.5rem;
+  border: 0;
+  border-radius: 4px;
+  background: #2f4f45;
+  color: #fffef9;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.form button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.error {
+  border-left: 3px solid #9d3129;
+  padding-left: 1rem;
+  margin: 0.75rem 0 0;
+  color: #9d3129;
+}

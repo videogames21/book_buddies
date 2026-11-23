@@ -1,0 +1,87 @@
+.page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 5rem;
+}
+.child {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+.child p {
+  margin: 0;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.form h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 500;
+  margin: 0.25rem 0;
+}
+.form fieldset {
+  border: 0;
+  border-top: 1px solid #c6cec2;
+  margin: 1.5rem 0 0;
+  padding: 1rem 0 0;
+  min-width: 0;
+}
+.form legend {
+  padding-right: 1rem;
+  font-family: Georgia, serif;
+  font-size: 1.4rem;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+}
+.books {
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid #c1cbbd;
+  border-radius: 4px;
+  padding: 0.5rem 0.8rem;
+}
+.notice {
+  border-left: 3px solid #aab8a5;
+  padding-left: 1rem;
+  margin: 1.5rem 0 0;
+  font-size: 0.95rem;
+}
+.notice h2 {
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+}
+.hint {
+  font-size: 0.85rem;
+  color: #4b6059;
+  margin: 0;
+  font-weight: 400;
+}
+.error {
+  color: #9d3129;
+  margin: 0.25rem 0;
+}
+.actions {
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+  border-top: 1px solid #c6cec2;
+}
+.form button {
+  background: #225e54;
+  color: white;
+  border: 0;
+  border-radius: 4px;
+  padding: 0.8rem 1.6rem;
+  font-weight: 600;
+}
+.form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

@@ -156,6 +156,49 @@ export async function createFamily(
   return ok({ emailSent });
 }
 
+export type ConfirmConsentCode = "LINK_INVALID" | "LINK_EXPIRED";
+
+/**
+ * UC-PAR-onboarding step 7. One conditional update sets `confirmedAt` once, so two
+ * clicks cannot both confirm (§8.2.8). The token proves control of the email and grants
+ * nothing else. The same link used again answers ok and changes nothing.
+ */
+export async function confirmConsentByToken(
+  token: string,
+): Promise<ActionResult<{ familyId: string }, ConfirmConsentCode>> {
+  const confirmationTokenHash = hashConfirmationToken(token);
+  const at = now();
+  const records = getDb().collection<{
+    familyId: ObjectId;
+    confirmationTokenHash: string;
+    confirmBy: Date;
+    confirmedAt?: Date;
+    revokedAt?: Date;
+  }>(CONSENT_RECORDS);
+  const confirmed = await records.findOneAndUpdate(
+    {
+      confirmationTokenHash,
+      confirmedAt: { $exists: false },
+      revokedAt: { $exists: false },
+      confirmBy: { $gt: at },
+    },
+    { $set: { confirmedAt: at } },
+    { projection: { familyId: 1 } },
+  );
+  if (confirmed) return ok({ familyId: confirmed.familyId.toHexString() });
+
+  const record = await records.findOne(
+    { confirmationTokenHash },
+    { projection: { familyId: 1, confirmedAt: 1, revokedAt: 1 } },
+  );
+  if (!record || record.revokedAt) {
+    return fail("LINK_INVALID", "This link no longer works.");
+  }
+  if (record.confirmedAt)
+    return ok({ familyId: record.familyId.toHexString() });
+  return fail("LINK_EXPIRED", "This link has expired.");
+}
+
 export type OnboardingStep =
   "awaiting" | "expired" | "needs-first-child" | "complete";
 

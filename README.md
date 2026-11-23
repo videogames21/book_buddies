@@ -150,3 +150,14 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `readingProfiles`           | Child UUID, reading interests (fixed list), favorite catalog book IDs, save time    | Recommendation only; parent-entered; never returned to child/admin |
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.
+
+## Parent data inventory
+
+| Store                      | Contents                                                                                | Access                                                    | Kept until                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
+| `users` (Main Parent)      | Name, lowercased email, salted scrypt hash, role, family ID                             | Identity & Access; never logged                           | Deleted if consent is not confirmed in time (`OI-22`)       |
+| `consentRecords`           | Family and parent IDs, notice version, method, acknowledged, deadline and confirmed times, token hash | Accounts & Family; the plaintext token is only in the email | Deleted with an unconfirmed account; otherwise while a child exists |
+| `sessions`                 | Random session token, user ID, expiry                                                   | Identity & Access and Auth.js                             | Expiry, sign-out or account deletion                        |
+| `signInAttempts`           | Lowercased email as the throttle key, failure count, wait times                         | Identity & Access; never logged                           | 24 hours after the last wait, or a successful sign-in       |
+
+Service providers: Vercel hosts the app and MongoDB Atlas stores the data. Resend sends account emails and receives only a parent's name, email address and the email's content, never child data. Written assurances from each are still needed before launch (`BR-coppa-no-third-party-disclosure`). The consent notice is placeholder wording until legal review (`OI-20`, `OI-21`).

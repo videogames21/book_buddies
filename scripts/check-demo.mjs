@@ -1,4 +1,5 @@
 // Exercise the real demo runner with no .env file, external database or browser.
+// The browser sign-in itself is covered by tests/e2e/sign-in.spec.ts.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -15,20 +16,12 @@ async function availablePort() {
 }
 
 const port = await availablePort();
-let launcherPort = await availablePort();
-while (launcherPort === port) launcherPort = await availablePort();
 const root = fileURLToPath(new URL("../", import.meta.url));
-const launcher = `http://127.0.0.1:${launcherPort}`;
+const origin = `http://localhost:${port}`;
 let output = "";
 const demo = spawn(
   process.execPath,
-  [
-    "scripts/demo.mjs",
-    "--port",
-    String(port),
-    "--launcher-port",
-    String(launcherPort),
-  ],
+  ["scripts/demo.mjs", "--port", String(port)],
   {
     cwd: root,
     env: {
@@ -50,42 +43,29 @@ const exited = once(demo, "exit");
 
 try {
   const deadline = Date.now() + 180_000;
-  while (!output.includes("BookBuddies demo:")) {
+  while (!output.includes("Press Ctrl+C to stop.")) {
     if (demo.exitCode !== null || demo.signalCode !== null)
       throw new Error("Demo exited before it was ready.");
     if (Date.now() >= deadline) throw new Error("Demo startup timed out.");
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  const response = await fetch(launcher);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  const token = /name="csrf" value="([a-f0-9]+)"/.exec(html)?.[1];
-  assert.ok(token, "The launcher must provide its session-start form token.");
-  const denied = await fetch(`${launcher}/start`, { method: "POST" });
-  assert.equal(denied.status, 403);
-  const start = await fetch(`${launcher}/start`, {
-    method: "POST",
-    body: new URLSearchParams({ csrf: token }),
-    redirect: "manual",
-  });
-  assert.equal(start.status, 303);
-  const destination = start.headers.get("location");
-  assert.equal(destination, `http://localhost:${port}/parent/children/new`);
-  const cookie = start.headers.get("set-cookie")?.split(";")[0];
-  assert.ok(
-    cookie,
-    "The launcher must set the invented parent's database session.",
+  assert.ok(output.includes("demo-parent@example.test"));
+
+  const home = await fetch(`${origin}/`, { redirect: "manual" });
+  assert.equal(home.status, 307);
+  assert.equal(
+    new URL(home.headers.get("location"), origin).pathname,
+    "/sign-in",
   );
-  const form = await fetch(destination, {
-    headers: { cookie },
-    redirect: "manual",
-  });
-  assert.equal(form.status, 200);
-  const formHtml = await form.text();
-  assert.ok(formHtml.includes("Add a child"));
-  assert.ok(formHtml.includes("Create account"));
+
+  const signIn = await fetch(`${origin}/sign-in`);
+  assert.equal(signIn.status, 200);
+  assert.ok((await signIn.text()).includes("Parent sign in"));
+
+  const parent = await fetch(`${origin}/parent`);
+  assert.equal(new URL(parent.url).pathname, "/sign-in");
   console.log(
-    "Demo smoke check passed: production build, temporary database, session handoff and protected launcher.",
+    "Demo smoke check passed: production build, temporary database and sign-in page.",
   );
 } catch (error) {
   console.error(output.slice(-6000));
@@ -98,11 +78,9 @@ try {
     clearTimeout(forceStop);
     assert.equal(exitCode, 0, "The demo runner must shut down cleanly.");
   }
-  for (const released of [port, launcherPort]) {
-    const probe = createServer();
-    probe.listen(released, "127.0.0.1");
-    await once(probe, "listening");
-    await new Promise((resolve) => probe.close(resolve));
-  }
-  console.log("Demo shutdown check passed: both ports were released.");
+  const probe = createServer();
+  probe.listen(port, "127.0.0.1");
+  await once(probe, "listening");
+  await new Promise((resolve) => probe.close(resolve));
+  console.log("Demo shutdown check passed: the port was released.");
 }

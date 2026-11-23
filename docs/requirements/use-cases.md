@@ -1948,7 +1948,7 @@ A change to a book's tags affects only future recommendations. Batches already g
 
 1. The admin opens the list of reported books.
 2. The system displays every book with at least one open report, newest first. Each row shows the title, the number of open reports, and the reasons given. It shows no child or parent name.
-3. The admin selects a book and reads its reports: the reasons, any comments, and the opaque account references.
+3. The admin selects a book and reads its reports: the reasons and opaque account references. Showing comments is pending `OI-57`.
 4. The admin taps "Block book" on the row or on the book's page.
 5. The system tells the admin that blocking removes it from every shelf (ratings and finish notes are kept), shows how many shelf entries are affected, and asks the admin to choose a reason and confirm.
 6. The admin chooses a reason and confirms.

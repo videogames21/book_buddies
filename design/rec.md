@@ -4,10 +4,10 @@
 **Team:** Team 05
 **Area:** `UC-REC`
 
-> **Realizes:** `UC-REC-kid-onboarding`, `FR-ONB-profile` (the interests and favorite books half), `FEAT-onboarding-profile`
-> **Depends on:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`, `BR-coppa-minimization`, `BR-admin-limited-view`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-retention`, `FR-DATA-notice`, `FR-DATA-review`, `DI-integrity`, `DI-catalog-status`, `DI-field-tables`, `SEC-role-authorization`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-book-exclusion`, `KD-catalog-import-offline`
+> **Realizes:** `UC-REC-kid-onboarding`, `FR-ONB-profile` (the interests and favorite books half), `FEAT-onboarding-profile`, `UC-REC-recommend-quiz-rules`, `FR-REC-rules`, `FR-REC-every-request`, `FEAT-recommendation-quiz`
+> **Depends on:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`, `BR-coppa-minimization`, `BR-admin-limited-view`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-retention`, `FR-DATA-notice`, `FR-DATA-review`, `DI-integrity`, `DI-catalog-status`, `DI-field-tables`, `SEC-role-authorization`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-book-exclusion`, `KD-catalog-import-offline`, `BR-parent-report-book`, `BR-parent-ultimate-say`, `BR-parent-note`, `DI-report-exclusion`, `SAF-child-content`, `PER-recommendation-latency`
 > **See:** [use cases, REC area](../docs/requirements/use-cases.md#uc-rec-kid-onboarding-capture-a-childs-reading-interests-and-favorite-books), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [architecture-of-record](architectural-design.md), [PAR design](par.md), [field values to agree](rec-field-values.md)
-> **Designed against:** `d8beec6`
+> **Designed against:** `d8beec6` for onboarding and `ac7b4be` for the rules quiz.
 
 ---
 
@@ -16,6 +16,8 @@
 The Recommendation area owns each child's reading profile and, in later use cases, the recommender itself ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-REC-kid-onboarding`, the first use case designed here, lets a parent record the child's reading interests and favorite books already read, and marks onboarding complete. It is entered from `UC-PAR-create-kid-account` step 9 at the route PAR already fixed, `/parent/children/[childId]/reading-profile`, and ends by redirecting to PAR's `/onboarding-complete` page (PAR step 10).
 
 The profile is held by Recommendation under the opaque child ID. It is not identifying, so it stays out of the Child Identity Store, which keeps only age, grade and reading level (architecture §5.2, `KD-pii-segregation`). Onboarding never touches those three fields and never estimates a reading level (`BR-no-reading-level-assessment`). The book picker reads the Catalog, which this design depends on but does not build (see Open questions). Either parent role, Main or Sub, may onboard a child of their family (architecture §8.1).
+
+`UC-REC-recommend-quiz-rules` adds the child’s recommendation request. Catalog filters the active and age-appropriate books against the quiz and the child's permanent exclusions. Recommendation ranks the results using that child's profile and history, then stores an ordered batch for [parent review](../docs/requirements/use-cases.md#uc-rec-parent-review-parent-reviews-a-childs-recommendation-batch). The child sees that the request was sent. The books become available through the downstream release flow.
 
 ## Components & classes
 
@@ -82,6 +84,18 @@ classDiagram
 - Reused, not changed: `src/server/identity-access/sessions.ts` (`requireParent`), `src/server/accounts-family/child-accounts.ts` (`getChildForFamily`, `isConsentConfirmed`), `src/server/lib/` (`action-result.ts`, `clock.ts`, `db.ts`, `log.ts`, `collections.ts`), and `src/server/setup/ensure-indexes.ts`, which gains one call for the new index.
 - `/parent/children/[childId]/onboarding-complete/page.tsx` is PAR's and is not changed.
 
+### Rules quiz components
+
+| Component | Reuse or change |
+|---|---|
+| `src/app/(child)/child/page.tsx`, `recommendations/quiz/page.tsx`, `quiz-form.tsx`, `actions.ts` | Add **Get recommendations** to the child home and add the quiz page, shared validation and two child-session actions. A page load may show readiness but only the start action records a failed request. |
+| `src/shared/recommendation/quiz.ts` | The option keys, labels and one shared schema for the form and server action. See [field values](rec-field-values.md#rules-quiz-proposal-oi-2). |
+| `src/server/identity-access/sessions.ts` and Child Identity Store | Reuse the designed `requireChild()` from [Shelf](shlf.md). The narrow recommendation reader in `child-identity.ts` returns age, grade and the optional parent-entered scale and value for the session's child. |
+| `src/server/accounts-family/families.ts`, `book-reports.ts`, and `parent-notes.ts` | Reuse the child/family and consent guards and `listExcludedBookIds` from [parent reporting](par.md#uc-par-report-book-report-a-book-for-a-child). That read accepts the same transaction for batch generation. Accounts & Family reads notes for that child and projects only recognized preference keys to Recommendation. |
+| `src/server/catalog/books.ts` | Add `listRuleCandidates(age, quiz, excludedBookIds, tx)` and a batched feature read for eligible history book IDs. Catalog owns the status/age/quiz filters, seed tag normalization and parsing of comparable book levels. |
+| `src/server/recommendation/reading-profiles.ts`, Shelf and reaction readers | Read the existing onboarding profile, retained shelf activity, ratings and the child's recorded reactions in bounded, child-scoped queries. Use the owning component's API and the same transaction. |
+| `src/server/recommendation/quiz-recommendations.ts`, `rules.ts` and `batches.ts` | Coordinate the reads and save, rank candidates in a pure function, and store the pending batch. Do not depend on the parent review UI to complete the save. |
+
 ## Sequence
 
 ### UC-REC-kid-onboarding: capture a child's reading interests and favorite books
@@ -135,6 +149,26 @@ sequenceDiagram
 
 The family check runs first, so a child outside the family gets `CHILD_NOT_FOUND` whatever else is wrong with the request. Consent and the family check come from `BR-kid-data-stored` and §8.1 and implement no extra step; the consent check is an assumption listed under Open questions.
 
+### UC-REC-recommend-quiz-rules
+
+```mermaid
+sequenceDiagram
+    actor Child
+    participant UI as Child home and quiz
+    participant REC as Recommendation
+    participant Data as Owning components
+    Child->>UI: Get recommendations (1)
+    UI->>REC: Start quiz (1)
+    REC->>Data: Check session and profile readiness (1)
+    REC-->>UI: Open fixed quiz options (2)
+    Child->>UI: Pick one answer per question (3)
+    UI->>REC: Submit selections and request ID (3)
+    REC->>Data: Check consent and read eligible books and child signals (4)
+    REC->>REC: Rank matches and select up to the configured size (5)
+    REC->>REC: Commit one pending rules batch (6)
+    REC-->>UI: Recommendations sent for parent review (6)
+```
+
 ## API contract
 
 | Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
@@ -143,6 +177,14 @@ The family check runs first, so a child outside the family gets `CHILD_NOT_FOUND
 | Server action `saveReadingProfile` (UC-REC-kid-onboarding) | Same; the family comes from the session | Child ID, interests (zero or more, from the fixed list), favorite book IDs (zero or more) | `ok`; the form then navigates to `/parent/children/[childId]/onboarding-complete` (step 6). The result carries no profile data | Not signed in or not a parent: `NOT_SIGNED_IN`, `NOT_A_PARENT`. Child not in the family or unknown: `CHILD_NOT_FOUND`. No confirmed consent: `CONSENT_NOT_CONFIRMED`. 3: `INVALID_INTEREST`. 4a: `INVALID_BOOK` (not in the catalog, draft or blocked), `TOO_MANY_BOOKS`. 1a: `ONBOARDING_ALREADY_COMPLETE`. 5a: `SAVE_FAILED` with an error ID, nothing saved. Selecting no interests or no books is not an error |
 
 Nothing in this use case is sent to a child's screen (`BR-parent-creates-kid-account`, §8.2.11).
+
+### Rules quiz API contract
+
+| Entry | Request | Success | Refusal or failure |
+|---|---|---|---|
+| `startRecommendationQuiz` (1, 1a) | Signed-in child. No child ID in the request. | Opens `/child/recommendations/quiz`. | Signed out or wrong role, consent unavailable, `RULES_UNAVAILABLE` if mode or dependencies prevent the flow, or `PROFILE_INCOMPLETE` after recording the failed request. Show “Ask a parent to finish your profile.” |
+| `/child/recommendations/quiz` (2, 2a) | Child session. No parameters. | Fixed options and a random submission ID for this form. Leaving discards the selections. | Same read guards as Start. A direct visit or prefetch never writes a failed-request event. |
+| `submitRecommendationQuiz` (3–6) | Child session, one approved option per question and the form's UUID. | `ok` with the acknowledgment “Your recommendations were sent for parent review.” The same UUID for the same child returns the acknowledgment for an existing batch. | Start refusals are checked again for a new submission. `INVALID_QUIZ` gets a field highlight (3a). `NO_MATCHES` offers restart (4a). `LOAD_FAILED` offers retry (4b). `SAVE_FAILED` offers a retry with the same UUID (6a). |
 
 ## Key decisions
 
@@ -166,6 +208,20 @@ Nothing in this use case is sent to a child's screen (`BR-parent-creates-kid-acc
 
 **The profile keeps a save time, so the admin can count onboardings in a period.** `UC-ADM-view-usage-stats` lists "Onboardings completed" as a total for the chosen date range, and a count over a period needs the time each onboarding finished. Account creation dates cannot serve, because a parent may leave a child's onboarding unsaved (`OI-39`), so sign-ups and completions differ. The admin sees a count only, never which child or when (`BR-admin-limited-view`). The count is built later with `UC-ADM-view-usage-stats` as aggregate functions in Recommendation that return numbers; they are not built here, and no admin-callable function returns a profile or its time. Rejected: no time field, which makes the figure impossible; a separate event log, a second collection for one number. No index on `savedAt` now, as the seed catalog and family numbers are small. The figure is a team proposal and still needs confirming (`UC-ADM-view-usage-stats` Open Issues).
 
+### Rules quiz decisions
+
+**Keep the quiz short.** Ask about mood and length. Each question has an explicit **Any** answer, so a blank answer remains distinguishable from no preference. Requests use exact approved catalog tags from [the field table](rec-field-values.md#rules-quiz-proposal-oi-2). The proposal leaves these choices, batch size and ranking under `OI-2`.
+
+**Filter before ranking.** Catalog returns active, tagged books whose inclusive age band contains the child's recorded age. It excludes book IDs supplied by Accounts & Family and enforces the chosen mood and length. Catalog skips rows missing required tags or a valid age interval. When the query finishes with zero matches, show 4a. When a read fails, show 4b and keep the answers. Never broaden the query after seeing the results.
+
+**Age and grade come first.** Rank eligible books by the grade reference age falling inside the book's age band, then by the distance from the child's age to the band's midpoint. The grade reference age uses preschool = 4, kindergarten = 5, and grades 1–12 = grade + 5. This compares a grade to catalog age bands. It does not produce a reading level. Next use any comparable parent-entered level, then the interest score, then the opaque book ID in ascending ordinal order. A missing onboarding profile or absent history is neutral.
+
+**Use each account's existing signals.** Calculate interest strengths on demand using the rules in [the field table](rec-field-values.md#rules-quiz-proposal-oi-2). The child sees no inputs, scores or note text. Match up to three distinct whole-word or whole-phrase preferences from the newest setup note and the newest finish note against the fixed glossary in the field table. The owner passes recognized keys only. All processing stays on the server. A missing note is neutral. No note text or raw quiz answers are copied into a batch or logs.
+
+**Save once and hand off by state.** Use one transaction for the final consent guard, exclusion read, catalog reads and batch write. Take the child write guard described in #105 ahead of the consent lock as required by the child-deletion design in #105. Use `lockConsentForWrite` before reading exclusions, as in the report design. Report and quiz writes then serialize on the Consent Record. The quiz only saves `pending`. The parent-review flow owns notification, release and the final age/status/exclusion checks. For a global block racing a list write, use the Catalog write contract once it is agreed in #109 (`OI-58` on that branch). Keep the quiz entry unavailable for real use until the parent handoff, child-deletion guard and concurrent block contract are available. Fixture data can exercise the flow before those dependencies land.
+
+**Retry the same request.** Uniqueness on child ID and request UUID handles double-clicks, connection loss and concurrent retries. If an insert collides on that index, read the existing batch for the session's child and the same UUID and acknowledge it. Keep the answers and UUID together on retry. If the child edits an answer, issue a fresh UUID for the changed request. Restart creates a new UUID and resets the quiz. On an uncertain write result, the retry uses the same UUID. Independent new requests may each produce a pending batch. At review time `removeFromPendingBatchInTx` removes a reported book from every matching pending batch for that child.
+
 ## Data model
 
 New collection `readingProfiles` (Recommendation), one document per child with a completed onboarding:
@@ -187,6 +243,18 @@ erDiagram
 - Favorite book IDs reference the Catalog by its internal book ID; the profile copies no book data.
 - `savedAt` is set once, at the insert, from `now()`, and never changed. Its only reader is the "onboardings completed" figure of `UC-ADM-view-usage-stats` (see Key decisions). The profile never returns it to a page or a child.
 - Deleting a child's data or account removes this document (`UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account`). After a data deletion and a new fill-in, `savedAt` is the later save.
+
+### Rules quiz data
+
+Recommendation adds `recommendationBatches` with the fields below. It uses a unique index on `{ childId, requestId }` and a pending lookup index on `{ childId, status, createdAt }`.
+
+| Field | Generation contract |
+|---|---|
+| `_id`, `requestId`, `childId` | Batch ID, form submission UUID, and opaque child ID from the session. |
+| `source`, `status`, `createdAt` | `rules`, `pending`, and UTC time from the shared clock. Parent review owns future status changes. |
+| `bookIds` | Ordered IDs of unique candidates. At generation the list is nonempty and contains at most six books under the `OI-2` proposal. Parent decisions or a block may later remove entries. |
+
+A batch is included in the existing review, export and deletion inventory. It contains no age, grade, reading level, raw answers, note, history, or rank scores. The derived interest strengths are recomputed from retained source records. The only new logging case is a fixed `recommendation-request-failed` event with `PROFILE_INCOMPLETE` and an event ID for 1a. It contains no child ID or inputs, and the server does not retry that refusal.
 
 ## Reuse & cross-cutting
 
@@ -230,7 +298,26 @@ Not used: Notification (no alert is asked for), the audit log (not in the §8.2.
 | Child-facing read | integration | No function a child session can call returns the interests or favorite books (§8.2.11) |
 | Logging | integration | After a success and a failure the logs contain no interests, favorite books or child ID |
 
+### Rules quiz acceptance cases
+
+| Flow | Level | Expected result |
+|---|---|---|
+| Main 1–6, 5a | Integration + browser | A child completes both questions. A fixture with three eligible matches saves all three in deterministic order with `source: rules` and `status: pending`. The child gets an acknowledgment and sees none of the pending books. |
+| 1a | Integration + browser | Missing age or grade refuses Start and re-submission with the parent-help message and one failed-request event per refused action. No batch. |
+| 2a | Browser | Leave before answering. No write, including a prefetched quiz page. |
+| 3a | Unit + browser | Missing and unknown choices are refused. Show the first unanswered question. A direct action call cannot skip the server checks. |
+| 4a | Integration + browser | Use a valid mood/length pair with zero eligible books. No batch and no fallback query. Show “We couldn’t find books for those choices. Try the quiz again.” Restart offers a fresh quiz. |
+| 4b | Integration + browser | Fail the Catalog or a required owning read. Show retry, retain choices and save no batch. |
+| 6a | Integration | A failed write has no pending handoff. An uncertain commit followed by retry of the same ID yields at most one saved batch. Two simultaneous submissions with the same ID do the same. |
+| Ranking | Unit | Verify age boundaries, grade precedence, comparable and missing levels, low rating weight, all signal types, and stable ties. Verify optional signals never override age or exclusions. |
+| Authorization | Integration | Refuse missing/expired and non-child sessions, revoked consent and non-rules mode. Caller cannot select a child. Missing handoff dependencies keep the normal entry unavailable. |
+| Safety and handoff | Integration + browser | Blocked, draft and reported books are absent. A report racing creation is either seen during generation or removes the committed pending item under the parent-review contract. Test the global-block race once the Catalog write contract is agreed. Parent sees only their linked child's batch. |
+| Child data | Integration | Assert absence of raw quiz answers, age, grade, level, note and scores from the batch, response and logs. Check the batch in review/export and deletion integration once those use cases land. |
+| Seed catalog | Integration | Benchmark all eligible combinations over the 134 source rows after import. Record elapsed time and result count internally. The target and traffic assumptions remain `OI-11` and `OI-12`. |
+
 ## Changes to the architecture-of-record
+
+The rules quiz uses existing boundaries in §5.2 and the report-exclusion decision. No architecture rule changes are proposed.
 
 - §5.2 Accounts & Family: the words "and their onboarding answers" are removed; Recommendation owns the reading profile, as its own row and the paragraph after the table already say. Edited in `architectural-design.md` in this pull request.
 - `BR-kid-data-stored`, `BR-admin-limited-view`, `FR-ADM-child-lookup`, `KD-admin-usage-lookup` and the use case's Associated Information are edited in this pull request (child sees no raw interests; admin lookup lists no interests).
@@ -254,6 +341,13 @@ What this design had to assume. The developer accepted each on 2026-11-16 on the
 - **Accepted risk:** parents could pick a long list of favorites that skews the first recommendations; the cap limits it. How favorites weigh in is `UC-REC-recommend-quiz-rules`'s to decide.
 
 ---
+
+### Rules quiz open decisions
+
+- **Client and team (`OI-2`).** Confirm the two questions and their choices, the six-book maximum and the provisional signal weights. The SRS still lists these as TBD.
+- **Parent review (#72).** This design hands off a pending batch. The owner must confirm the notification and non-blocking release policy, reporting across pending batches, and the behavior when eligibility checks leave no books. The quiz makes no assumption about a release deadline.
+- **Catalog and consent.** Import the seed through Catalog, with only approved active rows eligible. The families contract must support the consent lock, and the child-deletion design must provide its guard. Catalog/Shelf/REC must settle the concurrent block contract in #109 before enabling the normal flow.
+- **Seed coverage.** The source workbook has 134 rows. Across ages 6–11 and the proposed mood/length choices, 17 of 144 combinations have no raw age/mood/length matches and 59 have one to five. This is a source-sheet check before import, status or report exclusions. It gives the team something to check when agreeing the quiz options under `OI-2`.
 
 ## Working this document with your agent
 

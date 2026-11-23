@@ -142,7 +142,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-delete-kid-account` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-approve-shelf-request` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-onboarding` |  | ✅ Built | [design/rec.md](../design/rec.md) | [action](../src/app/(parent)/parent/children/[childId]/reading-profile/actions.ts), [page](../src/app/(parent)/parent/children/[childId]/reading-profile/page.tsx), [Recommendation](../src/server/recommendation/reading-profiles.ts), [Catalog reads](../src/server/catalog/books.ts) | Units: `schema.test.ts` (3, 4a cap). Integration: `reading-profiles.int.test.ts` (main, 3, 4, 4a, 5a, 1a incl. simultaneous saves, PRE-2, logging, admin boundary), `actions.int.test.ts` (authorization, consent, check order, 3, 4a, 1a, step 6), `schema-setup.int.test.ts` (index, validator). End to end: `reading-profile.spec.ts` (main, abandon, notice, 5a, 1a, PRE-2). The admin-lookup half of the admin boundary row waits for `UC-ADM-view-usage-stats` | ✅ Verified |
-| `UC-REC-recommend-quiz-rules` |  | ❌ Not started |  |  |  |  |
+| `UC-REC-recommend-quiz-rules` | MVP | 📐 Designed | [design/rec.md](../design/rec.md#uc-rec-recommend-quiz-rules); quiz and ranking values proposed under `OI-2`; release depends on `UC-REC-parent-review` |  |  |  |
 | `UC-REC-recommend-quiz-ai` | Later (`FEAT-ai-recommendation`) | ❌ Not started |  |  |  |  |
 | `UC-REC-parent-review` |  | ❌ Not started |  |  |  |  |
 | `UC-REC-kid-review` |  | ❌ Not started |  |  |  |  |

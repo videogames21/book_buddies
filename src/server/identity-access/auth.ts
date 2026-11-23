@@ -7,8 +7,9 @@ import {
 } from "next-auth";
 import { cookies } from "next/headers";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { getConfig } from "@/server/lib/config";
+import { getAppUrl, getConfig } from "@/server/lib/config";
 import { getMongoClient } from "@/server/lib/db";
+import { SESSION_MAX_AGE_SECONDS, sessionCookie } from "./session-cookie";
 
 declare module "next-auth" {
   interface Session {
@@ -16,18 +17,24 @@ declare module "next-auth" {
   }
 }
 
-// Auth.js with database sessions (KD-auth-sessions). The sign-in providers and the
-// Credentials-to-database-session glue arrive with UC-PAR-onboarding; this use case
-// only reads the session. The config is a function so the environment is read on
-// first request, not at build time.
+// Auth.js with database sessions (KD-auth-sessions). Auth.js reads, expires and
+// deletes sessions; Identity & Access writes them (sessions.ts), so sign-up can create
+// one inside its transaction (design/par.md, refinement of KD-auth-sessions). There
+// are no providers. The config is a function so the environment is read on first
+// request, not at build time.
 export async function auth() {
   // Establish the request boundary before reading runtime-only configuration.
   await cookies();
+  // APP_URL is the app's one origin setting; Auth.js reads this name for it. Writing it
+  // on every request is safe: the value is the same for the life of the process and
+  // comes from configuration, never from the request.
+  process.env.NEXTAUTH_URL = getAppUrl();
   return getServerSession({
     adapter: MongoDBAdapter(() => getMongoClient(), {
       databaseName: getConfig().MONGODB_DB,
     }),
-    session: { strategy: "database" },
+    session: { strategy: "database", maxAge: SESSION_MAX_AGE_SECONDS },
+    useSecureCookies: sessionCookie().secure,
     secret: getConfig().AUTH_SECRET,
     providers: [],
     logger: {

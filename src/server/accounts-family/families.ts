@@ -2,10 +2,26 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { ObjectId } from "mongodb";
 import { appendUnconfirmedPurgeAudit } from "@/server/audit/audit-log";
-import { deleteParentAccount } from "@/server/identity-access/parent-accounts";
+import {
+  deleteParentAccount,
+  EmailTakenError,
+  findParentByEmail,
+  insertMainParent,
+} from "@/server/identity-access/parent-accounts";
+import { hashPassword } from "@/server/identity-access/passwords";
+import {
+  createDatabaseSession,
+  setSessionCookie,
+} from "@/server/identity-access/sessions";
+import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
-import { getDb, type Tx } from "@/server/lib/db";
+import { getConfig } from "@/server/lib/config";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
+import { logUnexpectedError } from "@/server/lib/log";
+import { sendEmail } from "@/server/notification/email";
 import { familyHasChild } from "./child-accounts";
+import { buildConsentEmail } from "./consent-email";
+import { consentNoticeVersion } from "./consent-notice";
 import { CONSENT_RECORDS } from "./consent-record-schema";
 
 // Accounts & Family's families (UC-PAR-onboarding). A family is its `familyId`; there
@@ -52,6 +68,92 @@ export async function removeExpiredUnconfirmedFamily(
   await deleteParentAccount(tx, userId);
   await appendUnconfirmedPurgeAudit(tx, userId, familyId);
   return true;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type NewParent = { name: string; email: string; password: string };
+
+export type SignUpErrorCode = "EMAIL_TAKEN" | "SAVE_FAILED";
+
+/**
+ * UC-PAR-onboarding step 5. One transaction writes the Main Parent, the Consent Record
+ * and the session (5a). The cookie and the email come after the commit, so a failure
+ * there cannot be reported as "nothing saved": the account exists, and the parent is
+ * offered a resend (5b) or can sign in.
+ */
+export async function createFamily(
+  input: NewParent,
+): Promise<ActionResult<{ emailSent: boolean }, SignUpErrorCode>> {
+  const passwordHash = await hashPassword(input.password);
+  const { token, tokenHash } = newConfirmationToken();
+  const familyId = new ObjectId();
+  const acknowledgedAt = now();
+  const { CONSENT_CONFIRMATION_DAYS: days, CONSENT_METHOD: method } =
+    getConfig();
+  const noticeVersion = consentNoticeVersion(days);
+  const confirmBy = new Date(acknowledgedAt.getTime() + days * DAY_MS);
+
+  let session;
+  try {
+    session = await withTransaction(async (tx) => {
+      // 6a: an account past its deadline is already gone; remove what is left of it.
+      const existing = await findParentByEmail(input.email, tx);
+      if (existing?.parentRole === "main") {
+        await removeExpiredUnconfirmedFamily(tx, existing.familyId);
+      }
+      const userId = await insertMainParent(tx, {
+        name: input.name,
+        email: input.email,
+        passwordHash,
+        familyId: familyId.toHexString(),
+      });
+      await getDb()
+        .collection(CONSENT_RECORDS)
+        .insertOne(
+          {
+            familyId,
+            parentUserId: new ObjectId(userId),
+            noticeVersion,
+            method,
+            acknowledgedAt,
+            confirmBy,
+            confirmationTokenHash: tokenHash,
+          },
+          { session: tx },
+        );
+      return createDatabaseSession(userId, tx);
+    });
+  } catch (err) {
+    if (err instanceof EmailTakenError) {
+      return fail(
+        "EMAIL_TAKEN",
+        "An account already uses this email. Sign in, or reset your password.",
+      );
+    }
+    return fail(
+      "SAVE_FAILED",
+      "We couldn't create your account. Please try again.",
+      logUnexpectedError("createFamily", err),
+    );
+  }
+
+  try {
+    await setSessionCookie(session);
+  } catch (err) {
+    logUnexpectedError("createFamily: session cookie", err);
+  }
+  let emailSent = false;
+  try {
+    const sent = await sendEmail({
+      to: input.email,
+      ...buildConsentEmail({ token, confirmBy, noticeVersion }),
+    });
+    emailSent = sent.ok;
+  } catch (err) {
+    logUnexpectedError("createFamily: confirmation email", err);
+  }
+  return ok({ emailSent });
 }
 
 export type OnboardingStep =

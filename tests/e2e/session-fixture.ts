@@ -1,13 +1,13 @@
 import { ensureIndexes } from "../../src/server/setup/ensure-indexes";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MongoClient, ObjectId, type Db } from "mongodb";
 import type { BrowserContext } from "@playwright/test";
 
-// Test-only session fixture. Sign-in belongs to UC-PAR-onboarding, which is not built,
-// so the tests write an Auth.js database session directly and set its cookie. Never
-// used by the app. Invented accounts only.
+// Test-only session fixture, for tests that start after sign-in: it writes an Auth.js
+// database session directly and sets its cookie. Never used by the app. Invented
+// accounts only.
 
 let client: MongoClient | undefined;
 
@@ -42,9 +42,18 @@ export async function signInParent(
     familyId,
     email: `parent-${userId.toHexString()}@example.test`,
   });
+  const acknowledgedAt = new Date();
   await db.collection("consentRecords").insertOne({
     familyId,
-    ...(options.consentConfirmed && { confirmedAt: new Date() }),
+    parentUserId: userId,
+    noticeVersion: "test",
+    method: "email-plus",
+    acknowledgedAt,
+    confirmBy: new Date(acknowledgedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
+    confirmationTokenHash: createHash("sha256")
+      .update(randomBytes(32))
+      .digest("hex"),
+    ...(options.consentConfirmed && { confirmedAt: acknowledgedAt }),
   });
 
   const sessionToken = randomBytes(32).toString("hex");

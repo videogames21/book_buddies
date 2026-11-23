@@ -34,7 +34,6 @@ export async function checkCreateChildAccess(): Promise<
   return ok(session.data);
 }
 
-// Routes owned by use cases not built yet (UC-PAR-onboarding, UC-REC-kid-onboarding).
-// Placeholders until those are designed; see design/par.md, Open questions.
 export const SIGN_IN_PATH = "/sign-in";
+// The check-email page arrives with the rest of UC-PAR-onboarding (design/par.md).
 export const CHECK_EMAIL_PATH = "/parent/onboarding/check-email";

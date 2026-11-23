@@ -51,6 +51,29 @@ it("makes users.email unique where set, so 4a is race-free (UC-PAR-onboarding)",
   await users.deleteMany({});
 });
 
+it("makes signInAttempts unique per account key and indexes its expiry", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const attempts = getDb().collection("signInAttempts");
+  const indexes = await attempts.indexes();
+  expect(
+    indexes.find((index) => index.name === "accountKey_unique"),
+  ).toMatchObject({ key: { accountKey: 1 }, unique: true });
+  expect(indexes.find((index) => index.name === "expiresAt")).toMatchObject({
+    key: { expiresAt: 1 },
+  });
+  const row = {
+    accountKey: "invented@example.test",
+    failures: 0,
+    allowedAt: new Date(),
+    expiresAt: new Date(),
+  };
+  await attempts.insertOne({ ...row });
+  await expect(attempts.insertOne({ ...row })).rejects.toThrow(/duplicate key/);
+  await attempts.deleteMany({});
+});
+
 it("creates consentRecords with a unique familyId and a validator (DI-consent-record)", async () => {
   const { ObjectId } = await import("mongodb");
   const { getDb } = await import("@/server/lib/db");

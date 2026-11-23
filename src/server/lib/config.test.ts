@@ -51,6 +51,21 @@ it("reads the consent window from the environment, so legal review needs no code
   expect(getConfig().CONSENT_CONFIRMATION_DAYS).toBe(30);
 });
 
+it("accepts a 90-day consent window and refuses 91", async () => {
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("CONSENT_CONFIRMATION_DAYS", "90");
+  const accepted = await import("./config");
+  expect(accepted.getConfig().CONSENT_CONFIRMATION_DAYS).toBe(90);
+
+  vi.resetModules();
+  vi.stubEnv("CONSENT_CONFIRMATION_DAYS", "91");
+  const refused = await import("./config");
+  expect(() => refused.getConfig()).toThrow(
+    "Invalid environment: CONSENT_CONFIRMATION_DAYS",
+  );
+});
+
 it("treats blank settings that have defaults as unset", async () => {
   vi.resetModules();
   vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");

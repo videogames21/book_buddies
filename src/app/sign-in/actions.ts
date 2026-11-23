@@ -6,7 +6,7 @@ import {
   type SignInCode,
 } from "@/server/identity-access/sign-in";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
-import { logUnexpectedError } from "@/server/lib/log";
+import { logSecurityEvent, logUnexpectedError } from "@/server/lib/log";
 import { signInSchema } from "./schema";
 
 export type SignInParentCode = SignInCode | "SIGN_IN_FAILED";
@@ -22,6 +22,7 @@ export async function signInParent(
   try {
     const parsed = signInSchema.safeParse(input);
     if (!parsed.success) {
+      logSecurityEvent("sign-in-refused", "INVALID_CREDENTIALS");
       return fail(
         "INVALID_CREDENTIALS",
         "That email or password is incorrect.",
@@ -31,7 +32,10 @@ export async function signInParent(
       parsed.data.email,
       parsed.data.password,
     );
-    if (!result.ok) return result;
+    if (!result.ok) {
+      logSecurityEvent("sign-in-refused", result.error.code);
+      return result;
+    }
     await setSessionCookie(result.data);
     return ok(null);
   } catch (err) {

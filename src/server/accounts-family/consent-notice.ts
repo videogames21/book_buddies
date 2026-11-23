@@ -3,12 +3,17 @@ import "server-only";
 // The direct notice shown at sign-up (UC-PAR-onboarding step 2) and restated in the
 // confirmation email (step 5). TEAM- AND LAWYER-EDITABLE: placeholder wording until
 // legal review (OI-20, OI-21). It holds every element BR-coppa-notice lists. Changing
-// any text below means raising CONSENT_NOTICE_VERSION, which each Consent Record
-// stores, so a record always points at the exact text the parent saw.
+// any text below means raising CONSENT_NOTICE_VERSION. Each Consent Record stores
+// consentNoticeVersion(days), so it always points at the exact text the parent saw,
+// including the configured window.
 
 export const CONSENT_NOTICE_VERSION = "2026-11-20-placeholder";
 
 export type ConsentNoticeSection = { heading: string; paragraphs: string[] };
+
+export function consentNoticeVersion(confirmationDays: number): string {
+  return `${CONSENT_NOTICE_VERSION}-${String(confirmationDays)}d`;
+}
 
 /** `confirmationDays` is the configured window (OI-22), stated in the notice. */
 export function consentNotice(

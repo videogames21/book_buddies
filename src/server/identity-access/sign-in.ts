@@ -1,8 +1,7 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { findParentByEmail } from "./parent-accounts";
-import { hashPassword, verifyPassword } from "./passwords";
+import { verifyPassword } from "./passwords";
 import { createDatabaseSession, type NewSession } from "./sessions";
 import { claimSignInAttempt, clearSignInAttempts } from "./sign-in-throttle";
 
@@ -12,10 +11,11 @@ import { claimSignInAttempt, clearSignInAttempts } from "./sign-in-throttle";
 export type SignInCode = "INVALID_CREDENTIALS" | "TOO_MANY_ATTEMPTS";
 
 // Checked when no usable account exists, so an unknown email takes as long as a wrong
-// password and the response time does not reveal which emails have accounts.
-let decoyHash: Promise<string> | undefined;
-const getDecoyHash = () =>
-  (decoyHash ??= hashPassword(randomBytes(32).toString("hex")));
+// password and the response time does not reveal which emails have accounts. It is a
+// fixed hash of a discarded random password, so it cannot fail or add work on a cold
+// start. Raise it with the cost in passwords.ts; sign-in's tests compare the two.
+const DECOY_HASH =
+  "scrypt$131072$8$1$ASF4qnLVVD7atYpYJEuqrg==$qlkASV3hwmIhSA4/KhIZNxlILS69qMropx/FchDk4LL2++uZRhHATluhGXsaQVYcGUl6AkayphRjPPJ9EnVksw==";
 
 function waitMessage(seconds: number): string {
   const [amount, unit] =
@@ -37,7 +37,7 @@ export async function signInMainParent(
   const parent = await findParentByEmail(email);
   const matches = await verifyPassword(
     password,
-    parent?.passwordHash ?? (await getDecoyHash()),
+    parent?.passwordHash ?? DECOY_HASH,
   );
   // Sub Parent sign-in comes with UC-PAR-create-sub-parent-account.
   if (!parent || parent.parentRole !== "main" || !matches) {

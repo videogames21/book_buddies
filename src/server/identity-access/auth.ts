@@ -25,7 +25,9 @@ declare module "next-auth" {
 export async function auth() {
   // Establish the request boundary before reading runtime-only configuration.
   await cookies();
-  // APP_URL is the app's one origin setting; Auth.js reads this name for it.
+  // APP_URL is the app's one origin setting; Auth.js reads this name for it. Writing it
+  // on every request is safe: the value is the same for the life of the process and
+  // comes from configuration, never from the request.
   process.env.NEXTAUTH_URL = getAppUrl();
   return getServerSession({
     adapter: MongoDBAdapter(() => getMongoClient(), {

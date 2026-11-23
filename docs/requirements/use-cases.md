@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.17
+**Version:** 0.18
 
 ---
 
@@ -38,6 +38,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-17]_ | 0.15    | `UC-SHLF-parent-view-shelf`: the confirmed-finished icon and "Edit note" show on a confirmed book in any category, as `UC-SHLF-par-finish-book` POST-1 and `UC-SHLF-kid-move-book` 3d already say; added extension 1b (no linked child) and the no-existence-leak wording in 2c; stated that a rating shows on any entry still on the shelf and is not shown once its entry is removed or the book is blocked (team proposal, `OI-41`). The same rule is now stated in `UC-SHLF-kid-remove-book`, `UC-SHLF-parent-remove-book` and `UC-ADM-block-content`, which had left it open | _Tam Nguyen_, _Claude_ |
 | _[2026-11-17]_ | 0.16    | `UC-PAR-onboarding`, from its design (`design/par.md`): added extension 5b (the confirmation email fails to send; the account is kept and resend is offered); step 7 has the Parent confirm on the page the link opens; 4a's password-reset link leads to the reset flow designed with this use case (`OI-44`); the parent password rule is set (8–128 characters, developer decision); the data tables of `UC-PAR-onboarding` and `UC-PAR-create-kid-account` now carry the values the developer approved in `design/par-field-values.md`; 6a treats the account as expired from the deadline on; open issues cite `OI-44` (no sign-in use case) | _Claude_ |
 | _[2026-11-20]_ | 0.17    | `UC-SHLF-kid-view-shelf`, from its design (`design/shlf.md`): step 5 shows the book's details (cover, title, author, series name) and the child's own rating; 2a and 3a say the four categories always show, with the empty-state message at the top and nothing under an empty category; 3c lets the child move or remove an entry awaiting confirmation; 3d and 3f keep a notice on screen until the child taps OK; new Associated Information rows for the book details and the child's rating; `UC-SHLF-par-finish-book` 1a and its child notice row match; `BR-parent-shelf-removal` added | _Claude_ |
+| _[2026-11-22]_ | 0.18    | `UC-ADM-add-content`, from `design/adm.md`: an optional cover picture on the add form (step 2, extension 4j and the data table), stored by the system so no cover loads from another site. | _Claude_ |
 
 ---
 
@@ -1796,7 +1797,7 @@ _The system admin operates the catalog and the system and receives safety alerts
 **Main Success Scenario:**
 
 1. The admin taps "Add Book."
-2. The system displays the book form: title, author, year, ISBN with a "This book has no ISBN" checkbox, tag fields for genre, subjects, mood, format, length, suggested age min, suggested age max, reading challenge and an optional reading level, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
+2. The system displays the book form: title, author, year, ISBN with a "This book has no ISBN" checkbox, tag fields for genre, subjects, mood, format, length, suggested age min, suggested age max, reading challenge and an optional reading level, an optional cover picture, and a custom tag field that offers the existing custom tags and lets the admin type a new one.
 3. The admin enters the book's details (the system assigns an internal book ID on save), chooses standard tags, and adds custom tags by choosing an existing custom tag or typing a new one.
 4. The system validates the required fields, checks each standard tag value against its approved list, and normalizes each custom tag (trims spaces and ignores letter case).
 5. The system checks that the book is not already in the catalog: no book, in any status, has the same ISBN, or the same title and author (ignoring letter case, extra spaces, accents and punctuation).
@@ -1816,6 +1817,7 @@ _The system admin operates the catalog and the system and receives safety alerts
 - 4g. More custom tags are given than the limit (team proposal: 10). The system shows an inline error and returns to step 3.
 - 4h. The admin leaves the ISBN empty without ticking "This book has no ISBN", or fills in the ISBN and ticks the box. The system shows an inline error and returns to step 3.
 - 4i. A suggested age is outside 0 to 21 (team proposal). The system shows a warning, not an error, and the admin may save anyway. An age range never rejects a book.
+- 4j. A cover picture is given but is not a JPEG, PNG or WebP, or is larger than the size limit (team proposal: 300 KB). The system shows an inline error and returns to step 3. The admin may also leave the picture out.
 - 5a. A matching book already exists, whatever its status, including a blocked book. The system shows the existing entry and offers to open it instead. No new record is created.
 - 6a. Saving fails. The system shows an error and saves nothing; no partial book and no audit entry is left behind.
 
@@ -1839,6 +1841,7 @@ _The system admin operates the catalog and the system and receives safety alerts
 | Suggested age max   | integer                      | required; a whole number; not less than suggested age min                                                                                                                                                          | Admin-set; used by the recommender                                                                                                 | —                  |
 | Reading challenge   | enum                         | required; one value from the approved reading challenge list (`design/adm-field-values.md`)                                                                                                                              | Admin-set; used by the recommender                                                                                                 | —                  |
 | Reading level       | string                       | optional; if given, a value on an accepted scale (Lexile, AR/ATOS, DRA, Guided Reading Level, or a grade-level range)                                                                                              | Admin-set; used by the recommender as a difficulty input (`BR-reading-level-proxy`); never shown to children (`BR-kid-no-metrics`) | Reading Level      |
+| Cover picture       | image file                   | optional; JPEG, PNG or WebP; at most 300 KB (4j, team proposal); stored by the system, never linked from another site                                                                                                  | Admin-set; visible to children and parents; the system serves it only to a signed-in user                                           | —                  |
 | Custom tags         | list of strings              | optional; each entry trimmed and case-normalized; 1–30 characters; at most 10 per book (team proposal); must not duplicate an existing custom tag (team proposal)                                                  | Admin-created; shared across the catalog; whether children see them is TBD                                                         | —                  |
 | ISBN                | string                       | optional, but the admin must tick "This book has no ISBN" to leave it empty (4h); a valid ISBN-10 or ISBN-13 when given (team proposal)                                                                            | Admin-set; used for external matching                                                                                              | —                  |
 | Internal book ID    | opaque identifier            | system-generated; unique; never reused; the key every other record uses                                                                                                                                            | System-set; the ISBN is only for matching to outside records                                                                       | —                  |

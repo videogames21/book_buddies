@@ -155,6 +155,9 @@ Nothing in this use case reaches a child's or parent's screen (§8.2.11).
 
 **A blocked or draft book counts as a duplicate.** The indexes cover every status. Rejected: ignoring blocked books, which would let an admin re-add a blocked book as a new one and bypass the block (`SAF-child-content`).
 
+**`seriesName` is an optional field that the catalog import fills from the seed spreadsheet's "Series name (optional)" column.** It is absent, never an empty string, when the cell is empty. The child's shelf reads it (`design/shlf.md`, `getBooksForShelf`). The add form does not offer it, because `UC-ADM-add-content`'s data table does not list it; a later `UC-ADM-edit-content` design can add it. It takes no part in `matchKey` or the ISBN check, so it cannot cause a duplicate.
+
+
 **The ISBN is optional, stored as ISBN-13 digits only, and omitted when there is none.** `normalizeIsbn` strips hyphens and spaces, validates the check digit (an `X` counts as 10 in an ISBN-10), and converts an ISBN-10 by adding the 978 prefix and recomputing the check digit. To save without an ISBN the admin must tick "This book has no ISBN"; leaving the field empty with the box unticked, or filling it and ticking the box, is `ISBN_CHOICE_REQUIRED`. The box is a request field only, not stored; a book with no ISBN has no `isbn` field at all, never `null` or an empty string, so the partial unique index ignores it. Rejected: storing what was typed, because one book entered once as ISBN-10 and once as ISBN-13 would pass the duplicate check.
 
 **`buildMatchKey` folds case, spacing, accents and punctuation, with these exact steps.** `normalizeText` applies, to the title and to the author separately: Unicode NFKC; `toLowerCase()`; NFD, then remove combining marks (`\p{M}`); remove punctuation (`\p{P}`, which includes straight and curly apostrophes and quotes); collapse each run of whitespace to one space; trim. `buildMatchKey` joins the two results with the unit separator U+001F, which no entered text contains, so ("a b", "c") and ("a", "b c") cannot collide. The import calls this same function. Expected results are in the Tests table. Accepted: "Spider-Man" and "Spiderman" are one book, and "Spider Man" is not. Rejected: fuzzy or phonetic matching, which would reject real different books and which no requirement asks for.
@@ -205,13 +208,14 @@ erDiagram
         int ageMax
         string readingChallenge
         string readingLevel "optional"
+        string seriesName "optional, absent when the book is in no series"
         list customTags "lowercased, optional"
         string status "draft, active or blocked; draft on add"
         date createdAt "UTC, from the clock module"
     }
 ```
 
-- Indexes, created by `ensure-indexes.ts`: unique on `matchKey`; unique on `isbn`, partial with the filter `{ isbn: { $type: "string" } }`. The `$jsonSchema` validator (§8.2.5) is the backstop and is set by `ensure-indexes.ts` (`createCollection` with the validator if the collection is missing, otherwise `collMod`, so the setup stays idempotent), with `validationLevel: "strict"` and `validationAction: "error"`. It requires `_id`, `title`, `author`, `matchKey`, `year`, `genres`, `moods`, `format`, `length`, `ageMin`, `ageMax`, `readingChallenge`, `status` and `createdAt`; checks their types; requires at least one entry in `genres` and `moods`; limits `status` to `draft`, `active` and `blocked`; and, when `isbn` is present, requires 13 digits. It does not list the approved tag values, which live only in `tags.ts`, so adding a value never needs a `collMod`, and it leaves other fields allowed so later designs can add some. No index on `status` yet, since the seed is small (`AS-seed-catalog-size`).
+- Indexes, created by `ensure-indexes.ts`: unique on `matchKey`; unique on `isbn`, partial with the filter `{ isbn: { $type: "string" } }`. The `$jsonSchema` validator (§8.2.5) is the backstop and is set by `ensure-indexes.ts` (`createCollection` with the validator if the collection is missing, otherwise `collMod`, so the setup stays idempotent), with `validationLevel: "strict"` and `validationAction: "error"`. It requires `_id`, `title`, `author`, `matchKey`, `year`, `genres`, `moods`, `format`, `length`, `ageMin`, `ageMax`, `readingChallenge`, `status` and `createdAt`; checks their types; requires at least one entry in `genres` and `moods`; limits `status` to `draft`, `active` and `blocked`; and, when `isbn` is present, requires 13 digits; and when `seriesName` is present, requires a non-empty string. It does not list the approved tag values, which live only in `tags.ts`, so adding a value never needs a `collMod`, and it leaves other fields allowed so later designs can add some. No index on `status` yet, since the seed is small (`AS-seed-catalog-size`).
 - No child data, no name and no age of any child: a book's `ageMin` and `ageMax` describe the book (the glossary's Age Band), not a child (`KD-pii-segregation`).
 - `status` takes the three values of `DI-catalog-status`. Add writes only `draft`.
 - Audit: one entry per add in the existing append-only collection, IDs only (§8.2.9).
@@ -236,6 +240,7 @@ Not used: Notification, the Child Identity Store, Accounts & Family, and the cat
 |---|---|---|
 | UC-ADM-add-content main | integration | An admin adds a book with every required field: one `books` document with a UUID ID, the entered values, status `draft` and `createdAt` equal to the clock's `now()`, and one `catalog.book_added` audit entry; the result carries the book ID |
 | UC-ADM-add-content main, draft only | integration | A book with every required tag is still saved `draft`, never `active` |
+| Catalog field, series | integration | A book with no `seriesName` is saved with the field absent; an empty-string `seriesName` is rejected by the validator; the catalog import sets it only when its spreadsheet cell is not empty |
 | UC-ADM-add-content main, optional fields | integration | With no ISBN (box ticked), subjects, reading level or custom tags the book is saved and those fields are absent, including `isbn` itself; two books with no ISBN can both be saved |
 | UC-ADM-add-content main | end-to-end | The admin taps Add Book, fills the form, saves, and sees the book in the catalog list with status draft (steps 1 to 7) |
 | UC-ADM-add-content status | integration | A request that carries a status value is stripped: the stored status is `draft` |

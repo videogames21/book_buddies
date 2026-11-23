@@ -38,6 +38,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-17]_ | 0.15    | `UC-SHLF-parent-view-shelf`: the confirmed-finished icon and "Edit note" show on a confirmed book in any category, as `UC-SHLF-par-finish-book` POST-1 and `UC-SHLF-kid-move-book` 3d already say; added extension 1b (no linked child) and the no-existence-leak wording in 2c; stated that a rating shows on any entry still on the shelf and is not shown once its entry is removed or the book is blocked (team proposal, `OI-41`). The same rule is now stated in `UC-SHLF-kid-remove-book`, `UC-SHLF-parent-remove-book` and `UC-ADM-block-content`, which had left it open | _Tam Nguyen_, _Claude_ |
 | _[2026-11-17]_ | 0.16    | `UC-PAR-onboarding`, from its design (`design/par.md`): added extension 5b (the confirmation email fails to send; the account is kept and resend is offered); step 7 has the Parent confirm on the page the link opens; 4a's password-reset link leads to the reset flow designed with this use case (`OI-44`); the parent password rule is set (8–128 characters, developer decision); the data tables of `UC-PAR-onboarding` and `UC-PAR-create-kid-account` now carry the values the developer approved in `design/par-field-values.md`; 6a treats the account as expired from the deadline on; open issues cite `OI-44` (no sign-in use case) | _Claude_ |
 | _[2026-11-21]_ | 0.17    | `UC-PAR-report-book`, from its design (`design/par.md`) and its review: the open issues cite the conflict between the "Reported book" rule and 7b (`OI-54`) and the comment limit, still TBD (`OI-55`); the reason list cites `OI-52`; the "Reported by" row no longer says parent-visible, since no step shows the reporter, and cites `OI-53` for the client to confirm; `BR-parent-content-removal` is no longer cited, since it governs flagged content and abuse reports, not book reports | _McKenzie Mitchell-Richardson_, _Claude_ |
+| _[2026-11-20]_ | 0.18    | `UC-SHLF-kid-view-shelf`, from its design (`design/shlf.md`): step 5 shows the book's details (title, author, series name) and the child's own rating; 2a and 3a say the four categories always show, with the empty-state message at the top and nothing under an empty category; 3c lets the child move or remove an entry awaiting confirmation; 3d and 3f keep a notice on screen until the child taps OK; new Associated Information rows for the book details and the child's rating; `UC-SHLF-par-finish-book` 1a and its child notice row match; `BR-parent-shelf-removal` added; step 3 and its Associated Information show the title and no cover, which is left to its own use case | _Claude_ |
 
 ---
 
@@ -1258,33 +1259,36 @@ The view runs from a stored shelf and does not recompute anything, so a failed l
 
 1. The child taps "My Shelf."
 2. The system loads the child's shelf entries.
-3. The system displays the entries grouped under Reading Now, Want to Read, Maybe Later, and Finished, each with its cover and title, using large tap targets.
+3. The system displays the entries grouped under Reading Now, Want to Read, Maybe Later, and Finished, each with its title, using large tap targets. The cover is left out until the team decides where covers come from (`design/shlf.md`, Open items).
 4. The child taps a book.
-5. The system displays the book's shelf actions: move, remove, and, for books whose finish the parent has confirmed, rate. A book with a confirmed finish carries the confirmed-finished icon in any category.
+5. The system displays the book's details (title, author and, for a book in a series, the series name) and the child's own rating if there is one, with the book's shelf actions: move, remove, and, for books whose finish the parent has confirmed, rate. A book with a confirmed finish carries the confirmed-finished icon in any category.
 6. The child leaves the shelf. Use case ends.
 
 **Extensions:**
 
-- 2a. The child has no shelf entries. The system displays a short empty-state message that points the child to get recommendations, not a count or a zero.
+- 2a. The child has no shelf entries. The system still shows the four categories, with a short message at the top that points the child to find a book and get recommendations, not a count or a zero.
 - 2b. Loading fails. The system displays a retry message and does not show a partial shelf.
-- 3a. A category has no entries. The system still shows the category heading with a one-line empty state, so the four-category layout stays the same for every child.
-- 3c. A book is in Finished with its finish awaiting confirmation. The system shows it grayed out, without the confirmed-finished icon and without a rating action.
-- 3d. A parent said a book was not finished (`UC-SHLF-par-finish-book` 4b). The first time the child opens the shelf afterwards, the system shows once: "Whoops! Looks like you didn't finish your book. It went back to where it was." The book is already back in its earlier category, and the notice does not show again.
+- 3a. A category has no entries. The system still shows the category heading with nothing under it and no message, so the four-category layout stays the same for every child.
+- 3c. A book is in Finished with its finish awaiting confirmation. The system shows it grayed out, without the confirmed-finished icon and without a rating action. The child can still move or remove it, which cancels the parent's request (`UC-SHLF-par-finish-book` 1a).
+- 3d. A parent said a book was not finished (`UC-SHLF-par-finish-book` 4b). When the child opens the shelf afterwards, the system shows: "Whoops! Looks like you didn't finish your book. It went back to where it was." The book is already back in its earlier category. The notice stays, with an OK button, every time the child opens the shelf until the child taps OK, and then it does not show again.
 - 3e. The child taps "My Dashboard." The system opens `UC-SHLF-kid-dashboard`; leaving it returns the child to the shelf.
 - 3b. The admin blocks a book on the child's shelf. `UC-ADM-block-content` removes the shelf entry, so the book is no longer on the shelf the next time it loads; the child is not told (`UC-ADM-block-content` Assumptions).
+- 3f. A parent removed a book from the shelf (`UC-SHLF-parent-remove-book`) or reported it (`UC-PAR-report-book`) and the child has not yet tapped OK on the notice. When the child opens the shelf afterwards, the system shows the removal notice with an OK button every time the child opens the shelf until the child taps OK, and then it does not show again. The book is already off the shelf.
 - 5a. The child taps an action that the book's current state does not allow, such as rating a book whose finish is not confirmed. The system does not offer the action.
 
 **Priority:** High — the shelf is the child's main place in the app after a recommendation is accepted.\
 **Frequency of Use:** Several times per week per active child.\
-**Business Rules:** `BR-kid-anonymous-profile`, `BR-kid-no-metrics`, `BR-parent-account-linked`
+**Business Rules:** `BR-kid-anonymous-profile`, `BR-kid-no-metrics`, `BR-parent-account-linked`, `BR-parent-shelf-removal`
 
 **Associated Information:**
 
 | Property name        | Data type                                              | Validation rule                                              | Security or access concerns     | Glossary reference   |
 |----------------------|--------------------------------------------------------|--------------------------------------------------------------|---------------------------------|----------------------|
 | Shelf category       | enum: Reading Now, Want to Read, Maybe Later, Finished | required; one value per entry                                | Visible to the child and parent | Shelf (`FEAT-shelf`) |
-| Book cover and title | catalog reference                                      | required; from the seed catalog                              | Visible to the child and parent | Seed Catalog         |
+| Book title           | catalog reference                                      | required; from the seed catalog; no cover yet                | Visible to the child and parent | Seed Catalog         |
 | Display order        | system-set                                             | Within a category, most-recently-moved first (team proposal) | Not shown as a number           | —                    |
+| Book details         | catalog fields: title, author, series name      | shown when the child taps a book; the reading level and every other tag are not shown (team proposal) | Visible to the child and parent | Seed Catalog         |
+| Child's own rating   | enum: Loved it, Liked it, It was okay, Not for me      | shown only if the child has rated the book; rated only after a parent confirmed the finish (`UC-SHLF-par-finish-book`) | Visible to the child and parent; shown as words, never a number | Rating |
 
 The child interface shows no counts, streaks, reading level, or comparisons (`BR-kid-no-metrics`; `UI-kid-no-metrics` in the SRS). Quality attributes: `USE-child-first-run` (a child finds the shelf without adult help).
 
@@ -1587,7 +1591,7 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 
 **Extensions:**
 
-- 1a. The book is no longer in Finished when the Parent acts, for example because the child moved it back, or the book was removed or blocked. The system clears the awaiting state, tells the Parent, and makes no other change. This includes a child retracting an unconfirmed completion (`UC-SHLF-kid-move-book` 3c).
+- 1a. The book is no longer in Finished when the Parent acts, for example because the child moved it back, or the book was removed or blocked. The system clears the awaiting state, tells the Parent, and makes no other change. This includes a child retracting an unconfirmed completion (`UC-SHLF-kid-move-book` 3c). If the Parent had already tapped "Confirm finished" or "Not finished yet" and saved when the child moved or removed the book, the system shows a message that the child moved or removed the book, which cancelled the request, and saves nothing.
 - 2a. The Parent does not open the prompt. The book stays in Finished and awaiting confirmation, the child cannot rate it, and the prompt stays until the Parent acts. It does not expire.
 - 2b. The request is for a child not linked to the Parent. The system denies it and shows nothing (`SEC-role-authorization`).
 - 3a. The other parent decided first. The system shows the recorded outcome and makes no change.
@@ -1611,7 +1615,7 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 |-------------------------|------------------------------------|---------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
 | Finish status           | enum: none, awaiting, confirmed    | awaiting when the child moves a book to Finished; confirmed only by this use case; once confirmed it stays confirmed, including after the book leaves the shelf | Parent-visible; the child sees only the icon and whether the rating step is available, not the status                               | —                  |
 | Confirmed-finished icon | derived from finish status         | shown on a book whose finish is confirmed, wherever it sits on the shelf; not shown when the book is not on the shelf                          | Visible to the child and the parent; shows no count (`BR-kid-no-metrics`)                                                                      | Shelf (`FEAT-shelf`) |
-| Child notice            | in-app message                     | created only when a parent says "not finished yet"; fixed wording; shown once on the child's next shelf visit | Visible to the child; does not name the parent | —                  |
+| Child notice            | in-app message                     | created only when a parent says "not finished yet"; fixed wording; shown on the child's next shelf visit until the child taps OK | Visible to the child; does not name the parent | —                  |
 | Previous category       | enum: Reading Now, Want to Read, Maybe Later | system-set when the child moves a book to Finished; used only by "Not finished yet"    | Not shown to anyone                                                                                                                            | —                  |
 | Confirmed by            | reference to the parent account    | system-set                                                                                        | Parent-visible; not shown to the child                                                                                                         | —                  |
 | Confirmed at            | timestamp                          | system-set                                                                                        | Parent-visible                                                                                                                                 | —                  |

@@ -1,11 +1,13 @@
 // Local demo harness, outside the application. Seeds one invented Main Parent, who
-// signs in through the real /sign-in page. Never uses .env.local.
+// signs in through the real /sign-in page. Takes only its mail settings from .env or
+// .env.local; never their database or other settings.
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, scrypt } from "node:crypto";
 import { once } from "node:events";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { parseArgs, promisify } from "node:util";
+import { parseArgs, parseEnv, promisify } from "node:util";
 import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
@@ -27,6 +29,24 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) {
 }
 const appOrigin = `http://localhost:${port}`;
 const root = fileURLToPath(new URL("../", import.meta.url));
+
+// The demo's mail settings, and nothing else, may come from the untracked .env or
+// .env.local, so a developer can keep a Resend key there. A shell variable wins over a
+// file, and .env.local over .env. Every other setting in those files is ignored.
+const MAIL_KEYS = ["DEMO_SMTP_URL", "DEMO_MAIL_FROM"];
+function demoMailSettings() {
+  const settings = {};
+  for (const name of [".env", ".env.local"]) {
+    const file = fileURLToPath(new URL(`../${name}`, import.meta.url));
+    if (!existsSync(file)) continue;
+    const parsed = parseEnv(readFileSync(file, "utf8"));
+    for (const key of MAIL_KEYS) if (parsed[key]) settings[key] = parsed[key];
+  }
+  for (const key of MAIL_KEYS)
+    if (process.env[key]) settings[key] = process.env[key];
+  return settings;
+}
+const mail = demoMailSettings();
 const nextBin = fileURLToPath(
   new URL("../node_modules/next/dist/bin/next", import.meta.url),
 );
@@ -107,14 +127,12 @@ try {
     AUTH_SECRET: randomBytes(32).toString("hex"),
     APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
-    // Production mode has no default mail server, so name local Mailpit; emails never
-    // leave this machine (design/par.md, Email Service). To try real delivery, set
-    // DEMO_SMTP_URL to Resend's SMTP URL and DEMO_MAIL_FROM to a sender Resend accepts,
-    // in the shell only: the API key is a secret and never goes in the repository.
-    SMTP_URL: process.env.DEMO_SMTP_URL ?? "smtp://127.0.0.1:1025",
+    // Production mode has no default mail server. With DEMO_SMTP_URL (Resend's SMTP
+    // URL) and DEMO_MAIL_FROM set, email is really delivered; otherwise it goes to
+    // local Mailpit and never leaves this machine (design/par.md, Email Service).
+    SMTP_URL: mail.DEMO_SMTP_URL ?? "smtp://127.0.0.1:1025",
     MAIL_FROM:
-      process.env.DEMO_MAIL_FROM ??
-      "BookBuddies demo <no-reply@bookbuddies.test>",
+      mail.DEMO_MAIL_FROM ?? "BookBuddies demo <no-reply@bookbuddies.test>",
     NEXT_TELEMETRY_DISABLED: "1",
   };
   console.log("Building the demo application...");

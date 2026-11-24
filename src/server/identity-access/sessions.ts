@@ -79,8 +79,8 @@ export type ParentSession = {
 export type SessionErrorCode = "NOT_SIGNED_IN" | "NOT_A_PARENT";
 
 // The fields of a parent's document in the Auth.js `users` collection that this
-// check reads. UC-PAR-onboarding writes them; until it is designed, this is the
-// assumed shape (design/par.md, Open questions).
+// check reads. Sign-up writes them for a Main Parent (parent-accounts.ts; design/par.md,
+// Data model).
 type ParentUserFields = {
   role?: string;
   parentRole?: string;

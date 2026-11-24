@@ -110,6 +110,8 @@ try {
     APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
     NEXT_TELEMETRY_DISABLED: "1",
+    // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
+    ALLOW_ADMIN_PARENT_SIGNIN: "1",
   };
   console.log("Building the demo application...");
   app = spawn(process.execPath, [nextBin, "build"], {

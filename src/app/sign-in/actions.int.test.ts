@@ -102,6 +102,7 @@ describe("signInParent", () => {
   afterEach(() => {
     resetClock();
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("creates a session that the Auth.js adapter and requireParent() read back", async () => {
@@ -153,10 +154,21 @@ describe("signInParent", () => {
     expect(await getDb().collection("sessions").countDocuments()).toBe(0);
   });
 
-  it("signs in an admin who has a password", async () => {
+  it("signs in an admin who has a password when the demo flag is set", async () => {
+    vi.stubEnv("ALLOW_ADMIN_PARENT_SIGNIN", "1");
     await insertAccount({ role: "admin" });
     expect((await attempt(PASSWORD)).ok).toBe(true);
     expect(await getDb().collection("sessions").countDocuments()).toBe(1);
+  });
+
+  it("refuses an admin when the demo flag is not set", async () => {
+    vi.stubEnv("ALLOW_ADMIN_PARENT_SIGNIN", "");
+    await insertAccount({ role: "admin" });
+    expect(await attempt(PASSWORD)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_CREDENTIALS" },
+    });
+    expect(await getDb().collection("sessions").countDocuments()).toBe(0);
   });
 
   it("refuses malformed input without creating throttle state", async () => {

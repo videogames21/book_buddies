@@ -35,7 +35,12 @@ export async function signInMainParent(
   }
 
   const parent = await findParentByEmail(email);
-  const admin = parent ? null : await findAdminByEmail(email);
+  // TEMPORARY (OI-61): off unless the demo or e2e server sets the flag, so the rig
+  // cannot reach a live environment.
+  const admin =
+    parent || process.env.ALLOW_ADMIN_PARENT_SIGNIN !== "1"
+      ? null
+      : await findAdminByEmail(email);
   const account = parent ?? admin;
   const matches = await verifyPassword(
     password,

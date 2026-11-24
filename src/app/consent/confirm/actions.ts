@@ -32,9 +32,13 @@ export async function confirmConsent(
     }
     const result = await confirmConsentByToken(token.data);
     if (!result.ok) return result;
-    const session = await requireParent();
+    // Consent is saved, so a session failure only sends the parent to sign in.
+    const session = await requireParent().catch((err: unknown) => {
+      logUnexpectedError("confirmConsent: session", err);
+      return null;
+    });
     const sameFamily =
-      session.ok && session.data.familyId === result.data.familyId;
+      session?.ok && session.data.familyId === result.data.familyId;
     return ok({ next: sameFamily ? NEW_CHILD_PATH : SIGN_IN_PATH });
   } catch (err) {
     return fail(

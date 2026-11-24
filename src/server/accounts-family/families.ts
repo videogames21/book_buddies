@@ -76,6 +76,14 @@ export type NewParent = { name: string; email: string; password: string };
 
 export type SignUpErrorCode = "EMAIL_TAKEN" | "SAVE_FAILED";
 
+/** A parent's email is free again only once that Main Parent's sign-up has expired (6a). */
+async function emailBlocksSignUp(email: string): Promise<boolean> {
+  const existing = await findParentByEmail(email);
+  if (!existing) return false;
+  if (existing.parentRole !== "main") return true;
+  return (await getOnboardingStep(existing.familyId)) !== "expired";
+}
+
 /**
  * UC-PAR-onboarding step 5. One transaction writes the Main Parent, the Consent Record
  * and the session (5a). The cookie and the email come after the commit, so a failure
@@ -85,7 +93,6 @@ export type SignUpErrorCode = "EMAIL_TAKEN" | "SAVE_FAILED";
 export async function createFamily(
   input: NewParent,
 ): Promise<ActionResult<{ emailSent: boolean }, SignUpErrorCode>> {
-  const passwordHash = await hashPassword(input.password);
   const { token, tokenHash } = newConfirmationToken();
   const familyId = new ObjectId();
   const acknowledgedAt = now();
@@ -96,6 +103,9 @@ export async function createFamily(
 
   let session;
   try {
+    // 4a, before the costly hash (OI-51). The unique index still decides a race.
+    if (await emailBlocksSignUp(input.email)) throw new EmailTakenError();
+    const passwordHash = await hashPassword(input.password);
     session = await withTransaction(async (tx) => {
       // 6a: an account past its deadline is already gone; remove what is left of it.
       const existing = await findParentByEmail(input.email, tx);

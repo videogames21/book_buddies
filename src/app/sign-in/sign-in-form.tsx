@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type SubmitEvent } from "react";
-import { SIGN_UP_PATH } from "@/app/(parent)/parent/onboarding/paths";
 import { signInParent } from "./actions";
 import styles from "./sign-in.module.css";
 
@@ -82,9 +80,6 @@ export function SignInForm() {
       <button type="submit" disabled={submitting}>
         {submitting ? "Signing in..." : "Sign in"}
       </button>
-      <p>
-        New to BookBuddies? <Link href={SIGN_UP_PATH}>Create Account</Link>
-      </p>
     </form>
   );
 }

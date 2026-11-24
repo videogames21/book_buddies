@@ -70,8 +70,8 @@ export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
     );
 }
 
-// One shape per event, IDs only (§8.2.9). The purge is run by the cron, so it has no
-// actor account: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
+// One shape per event, IDs only (§8.2.9). A new sign-up or the cron removes an expired
+// account, so it has no actor: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
 // own act on their own account (OI-44).
 // A catalog entry names a book and an admin, and has no child.
 export async function ensureAuditCollection(db: Db): Promise<void> {

@@ -84,8 +84,9 @@ export function ConfirmForm() {
       <p>Press Confirm to finish giving consent for your family.</p>
       {outcome === "invalid" && (
         <p className={styles.error} role="alert">
-          This link no longer works. Use the newest email we sent you, or{" "}
-          <Link href={SIGN_IN_PATH}>sign in</Link> to send a new one.
+          This link no longer works. Use the newest email we sent you. If your
+          sign-up expired, please <Link href={SIGN_UP_PATH}>start again</Link>.
+          Already have an account? <Link href={SIGN_IN_PATH}>Sign in</Link>.
         </p>
       )}
       {outcome === "failed" && (

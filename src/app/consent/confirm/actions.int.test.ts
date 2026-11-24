@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { Collection, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertConsentRecord } from "../../../../tests/fixtures/family";
 import { insertParent } from "../../../../tests/fixtures/users";
@@ -130,17 +130,28 @@ describe("confirmConsent (UC-PAR-onboarding step 7)", () => {
     expect((await recordOf(parent.familyId))?.confirmedAt).toBeUndefined();
   });
 
-  it("logs no token when it fails unexpectedly", async () => {
+  it("a session failure after saving still reports confirmed", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const parent = await seed();
+    mockedAuth.mockRejectedValue(new Error("session failure"));
+    expect(await confirmConsent(TOKEN)).toMatchObject({ ok: true });
+    expect((await recordOf(parent.familyId))?.confirmedAt).toEqual(BEFORE);
+    vi.restoreAllMocks();
+  });
+
+  it("logs no token when saving fails unexpectedly", async () => {
     const lines: string[] = [];
     vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
       lines.push(args.map(String).join(" "));
     });
     await seed();
-    mockedAuth.mockRejectedValue(new Error(`failed for ${TOKEN}`));
+    vi.spyOn(Collection.prototype, "findOneAndUpdate").mockRejectedValueOnce(
+      new Error(`failed for ${TOKEN}`),
+    );
     const result = await confirmConsent(TOKEN);
+    vi.restoreAllMocks();
     expect(result).toMatchObject({ error: { code: "CONFIRM_FAILED" } });
     expect(JSON.stringify(result)).not.toContain(TOKEN);
     expect(lines.join("\n")).not.toContain(TOKEN);
-    vi.restoreAllMocks();
   });
 });

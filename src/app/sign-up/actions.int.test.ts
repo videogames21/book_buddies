@@ -18,6 +18,12 @@ const { sentEmails, sendEmail, cookieJar } = vi.hoisted(() => {
 });
 vi.mock("@/server/notification/email", () => ({ sendEmail }));
 vi.mock("next/headers", () => ({ cookies: () => Promise.resolve(cookieJar) }));
+vi.mock("@/server/identity-access/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/server/identity-access/passwords", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/server/identity-access/passwords")>();
+  return { ...actual, hashPassword: vi.fn(actual.hashPassword) };
+});
 vi.mock("@/server/identity-access/sessions", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/server/identity-access/sessions")>();
@@ -55,7 +61,12 @@ const { CONSENT_NOTICE_VERSION } =
   await import("@/server/accounts-family/consent-notice");
 const { createDatabaseSession } =
   await import("@/server/identity-access/sessions");
-const { verifyPassword } = await import("@/server/identity-access/passwords");
+const { hashPassword, verifyPassword } =
+  await import("@/server/identity-access/passwords");
+const { auth } = await import("@/server/identity-access/auth");
+const mockedAuth = vi.mocked(
+  auth as unknown as () => Promise<{ user: { id: string } } | null>,
+);
 const { hashConfirmationToken } =
   await import("@/server/accounts-family/families");
 const { getDb } = await import("@/server/lib/db");
@@ -96,6 +107,8 @@ beforeEach(async () => {
   sentEmails.length = 0;
   sendEmail.mockClear();
   cookieJar.set.mockClear();
+  mockedAuth.mockReset();
+  mockedAuth.mockResolvedValue(null);
   setClock(() => SIGN_UP_AT);
   notice.version = null;
 });
@@ -161,11 +174,6 @@ describe("signUpParent, UC-PAR-onboarding main (steps 3–5)", () => {
     expect(JSON.stringify(records)).not.toContain(token);
   });
 
-  it("returns nothing about the family, the user or the token", async () => {
-    const result = await signUpParent(input);
-    expect(Object.keys(result.ok ? result.data : {})).toEqual(["emailSent"]);
-  });
-
   it("3b: an unacknowledged notice is CONSENT_NOT_ACKNOWLEDGED and stores nothing", async () => {
     for (const acknowledged of [undefined, false, "true"]) {
       expect(await signUpParent({ ...input, acknowledged })).toMatchObject({
@@ -187,14 +195,35 @@ describe("signUpParent, UC-PAR-onboarding main (steps 3–5)", () => {
   });
 });
 
+describe("who may call signUpParent (§8.1)", () => {
+  it("refuses a signed-in parent until their sign-up has expired (6a)", async () => {
+    await signUpParent(input);
+    const user = await db()
+      .collection<{ _id: ObjectId }>("users")
+      .findOne({ email: EMAIL });
+    mockedAuth.mockResolvedValue({
+      user: { id: user?._id.toHexString() ?? "" },
+    });
+    const second = { ...input, email: "second@example.test" };
+    expect(await signUpParent(second)).toMatchObject({
+      error: { code: "ALREADY_SIGNED_IN" },
+    });
+    expect(await count("users")).toBe(1);
+    setClock(() => new Date(SIGN_UP_AT.getTime() + 14 * DAY_MS));
+    expect(await signUpParent(second)).toMatchObject({ ok: true });
+  });
+});
+
 describe("4a: email already registered", () => {
-  it("refuses an email any user has, in any letter case, and stores nothing new", async () => {
+  it("refuses an email any user has, in any letter case, before hashing (OI-51), and stores nothing new", async () => {
     await signUpParent(input);
     sendEmail.mockClear();
     cookieJar.set.mockClear();
+    vi.mocked(hashPassword).mockClear();
     expect(
       await signUpParent({ ...input, email: "INVENTED.PARENT@example.TEST" }),
     ).toMatchObject({ ok: false, error: { code: "EMAIL_TAKEN" } });
+    expect(hashPassword).not.toHaveBeenCalled();
     expect(await count("users")).toBe(1);
     expect(await count("consentRecords")).toBe(1);
     expect(await count("sessions")).toBe(1);

@@ -107,6 +107,10 @@ try {
     AUTH_SECRET: randomBytes(32).toString("hex"),
     APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
+    // Production mode has no default mail server, so name local Mailpit; emails never
+    // leave this machine (design/par.md, Email Service).
+    SMTP_URL: process.env.DEMO_SMTP_URL ?? "smtp://127.0.0.1:1025",
+    MAIL_FROM: "BookBuddies demo <no-reply@bookbuddies.test>",
     NEXT_TELEMETRY_DISABLED: "1",
   };
   console.log("Building the demo application...");
@@ -190,7 +194,7 @@ try {
   }
 
   console.log(
-    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\nPress Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
+    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\nEmails (sign-up confirmation, password reset) go to Mailpit, not a real inbox:\n  Start it: docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1\n  Read them: http://localhost:8025\nPress Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
   );
 } catch (error) {
   console.error(

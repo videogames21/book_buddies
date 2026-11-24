@@ -71,6 +71,37 @@ export async function removeExpiredUnconfirmedFamily(
   return true;
 }
 
+/**
+ * 6a, Scheduled Cleanup: removes every family whose deadline has passed unconfirmed, each
+ * in its own transaction. One failure does not stop the rest; it is thrown at the end so
+ * the run reports failure and the next run tries again. Returns how many were removed.
+ */
+export async function purgeExpiredUnconfirmed(): Promise<number> {
+  const expired = await getDb()
+    .collection<{ familyId: ObjectId }>(CONSENT_RECORDS)
+    .find(
+      { confirmedAt: { $exists: false }, confirmBy: { $lte: now() } },
+      { projection: { familyId: 1 } },
+    )
+    .toArray();
+  let removed = 0;
+  let failure: Error | undefined;
+  for (const { familyId } of expired) {
+    try {
+      const done = await withTransaction((tx) =>
+        removeExpiredUnconfirmedFamily(tx, familyId.toHexString()),
+      );
+      if (done) removed++;
+    } catch (err) {
+      failure ??= new Error("an unconfirmed family was not removed", {
+        cause: err,
+      });
+    }
+  }
+  if (failure) throw failure;
+  return removed;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type NewParent = { name: string; email: string; password: string };

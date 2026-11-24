@@ -177,6 +177,21 @@ describe("removeExpiredUnconfirmedFamily", () => {
     expect(await getDb().collection("auditLog").countDocuments()).toBe(0);
   });
 
+  it("also deletes the parent's password reset record", async () => {
+    const family = await seed(false);
+    await getDb()
+      .collection("passwordResets")
+      .insertOne({
+        userId: family.objectId,
+        tokenHash: "a".repeat(64),
+        issuedAt: new Date("2026-10-14T12:00:00Z"),
+        expiresAt: new Date("2026-10-30T12:00:00Z"),
+      });
+    at("2026-10-15T12:00:00Z");
+    expect(await remove(family.familyId)).toBe(true);
+    expect(await getDb().collection("passwordResets").countDocuments()).toBe(0);
+  });
+
   it("removes nothing when its transaction aborts", async () => {
     const family = await seed(false);
     at("2026-10-15T12:00:00Z");

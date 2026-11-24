@@ -1,6 +1,7 @@
 import "server-only";
 import { ObjectId } from "mongodb";
 import { getDb, type Tx } from "@/server/lib/db";
+import { deletePasswordResetOf } from "./password-resets";
 import { deleteSessionsOfUser } from "./sessions";
 import { clearSignInAttempts } from "./sign-in-throttle";
 
@@ -100,8 +101,8 @@ export async function findParentEmail(userId: string): Promise<string | null> {
 }
 
 /**
- * Deletes a parent's user document (name, email, hash), all their sessions and the
- * sign-in throttle row keyed by their email.
+ * Deletes a parent's user document (name, email, hash), all their sessions, any
+ * password reset record and the sign-in throttle row keyed by their email.
  */
 export async function deleteParentAccount(
   tx: Tx,
@@ -114,6 +115,7 @@ export async function deleteParentAccount(
       { projection: { email: 1 }, session: tx },
     );
   await deleteSessionsOfUser(userId, tx);
+  await deletePasswordResetOf(userId, tx);
   if (user?.email) await clearSignInAttempts(user.email, tx);
 }
 

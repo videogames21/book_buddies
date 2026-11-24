@@ -190,7 +190,7 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
 
   it("1b: a Sub Parent gets NOT_MAIN_PARENT and nothing is stored", async () => {
     const sub = await insertParent({ parentRole: "sub" });
-    await insertConsentRecord(sub.familyId, true);
+    await insertConsentRecord(sub, true);
     signInAs(sub.userId);
 
     expect(await createChildAccount(child)).toMatchObject({
@@ -202,7 +202,7 @@ describe("createChildAccount (UC-PAR-create-kid-account)", () => {
 
   it("1c: a family without confirmed consent gets CONSENT_NOT_CONFIRMED and nothing is stored", async () => {
     const pending = await insertParent({ parentRole: "main" });
-    await insertConsentRecord(pending.familyId, false);
+    await insertConsentRecord(pending, false);
     signInAs(pending.userId);
     expect(await createChildAccount(child)).toMatchObject({
       ok: false,

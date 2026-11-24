@@ -1,6 +1,6 @@
 # REC field values
 
-**Area:** `UC-REC-kid-onboarding` · **Design:** [rec.md](rec.md)
+**Area:** `UC-REC-kid-onboarding`, `UC-REC-parent-review` · **Design:** [rec.md](rec.md)
 
 Values the design could not invent (`DI-field-tables`). The team fills each table in; nothing below is decided. `/implement` builds `src/server/recommendation/interests.ts` and the book cap from these tables and from nothing else. When a table is filled, update the use case's data table to match.
 
@@ -25,3 +25,12 @@ Note: 5 seed books have no Genre; tag them before import.
 |----------------------------------|---------------------------------------------------------------------------------|
 | Maximum number of favorite books | (proposed: 10)                                                                  |
 | Book fields shown in the picker  | (proposed: title and author) (`PickerBook = { id, title, author }` in `rec.md`) |
+
+## Batch review (`UC-REC-parent-review` 2a)
+
+Decided by the developer, 2026-11-23, **provisional** until the client answers `OI-61`.
+
+| Rule | Value |
+|---|---|
+| Review window, from the batch's creation to its release unchanged (`BATCH_REVIEW_WINDOW_HOURS`) | 24 hours; the setting accepts 1 to 168 |
+| Does opening the batch stop the clock? | No; the deadline applies whether or not the parent opened it |

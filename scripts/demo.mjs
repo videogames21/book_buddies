@@ -108,9 +108,13 @@ try {
     APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
     // Production mode has no default mail server, so name local Mailpit; emails never
-    // leave this machine (design/par.md, Email Service).
+    // leave this machine (design/par.md, Email Service). To try real delivery, set
+    // DEMO_SMTP_URL to Resend's SMTP URL and DEMO_MAIL_FROM to a sender Resend accepts,
+    // in the shell only: the API key is a secret and never goes in the repository.
     SMTP_URL: process.env.DEMO_SMTP_URL ?? "smtp://127.0.0.1:1025",
-    MAIL_FROM: "BookBuddies demo <no-reply@bookbuddies.test>",
+    MAIL_FROM:
+      process.env.DEMO_MAIL_FROM ??
+      "BookBuddies demo <no-reply@bookbuddies.test>",
     NEXT_TELEMETRY_DISABLED: "1",
   };
   console.log("Building the demo application...");
@@ -193,8 +197,14 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
+  // Names the mail host only, never the URL, which can hold an API key.
+  const mailHost = new URL(env.SMTP_URL).hostname;
+  const mailNote =
+    mailHost === "127.0.0.1" || mailHost === "localhost"
+      ? "Emails (sign-up confirmation, password reset) go to Mailpit, not a real inbox:\n  Start it: docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1\n  Read them: http://localhost:8025"
+      : `Emails go out for real through ${mailHost}, to the address typed at sign-up.`;
   console.log(
-    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\nEmails (sign-up confirmation, password reset) go to Mailpit, not a real inbox:\n  Start it: docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1\n  Read them: http://localhost:8025\nPress Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
+    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\n${mailNote}\nPress Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
   );
 } catch (error) {
   console.error(

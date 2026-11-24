@@ -284,9 +284,9 @@ describe("Catalog reads", () => {
       blocked,
       old,
     ]);
-    expect(rows[0]).toEqual({
+    expect(rows[0]).toMatchObject({
       id: firstTie,
-      title: expect.any(String) as unknown,
+      title: expect.stringMatching(/^Tie [AB]$/) as unknown,
       author: "A. Writer",
       year: 2001,
       status: "draft",
@@ -294,7 +294,21 @@ describe("Catalog reads", () => {
     expect(rows.map((row) => row.status)).toContain("blocked");
   });
 
-  it("returns custom tags and reading level from no read for a child, a parent or a search", async () => {
+  it("returns every stored field of a book from the admin list", async () => {
+    const id = await insertBook("active", "Full", {
+      isbn: "9780439023481",
+      subjects: ["animals"],
+      readingLevel: "650L",
+      seriesName: "Moon books",
+      customTags: ["secret"],
+    });
+    const stored = await books().findOne({ _id: id as never });
+    const { _id, ...fields } = stored as unknown as { _id: string };
+
+    expect(await listBooksForAdmin(ADMIN)).toEqual([{ id: _id, ...fields }]);
+  });
+
+  it("returns custom tags and reading level from no read for a child, a parent or a search, only the admin list", async () => {
     const id = await insertBook("active", "Tagged", {
       customTags: ["secret"],
       readingLevel: "650L",
@@ -305,9 +319,9 @@ describe("Catalog reads", () => {
     expect(JSON.stringify(picker)).not.toMatch(
       /secret|650L|customTags|readingLevel/,
     );
-    // The admin list shows neither either: it is title, author, year and status.
-    expect(JSON.stringify(await listBooksForAdmin(ADMIN))).not.toMatch(
-      /secret|650L|customTags|readingLevel/,
+    // The admin list is the one read that returns them.
+    expect(JSON.stringify(await listBooksForAdmin(ADMIN))).toMatch(
+      /secret.*650L|650L.*secret/,
     );
   });
 });

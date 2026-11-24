@@ -792,7 +792,7 @@ sequenceDiagram
     alt not found
         ACT-->>UI: CHILD_NOT_FOUND
     end
-    ACT->>IA: getParentCredential, claimSignInAttempt(email) (step 4; counts the attempt before the check)
+    ACT->>IA: getParentCredential, claimSignInAttempt(email), counting the attempt before the check (step 4)
     alt waiting after repeated failures (4a)
         ACT-->>UI: TOO_MANY_ATTEMPTS with the wait
     end

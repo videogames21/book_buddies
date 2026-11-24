@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { ObjectId } from "mongodb";
-import { closeE2eDb, e2eDb, signInAs, signInParent } from "./session-fixture";
+import { closeE2eDb, e2eDb, signInWithRole, signInParent } from "./session-fixture";
 
 // UC-SHLF-parent-view-shelf, end to end. Invented test data only. Nothing in the app
 // writes shelf records yet, so the tests put them in directly.
@@ -358,7 +358,7 @@ for (const role of ["child", "admin"] as const) {
     const bookId = await insertBook(`Refused ${role} E2E`);
     await shelve(childId, bookId, "readingNow");
     await context.clearCookies();
-    await signInAs(context, role);
+    await signInWithRole(context, role);
 
     const shelf = await page.goto(`/parent/children/${childId}/shelf`);
     expect(shelf?.status()).toBe(404);

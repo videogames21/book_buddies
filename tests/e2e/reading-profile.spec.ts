@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import type { ObjectId } from "mongodb";
+import type { Document, ObjectId } from "mongodb";
 import { closeE2eDb, e2eDb, signInParent } from "./session-fixture";
 
 // UC-REC-kid-onboarding, end to end. Invented test data only.
@@ -33,11 +33,23 @@ async function insertChild(familyId: ObjectId) {
 async function insertActiveBook(title: string) {
   const db = await e2eDb();
   const _id = randomUUID();
-  await db
-    .collection<{ _id: string; title: string; author: string; status: string }>(
-      "books",
-    )
-    .insertOne({ _id, title, author: "A. Writer", status: "active" });
+  // The books collection's validator requires every field (design/adm.md, Data model).
+  await db.collection<{ _id: string } & Document>("books").insertOne({
+    _id,
+    title,
+    author: "A. Writer",
+    matchKey: `${title.toLowerCase()}a writer${_id}`,
+    year: 2001,
+    genres: ["fantasy"],
+    moods: ["calm"],
+    format: "picture book",
+    length: "quick read",
+    ageMin: 6,
+    ageMax: 8,
+    readingChallenge: "reading independently",
+    status: "active",
+    createdAt: new Date(),
+  });
   return _id;
 }
 

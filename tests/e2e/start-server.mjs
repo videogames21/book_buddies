@@ -29,7 +29,8 @@ const server = spawn(
       MONGODB_DB: "bookbuddies_e2e",
       AUTH_SECRET: randomBytes(32).toString("hex"),
       AUTH_TRUST_HOST: "true",
-      NEXTAUTH_URL: `http://localhost:${port}`,
+      ALLOW_ADMIN_PARENT_SIGNIN: "1", // TEMPORARY (OI-61)
+      APP_URL: `http://localhost:${port}`,
     },
   },
 );

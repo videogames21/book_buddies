@@ -1,8 +1,55 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
 import { ObjectId } from "mongodb";
+import { cookies } from "next/headers";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
-import { getDb } from "@/server/lib/db";
+import { now } from "@/server/lib/clock";
+import { getDb, type Tx } from "@/server/lib/db";
 import { auth } from "./auth";
+import { SESSION_MAX_AGE_SECONDS, sessionCookie } from "./session-cookie";
+
+const SESSIONS = "sessions";
+
+export type NewSession = { sessionToken: string; expires: Date };
+
+/**
+ * Writes a session document in the Auth.js MongoDB adapter's own shape, so auth()
+ * reads it like any other (design/par.md, Key decisions). Pass `tx` to make it part
+ * of a transaction; set the cookie only after that transaction commits.
+ */
+export async function createDatabaseSession(
+  userId: string,
+  tx?: Tx,
+): Promise<NewSession> {
+  const session = {
+    sessionToken: randomBytes(32).toString("hex"),
+    userId: new ObjectId(userId),
+    expires: new Date(now().getTime() + SESSION_MAX_AGE_SECONDS * 1000),
+  };
+  await getDb()
+    .collection(SESSIONS)
+    .insertOne(session, tx ? { session: tx } : {});
+  return { sessionToken: session.sessionToken, expires: session.expires };
+}
+
+/** Sets the session cookie: httpOnly, SameSite=Lax, Secure on https (§8.1). */
+export async function setSessionCookie(session: NewSession): Promise<void> {
+  const { name, secure } = sessionCookie();
+  (await cookies()).set(name, session.sessionToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure,
+    path: "/",
+    expires: session.expires,
+  });
+}
+
+/** Ends every session of a user, as deleting an account or resetting a password needs. */
+export async function deleteSessionsOfUser(userId: string, tx: Tx) {
+  await getDb()
+    .collection(SESSIONS)
+    .deleteMany({ userId: new ObjectId(userId) }, { session: tx });
+}
 
 // The session check every parent page and action starts with (architecture §8.1).
 // Middleware is never the check.
@@ -52,4 +99,32 @@ export async function requireParent(): Promise<
   }
 
   return ok({ userId, familyId: user.familyId.toHexString(), parentRole });
+}
+
+export type AdminSession = { userId: string; role: "admin" };
+
+export type AdminSessionErrorCode = "NOT_SIGNED_IN" | "NOT_AN_ADMIN";
+
+/**
+ * The session check every admin page and action starts with (architecture §8.1).
+ * Admin accounts are created by hand with role "admin"; a parent, a sub parent and a
+ * child are all refused.
+ */
+export async function requireAdmin(): Promise<
+  ActionResult<AdminSession, AdminSessionErrorCode>
+> {
+  const session = await auth();
+  const userId = session?.user.id;
+  if (!userId || !ObjectId.isValid(userId)) {
+    return fail("NOT_SIGNED_IN", "Please sign in.");
+  }
+
+  const user = await getDb()
+    .collection<{ role?: string }>("users")
+    .findOne({ _id: new ObjectId(userId) }, { projection: { role: 1 } });
+
+  if (user?.role !== "admin") {
+    return fail("NOT_AN_ADMIN", "Not authorized.");
+  }
+  return ok({ userId, role: "admin" });
 }

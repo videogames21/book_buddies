@@ -102,7 +102,7 @@ npm run db:setup
 npm run dev
 ```
 
-Child creation lives at `/parent/children/new`. It requires an existing Main Parent database session and a confirmed, non-revoked family consent record. Real parent sign-in/onboarding is a separate, unfinished use case; there is no development authentication bypass in the application. Automated tests seed invented parent accounts and Auth.js database sessions in temporary databases.
+A parent starts at `/sign-in`, follows "Create Account" to `/sign-up`, and confirms consent from the emailed link (`UC-PAR-onboarding`). In development the email goes to Mailpit (`docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1`, inbox at <http://localhost:8025>). Child creation lives at `/parent/children/new` and requires a Main Parent session and a confirmed, non-revoked family consent record. There is no development authentication bypass in the application. Automated tests seed invented parent accounts and Auth.js database sessions in temporary databases.
 
 The client must supply `PRIVACY_NOTICE_URL` before production use. Development falls back to an explicitly unfinished notice page. The FTC rule is not presented as BookBuddies' privacy notice.
 
@@ -123,7 +123,8 @@ npm run test:demo
 run those suites separately. Integration tests start a temporary MongoDB replica
 set; the first run may download MongoDB's official binary. Playwright starts the
 production build on port 3100 with its own replica set. It never connects to the
-database in `.env.local`. Build before running Playwright. Node's `react-server`
+database in `.env.local`. Build before running Playwright, and start Mailpit on
+ports 1025 and 8025 first: the onboarding tests read the emails back from it. Node's `react-server`
 condition permits test fixtures to call the same component-owned schema setup
 as the application.
 
@@ -135,7 +136,7 @@ separate checkouts because they share the build directory.
 
 ## Review and release dependencies
 
-The [review notes](docs/implementation/child-account.md) list settings and test coverage. Before release, the team must approve the field values, avatar set and moderation word list, supply the privacy notice, and implement parent sign-in. The reading-interest form (`/parent/children/[childId]/reading-profile`) is built; its book picker lists only active catalog books, so it is empty until the catalog import exists (`UC-ADM-add-content`). Its privacy notice paragraph is a placeholder that links to the same notice as the Add a child form.
+The [review notes](docs/implementation/child-account.md) list settings and test coverage. Before release, the team must approve the field values, avatar set and moderation word list, supply the privacy notice, and finish the consent notice's legal review (`OI-20`, `OI-21`). The reading-interest form (`/parent/children/[childId]/reading-profile`) is built; its book picker lists only active catalog books, so it is empty until the catalog import exists (`UC-ADM-add-content`). Its privacy notice paragraph is a placeholder that links to the same notice as the Add a child form.
 
 ## Child data inventory
 
@@ -159,5 +160,6 @@ No real name or uploaded photograph is collected or stored. One transaction cove
 | `consentRecords`           | Family and parent IDs, notice version, method, acknowledged, deadline and confirmed times, token hash | Accounts & Family; the plaintext token is only in the email | Deleted with an unconfirmed account; otherwise while a child exists |
 | `sessions`                 | Random session token, user ID, expiry                                                   | Identity & Access and Auth.js                             | Expiry, sign-out or account deletion                        |
 | `signInAttempts`           | Lowercased email as the throttle key, failure count, wait times                         | Identity & Access; never logged                           | 24 hours after the last wait, or a successful sign-in       |
+| `passwordResets`           | User ID, reset token hash, issue and expiry times                                       | Identity & Access; the plaintext token is only in the email | Used, replaced, one hour after issue (the daily cleanup deletes it), or account deletion |
 
 Service providers: Vercel hosts the app and MongoDB Atlas stores the data. Resend sends account emails and receives only a parent's name, email address and the email's content, never child data. Written assurances from each are still needed before launch (`BR-coppa-no-third-party-disclosure`). The consent notice is placeholder wording until legal review (`OI-20`, `OI-21`).

@@ -235,6 +235,9 @@ it("creates consentRecords with a unique familyId and a validator (DI-consent-re
   await expect(records.insertOne({ ...record })).rejects.toThrow(
     /duplicate key/,
   );
+  await expect(
+    records.insertOne({ ...record, familyId: new ObjectId() }),
+  ).rejects.toThrow(/confirmationTokenHash_unique/);
   // A record missing the acknowledgment fields, or storing the plaintext token, is refused.
   await expect(
     records.insertOne({ familyId: new ObjectId(), confirmedAt: new Date() }),

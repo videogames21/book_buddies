@@ -44,4 +44,11 @@ export async function ensureConsentRecordIndexes(db: Db): Promise<void> {
   await db
     .collection(CONSENT_RECORDS)
     .createIndex({ familyId: 1 }, { name: "familyId_unique", unique: true });
+  // Confirmation finds its record by this hash, and one link opens one record.
+  await db
+    .collection(CONSENT_RECORDS)
+    .createIndex(
+      { confirmationTokenHash: 1 },
+      { name: "confirmationTokenHash_unique", unique: true },
+    );
 }

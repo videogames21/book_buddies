@@ -381,6 +381,47 @@ describe("5b: the confirmation email cannot be sent", () => {
   });
 });
 
+describe("8: the record sign-up wrote lets the confirmed parent add a child", () => {
+  it("after confirmation a child is created; with revokedAt set, both checks refuse", async () => {
+    const { confirmConsent } = await import("@/app/consent/confirm/actions");
+    const { createChildAccount } =
+      await import("@/app/(parent)/parent/children/new/actions");
+    const { checkCreateChildAccess } =
+      await import("@/app/(parent)/parent/children/new/access");
+    await signUpParent(input);
+    const user = await db()
+      .collection<{ _id: ObjectId }>("users")
+      .findOne({ email: EMAIL });
+    mockedAuth.mockResolvedValue({
+      user: { id: user?._id.toHexString() ?? "" },
+    });
+    expect(
+      await confirmConsent(tokenFromEmail(sentEmails[0]?.text ?? "")),
+    ).toEqual({ ok: true, data: { next: "/parent/children/new" } });
+
+    expect(await checkCreateChildAccess()).toMatchObject({ ok: true });
+    const child = {
+      nickname: "Starfish",
+      age: 8,
+      grade: "3",
+      username: "Star_Reader",
+      avatar: "1-1",
+    };
+    expect(await createChildAccount(child)).toMatchObject({ ok: true });
+
+    await db()
+      .collection("consentRecords")
+      .updateOne({}, { $set: { revokedAt: SIGN_UP_AT } });
+    expect(await checkCreateChildAccess()).toMatchObject({
+      error: { code: "CONSENT_NOT_CONFIRMED" },
+    });
+    expect(
+      await createChildAccount({ ...child, username: "other_reader" }),
+    ).toMatchObject({ error: { code: "CONSENT_NOT_CONFIRMED" } });
+    expect(await count("children")).toBe(1);
+  });
+});
+
 describe("UC-PAR-onboarding logging (§8.2.7)", () => {
   it("logs no name, email, password, confirmation token or session token", async () => {
     const lines: string[] = [];

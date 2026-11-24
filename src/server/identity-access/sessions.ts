@@ -100,3 +100,31 @@ export async function requireParent(): Promise<
 
   return ok({ userId, familyId: user.familyId.toHexString(), parentRole });
 }
+
+export type AdminSession = { userId: string; role: "admin" };
+
+export type AdminSessionErrorCode = "NOT_SIGNED_IN" | "NOT_AN_ADMIN";
+
+/**
+ * The session check every admin page and action starts with (architecture §8.1).
+ * Admin accounts are created by hand with role "admin"; a parent, a sub parent and a
+ * child are all refused.
+ */
+export async function requireAdmin(): Promise<
+  ActionResult<AdminSession, AdminSessionErrorCode>
+> {
+  const session = await auth();
+  const userId = session?.user.id;
+  if (!userId || !ObjectId.isValid(userId)) {
+    return fail("NOT_SIGNED_IN", "Please sign in.");
+  }
+
+  const user = await getDb()
+    .collection<{ role?: string }>("users")
+    .findOne({ _id: new ObjectId(userId) }, { projection: { role: 1 } });
+
+  if (user?.role !== "admin") {
+    return fail("NOT_AN_ADMIN", "Not authorized.");
+  }
+  return ok({ userId, role: "admin" });
+}

@@ -39,6 +39,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-17]_ | 0.16    | `UC-PAR-onboarding`, from its design (`design/par.md`): added extension 5b (the confirmation email fails to send; the account is kept and resend is offered); step 7 has the Parent confirm on the page the link opens; 4a's password-reset link leads to the reset flow designed with this use case (`OI-44`); the parent password rule is set (8–128 characters, developer decision); the data tables of `UC-PAR-onboarding` and `UC-PAR-create-kid-account` now carry the values the developer approved in `design/par-field-values.md`; 6a treats the account as expired from the deadline on; open issues cite `OI-44` (no sign-in use case) | _Claude_ |
 | _[2026-11-21]_ | 0.17    | `UC-PAR-report-book`, from its design (`design/par.md`) and its review: the open issues cite the conflict between the "Reported book" rule and 7b (`OI-54`) and the comment limit, still TBD (`OI-55`); the reason list cites `OI-52`; the "Reported by" row no longer says parent-visible, since no step shows the reporter, and cites `OI-53` for the client to confirm; `BR-parent-content-removal` is no longer cited, since it governs flagged content and abuse reports, not book reports | _McKenzie Mitchell-Richardson_, _Claude_ |
 | _[2026-11-20]_ | 0.18    | `UC-SHLF-kid-view-shelf`, from its design (`design/shlf.md`): step 5 shows the book's details (title, author, series name) and the child's own rating; 2a and 3a say the four categories always show, with the empty-state message at the top and nothing under an empty category; 3c lets the child move or remove an entry awaiting confirmation; 3d and 3f keep a notice on screen until the child taps OK; new Associated Information rows for the book details and the child's rating; `UC-SHLF-par-finish-book` 1a and its child notice row match; `BR-parent-shelf-removal` added; step 3 and its Associated Information show the title and no cover, which is left to its own use case | _Claude_ |
+| _[2026-11-24]_ | 0.20    | `UC-SHLF-parent-remove-book`, from its design (`design/shlf.md`): the open issues cite `OI-65` (notice wording) and `OI-66` (recommended again), and a new one notes that "Removed by" is shown to no parent. (v0.19 is taken by open pull request #119.) |
 
 ---
 
@@ -1690,8 +1691,9 @@ Quality attributes: `ROB-no-data-loss` (a failed removal leaves the book on the 
 **Related Use Cases:** `UC-SHLF-parent-view-shelf` (invokes this use case from step 1); `UC-SHLF-kid-remove-book` (the child's counterpart, which does not notify anyone)\
 **Assumptions:** The parent does not have to give a reason for removal. No source requires one.\
 **Open Issues:**
-- Notice wording, and whether the child sees a reason, are not specified (`BR-parent-shelf-removal` requires only that a notice is shown).
-- Whether a removed book can be recommended again, for example by a later quiz, is not specified.
+- Notice wording, and whether the child sees a reason, are not specified (`BR-parent-shelf-removal` requires only that a notice is shown). Team proposal: no reason (`OI-65`).
+- Whether a removed book can be recommended again, for example by a later quiz, is not specified. Team proposal: yes, a removal writes no exclusion (`OI-66`).
+- The "Removed by" property is marked parent-visible, but no step shows it to a parent. The design keeps it in the audit log only (`design/shlf.md`).
 
 ---
 

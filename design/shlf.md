@@ -4,15 +4,17 @@
 **Team:** Team 05
 **Area:** `UC-SHLF`
 
-> **Realizes:** `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `FR-PAR-review`, `FR-ACCT-credentials` (the child's sign-in half, a supporting flow with no use case, `OI-46`), `DI-usage-records` (the sign-in record)
-> **Depends on:** `UC-ADM-block-content` (extension 5b: a block removes the shelf entries), `BR-parent-account-linked`, `BR-kid-no-metrics`, `BR-kid-anonymous-profile`, `BR-parent-shelf-removal`, `FR-SHLF-categories`, `FR-SHLF-finish-confirm`, `UI-kid-no-metrics`, `USE-child-first-run`, `DI-child-credentials`, `SEC-auth`, `SEC-signin-throttling`, `SEC-role-authorization`, `USE-parent-light`
-> **Related, designed separately:** `UC-SHLF-parent-remove-book` (`BR-parent-shelf-removal`), `UC-SHLF-par-finish-book`, `UC-PAR-report-book`
+> **Realizes:** `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-parent-remove-book`, `FR-SHLF-parent-remove`, `FR-PAR-review`, `FR-ACCT-credentials` (the child's sign-in half, a supporting flow with no use case, `OI-46`), `DI-usage-records` (the sign-in record)
+> **Depends on:** `UC-ADM-block-content` (extension 5b: a block removes the shelf entries), `BR-parent-account-linked`, `BR-kid-no-metrics`, `BR-kid-anonymous-profile`, `BR-parent-shelf-removal`, `FR-SHLF-categories`, `FR-SHLF-finish-confirm`, `UI-kid-no-metrics`, `USE-child-first-run`, `DI-child-credentials`, `SEC-auth`, `SEC-signin-throttling`, `SEC-role-authorization`, `USE-parent-light`; for `UC-SHLF-parent-remove-book`: `BR-parent-ultimate-say`, `ROB-no-data-loss`, `OI-25`, `OI-41`, and from [`design/par.md`](par.md) (`UC-PAR-report-book`): `removeShelfEntryInTx`, `createRemovalNoticeInTx`, `getChildForFamily` with a transaction handle, and the `shelf.parent-removed` audit shape; from open pull request #119 (`UC-PAR-delete-kid-account`): `lockChildForWrite` and its §8.2.8 rule
+> **Related, designed separately:** `UC-SHLF-par-finish-book`, `UC-PAR-report-book`
 > **See:** [use cases, SHLF area](../docs/requirements/use-cases.md#shlf-shelf-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [architecture-of-record](architectural-design.md), [PAR design](par.md)
 > **Designed against:** use cases v0.18 (updated in this PR), business rules v0.8, SRS v0.12 (updated in this PR), the PAR design, and the code on `main` and the merged `design/rec.md` as of 2026-11-18 (`requireParent()` in `sessions.ts` and `getChildForFamily` in `child-accounts.ts`, both used by the add-a-child pages). The Shelf and Catalog components have no code yet, and there is no shared parent layout guard: each parent page calls `requireParent()` itself.
 
 > **Revised for:** `UC-SHLF-kid-view-shelf` and child sign-in, 2026-11-19, against `main` at `9783e44`, which holds the merged designs of #98, #100 and #102 (designs only; no Shelf, Notification or child sign-in code exists).
 
-**Status of this draft.** The parent's shelf view was revised from PR #42 after it was reviewed against the 2026-10-28 client answers: children no longer enter free text, so reflections, flagging of reflections and the 24-hour deletion window are gone. The child's shelf and child sign-in were added and revised through two rounds of review on PR #106. The questions test (design process step 3) was run on the first version of the child's half and still needs a re-run on the current design. It covers `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf` and child sign-in; the other SHLF use cases are appended as each is designed.
+> **Revised for:** `UC-SHLF-parent-remove-book`, 2026-11-24, against `main` at `8aadd95`. No Shelf, Notification or book-report code exists yet; `appendAudit` is in [`audit-log.ts`](../src/server/audit/audit-log.ts) from #108. #119 is open.
+
+**Status of this draft.** The parent's shelf view was revised from PR #42 after it was reviewed against the 2026-10-28 client answers: children no longer enter free text, so reflections, flagging of reflections and the 24-hour deletion window are gone. The child's shelf and child sign-in were added and revised through two rounds of review on PR #106. The questions test (design process step 3) was run on the first version of the child's half and still needs a re-run on the current design. Parent removal (`UC-SHLF-parent-remove-book`) was added on 2026-11-24. It covers `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, child sign-in and `UC-SHLF-parent-remove-book`; the other SHLF use cases are appended as each is designed.
 
 ---
 
@@ -21,6 +23,8 @@
 The Shelf area owns each child's shelf: the entries in four categories, the child's ratings, the parent's confirmation that a child finished a book, manual search and its shelf requests, and parent removal. It is the Shelf component of the Application container ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-SHLF-parent-view-shelf`, the first use case designed here, is read-only: it reads one child's shelf entries, their ratings and their finish state, checks that the child belongs to the signed-in parent's family, and asks the Catalog for each book's cover and title. It never reads the Child Identity Store, so the parent picks a child by nickname and avatar. It is the entry point to `UC-SHLF-parent-remove-book`, `UC-PAR-report-book` and `UC-SHLF-par-finish-book`, which are designed separately and implement the pages that this view links to. A child's pending shelf request is not a shelf entry, so it is not shown here; the parent sees it through `UC-PAR-approve-shelf-request`. This design adds one read to the Catalog row of the architecture-of-record.
 
 `UC-SHLF-kid-view-shelf` is the child's side of the same shelf, and it needs a signed-in child, which **no use case covers** (`OI-46`). It is designed here as two parts that share one seam, `requireChild()`. The first is the child's shelf: a read-only view of the child's own entries, book details, own rating and pending notices, with no count of any kind (`BR-kid-no-metrics`, 8.2.11). The second is **child sign-in, sign-out and the child home screen**, written as *supporting flows with no use case*, the way `design/par.md` (open pull request #98) does for parent sign-in (`OI-44`). They live in this document and not in `par.md`: a child starts no `UC-PAR-*` use case, and it keeps this pull request away from the `par.md` edits of pull requests #98, #102, #104 and #100. The pieces this document reuses from those pull requests (`createDatabaseSession`, `sign-in-throttle.ts`, `deleteChildSignIn`, `signOutParent`) are **designs, not code**, and are named as such where used.
+
+A parent removes one book from one child's shelf, and the child gets the same `book-removed` notice a report writes. The design adds no new storage. It builds the page the parent shelf view already links to ("Remove from shelf", in the table under API contract below) and one Shelf function that runs the removal, the notice and the audit entry in one transaction (§8.2.8 lists "a shelf removal and its notice"). Everything it writes comes from `UC-PAR-report-book`'s functions, so a plain removal and a report's removal cannot differ: the child sees the same notice, with no reason and no parent, and cannot tell which one happened. The rating and the finish confirmation are untouched (5c), because they live in their own collections (Key decisions below, "Ratings and finish confirmations are stored apart from the shelf entry").
 
 ## Components & classes
 
@@ -45,8 +49,9 @@ classDiagram
     }
     class childAccounts {
         <<reused + one new function>>
-        +getChildForFamily(familyId, childId) ChildSummary
+        +getChildForFamily(familyId, childId, tx?) ChildSummary
         +listChildrenForFamily(familyId) ChildSummary[]
+        +lockChildForWrite(tx, childId) boolean
     }
     class catalogBooks {
         <<Catalog file from rec.md, one new read>>
@@ -56,6 +61,35 @@ classDiagram
         <<reused, PAR>>
         +requireParent() ParentSession
     }
+    class RemoveBookPage {
+        <<new, UC-SHLF-parent-remove-book>>
+        /parent/children/[childId]/shelf/[bookId]/remove
+    }
+    class RemoveConfirm {
+        <<new, client component>>
+        confirm, done
+    }
+    class removeActions {
+        <<new, server action>>
+        +removeBookFromShelf(input) ActionResult
+    }
+    class parentRemoval {
+        <<new, Shelf>>
+        +removeBookForParent(session, input) RemovalResult
+    }
+    class shelfEntries {
+        <<from design/par.md>>
+        +isOnShelf(childId, bookId) boolean
+        +removeShelfEntryInTx(tx, childId, bookId) entryId
+    }
+    class childNotices {
+        <<Notification, from design/par.md>>
+        +createRemovalNoticeInTx(tx, childId, bookId)
+    }
+    class auditLog {
+        <<reused>>
+        +appendAudit(tx, entry)
+    }
     ChildPickerPage --> sessions
     ChildPickerPage --> childAccounts
     ParentShelfPage --> sessions
@@ -63,6 +97,18 @@ classDiagram
     ParentShelfPage --> ShelfBrowser
     parentShelf --> childAccounts
     parentShelf --> catalogBooks
+    RemoveBookPage --> sessions
+    RemoveBookPage --> childAccounts
+    RemoveBookPage --> shelfEntries
+    RemoveBookPage --> catalogBooks
+    RemoveBookPage --> RemoveConfirm
+    RemoveConfirm --> removeActions
+    removeActions --> sessions
+    removeActions --> parentRemoval
+    parentRemoval --> childAccounts
+    parentRemoval --> shelfEntries
+    parentRemoval --> childNotices
+    parentRemoval --> auditLog
 ```
 
 - `src/app/(parent)/parent/shelf/page.tsx` (new): the child picker (extension 1a), and the temporary entry point until a parent dashboard (`FR-PAR-dashboard`) links to the shelf. It calls `requireParent()`, then `listChildrenForFamily`. With exactly one child it redirects straight to that child's shelf, so a parent with one child takes no extra step (`USE-parent-light`, threshold still TBD). With several it lists them by nickname and avatar. With none (extension 1b, PRE-2 not met), a Main Parent is redirected to `/parent/children/new` and a Sub Parent sees a message to ask the Main Parent to add a child, as the add-a-child page does.
@@ -73,6 +119,21 @@ classDiagram
 - `src/server/accounts-family/child-accounts.ts` (reused): `getChildForFamily(familyId, childId)` returns `{ _id, nickname, avatar }` for a child in that family and `null` otherwise (a malformed or unknown ID is also `null`, since the ID is matched as a string); it is the family check for this view. One function is added to the same file, `listChildrenForFamily(familyId)`, for the picker: same fields, ordered by creation date.
 - `src/server/catalog/books.ts` (the Catalog file planned in `design/rec.md`, not yet in code; this design adds one read, server-only): `getBooksForShelf` returns cover and title for the given book IDs. It keeps the Catalog's existing rule that every read leaves out blocked books.
 - `src/server/identity-access/sessions.ts` (reused): `requireParent()` returns an `ActionResult`: on success the user ID, family ID and `parentRole` (`main` or `sub`), on failure the code `NOT_SIGNED_IN` or `NOT_A_PARENT`. It does not redirect or throw, so each page decides what to do with the failure.
+
+Added for `UC-SHLF-parent-remove-book` (all new unless marked reused):
+
+- `src/app/(parent)/parent/children/[childId]/shelf/[bookId]/remove/page.tsx` (new): a server component, marked dynamic, at the path the parent shelf view links to. It calls `requireParent()` (`NOT_SIGNED_IN` redirects to `/sign-in`; any other failure is `notFound()`), then `getChildForFamily` (another family's child, or an unknown or malformed ID, gives the same `404` as the shelf page), then `isOnShelf`. A book that is not on the shelf, or that the Catalog does not return from `getBooksForShelf([bookId])`, shows the 3b message ("this book is already off the shelf") with a link back to the shelf and no form. Otherwise it renders `RemoveConfirm` with the title, the child's nickname and the path back.
+- `.../remove/remove-confirm.tsx` (new, client component): two states in component state. The **confirmation** (step 3) names the book and says the child will be told it was removed. Its buttons are "Remove" and "Cancel", and "Cancel" is a link back to the shelf with no request (3a). The **result** (step 6) says the book was removed, with a link back to the shelf. "Remove" is disabled while the action is pending. On `ALREADY_OFF_SHELF` it shows the 3b message. On `SAVE_FAILED` it stays on the confirmation with the error, so the parent can retry (5a, `ROB-no-data-loss`).
+- `.../remove/actions.ts` and `schema.ts` (new): `removeBookFromShelf`, a verb-first server action (§8.2.3), and its zod schema (§8.2.5): `childId`, `bookId`, and `confirmed`, which must be the literal `true`. Order: `requireParent()`, validate, then `removeBookForParent`. The family comes from the session, never the request.
+- `src/server/shelf/parent-removal.ts` (new, server-only): `removeBookForParent(session, { childId, bookId })` runs one `withTransaction` (§8.2.8), in this order:
+  1. `getChildForFamily(familyId, childId, tx)`. If it returns nothing, the result is `CHILD_NOT_FOUND`.
+  2. `lockChildForWrite(tx, childId)`, because the notice is an inserting child write (#119's §8.2.8 rule). If it matches nothing, the result is `CHILD_NOT_FOUND`.
+  3. `removeShelfEntryInTx(tx, childId, bookId)`. If it deleted nothing, the transaction aborts with `ALREADY_OFF_SHELF` (3b) and nothing is written. On `ALREADY_OFF_SHELF` the callback throws, so the transaction aborts and the `writeVersion` increment from step 2 is not kept.
+  4. `createRemovalNoticeInTx(tx, childId, bookId)` (step 5).
+  5. `appendAudit(tx, …)` with a `shelf.parent-removed` entry in the shape `design/par.md` fixes: the parent's user ID as actor, role `parent`, the child ID, the deleted entry's ID and the book ID (§8.2.9).
+
+  Any other thrown error is `SAVE_FAILED` with an error ID from `logUnexpectedError` (5a). The callback holds no state outside the transaction, so a rerun by `withTransaction` is harmless, as in `reportBook`.
+- **Reused, defined elsewhere:** `isOnShelf` and `removeShelfEntryInTx` (`src/server/shelf/shelf-entries.ts`), `createRemovalNoticeInTx` (`src/server/notification/child-notices.ts`), `getChildForFamily` with its transaction handle, and the `shelf.parent-removed` validator branch, all from [`design/par.md`](par.md) (`UC-PAR-report-book`); `lockChildForWrite` from #119; `getBooksForShelf` and `requireParent()` from this document. None of these exist in code yet except `requireParent()`, `getChildForFamily` (without the transaction handle) and `appendAudit`. Whichever of `UC-PAR-report-book` and this use case is implemented first creates them, and the other reuses them unchanged.
 
 ### Child's shelf (`UC-SHLF-kid-view-shelf`)
 
@@ -303,6 +364,61 @@ sequenceDiagram
 
 Step 4 needs no second request: the page already holds every entry's details, rating and allowed actions. Extension 3b needs no code here, as in the parent view: the block removed the entry and nobody is told.
 
+### UC-SHLF-parent-remove-book: remove a book from a child's shelf
+
+```mermaid
+sequenceDiagram
+    actor P as Parent (Main or Sub)
+    participant UI as Remove page
+    participant ACT as removeBookFromShelf
+    participant IA as Identity & Access
+    participant SH as Shelf
+    participant AF as Accounts & Family
+    participant NOT as Notification
+    participant CAT as Catalog
+    participant DB as Database
+    P->>UI: Open a book on the child's shelf, tap "Remove from shelf" (steps 1 and 2)
+    UI->>IA: requireParent()
+    UI->>AF: getChildForFamily(familyId, childId)
+    alt another family's child, or unknown
+        UI-->>P: 404
+    end
+    UI->>SH: isOnShelf(childId, bookId)
+    UI->>CAT: getBooksForShelf([bookId]) for the title
+    alt not on the shelf, or the Catalog does not return it (3b)
+        UI-->>P: The book is already off the shelf, no form
+    end
+    UI-->>P: Confirm, and the child will be told (step 3)
+    alt cancel (3a)
+        P->>UI: Back to the shelf, no request
+    end
+    P->>UI: Confirm (step 4)
+    UI->>ACT: removeBookFromShelf(childId, bookId, confirmed)
+    ACT->>IA: requireParent()
+    ACT->>ACT: Validate with the zod schema (confirmation)
+    ACT->>SH: removeBookForParent(session, input) (step 5)
+    SH->>DB: Begin transaction
+    SH->>AF: getChildForFamily(familyId, childId, tx), CHILD_NOT_FOUND if absent
+    SH->>AF: lockChildForWrite(tx, childId), CHILD_NOT_FOUND if no match (pull request 119)
+    SH->>SH: removeShelfEntryInTx (step 5), returns the deleted entry's ID or nothing
+    alt nothing deleted (3b, a race since the page loaded)
+        SH->>DB: Abort, nothing kept
+        SH-->>ACT: ALREADY_OFF_SHELF
+    end
+    SH->>NOT: createRemovalNoticeInTx, book only, no reason, no parent (step 5, 5b)
+    SH->>DB: Append audit entry shelf.parent-removed, IDs only
+    alt any write fails (5a)
+        DB-->>SH: transaction aborted, nothing kept
+        SH-->>ACT: SAVE_FAILED
+    end
+    SH->>DB: Commit
+    Note over SH,DB: Rating and finish confirmation untouched (5c)
+    ACT-->>UI: ok
+    UI-->>P: The book was removed (step 6)
+```
+
+The audit append is the only interaction with no use case step; §8.2.9 requires one for every parent shelf removal. Extension 5b needs nothing here: a notice has no expiry, and the child's shelf shows it until the child taps OK (`dismissChildNotice`, above).
+
 ### Supporting flows with no use case (`OI-46`): child sign-in and sign-out
 
 These are **not steps of `UC-SHLF-kid-view-shelf`**; its PRE-1 assumes them. The developer chose (2026-11-19) to design them here.
@@ -398,6 +514,15 @@ This use case reads: its rows are pages and the server function behind them (8.2
 
 **Links this view renders** (paths are this design's proposal; each use case's design adopts them or changes this table in its own pull request, and each page re-checks the child and the book itself): `move` to `/child/shelf/{bookId}/move` (`UC-SHLF-kid-move-book`), `remove` to `/child/shelf/{bookId}/remove` (`UC-SHLF-kid-remove-book`), `rate` to `/child/shelf/{bookId}/rate` (`UC-SHLF-kid-rate-book`), and "My Dashboard" to `/child/dashboard` (`UC-SHLF-kid-dashboard`). Until those pages are built the links lead nowhere, so the implementation may land them with those use cases.
 
+### UC-SHLF-parent-remove-book
+
+| Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
+|---|---|---|---|---|
+| Page `/parent/children/{childId}/shelf/{bookId}/remove` (UC-SHLF-parent-remove-book steps 1–3, from `UC-SHLF-parent-view-shelf`) | A signed-in Main or Sub Parent of the child's family (`OI-25`) | The child and book IDs in the path | The confirmation: the book's title, the child's nickname, the statement that the child will be told, "Remove" and "Cancel" | No session: redirect to `/sign-in`. A child or admin session, another family's child, or an unknown or malformed child ID: the same `404` as the shelf page. 3b: a book not on this child's shelf, or one the Catalog does not return, shows "already off the shelf" and no form. |
+| Server action `removeBookFromShelf` (steps 4–6) | A signed-in Main or Sub Parent; the family comes from the session | `childId`, `bookId`, `confirmed` | `{ ok: true }` and nothing else | `NOT_CONFIRMED` when `confirmed` is not `true`. `INVALID_INPUT` when an ID is missing or not a string. `CHILD_NOT_FOUND` for a child outside the session's family, an unknown child, or one deleted during the save, with the same answer for all three. 3b: `ALREADY_OFF_SHELF`, nothing written. 5a: `SAVE_FAILED` with an error ID, nothing written. 5b and 5c are not errors. Not a parent: refused (§8.1). |
+
+No response says which parent removed a book or why. The child's notice holds the book ID only (§8.2.11). It is the same `book-removed` notice the child's shelf already reads, so `UC-SHLF-kid-view-shelf` needs no change.
+
 ### Supporting flows (`OI-46`): child sign-in and sign-out
 
 Errors use the §8.2.1 shape. Messages are short and written for a child, and say to ask a grown-up when the child cannot fix the problem.
@@ -452,6 +577,30 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 **A removal notice resolves its book title through the Catalog read; a finish notice has no title.** The removal notice references the book (`UC-SHLF-parent-remove-book`) and the book is no longer on the shelf, so the title comes from the notice's `bookId` through `getBooksForShelf`. If the Catalog does not return it, the notice shows without a title. Wording of the removal notice is still TBD in that use case.
 
 **The empty shelf shows the four categories with a message at the top.** 2a and 3a together, as the developer decided: nothing is shown under an empty category.
+
+### UC-SHLF-parent-remove-book
+
+**One Shelf function runs the transaction, and every write in it is `UC-PAR-report-book`'s.** `removeBookForParent` calls `removeShelfEntryInTx`, `createRemovalNoticeInTx` and the `shelf.parent-removed` audit entry exactly as `reportBook` does. Rejected: calling `reportBook` without a reason, which would write a report and an exclusion that the parent did not ask for. Rejected: a second removal or notice function, which could drift from the report's, so a child might be able to tell the two apart (`design/par.md`, "The removal notice is the same kind a parent's plain removal writes").
+
+**The family scope is the transaction's first step.** `removeBookForParent` applies the family scope (§8.1) as its first step, with `getChildForFamily` and the session's family inside the same transaction. `isOnShelf` (on the page) and `removeShelfEntryInTx` are only called after that check passes, as `reportBook` does in [`design/par.md`](par.md). Rejected: checking the family in the page or action and passing a bare child ID down, which §8.1 rules out (the query must not be writable without the scope).
+
+**3b is decided by the delete itself, inside the transaction.** The action does not read the shelf first; it treats "`removeShelfEntryInTx` deleted nothing" as 3b and aborts. Two parents removing at once, a double submit, the child removing the book (`UC-SHLF-kid-remove-book`) or a report removing it at the same moment all delete the same document, so MongoDB aborts and reruns one transaction. The rerun deletes nothing and gets `ALREADY_OFF_SHELF`. The result is exactly one notice and one audit entry. This is the pattern `reportBook` uses for PRE-3. Rejected: a read before the delete, which two requests can both pass.
+
+**No consent lock** (developer, 2026-11-24). A parent may remove a book from the shelf of a child whose family consent is revoked. A removal reduces what is held, and the notice holds only IDs, so nothing new is collected from or about the child (`UC-PAR-revoke-consent` POST-3). The child cannot sign in, so the notice simply waits. Rejected: `lockConsentForWrite` as in `reportBook`. It would stop a parent from tidying a revoked child's shelf and would serialize every removal in a family on the Consent Record.
+
+**`lockChildForWrite` comes right after the family check**, because the notice insert is a write that inserts a record for a child (#119, architecture §8.2.8 as #119 amends it). The shelf delete alone would be exempt. Without the lock, a removal racing `UC-PAR-delete-kid-account` could commit a notice for a deleted child. `/implement` for this use case waits until #119 merges: it does not ship without the lock and does not build `lockChildForWrite` itself. If #119 changes the function's name or contract, this paragraph changes with it.
+
+**The action makes no Catalog check.** Removing an entry does not depend on the book being active. A blocked book's entries were already deleted by `UC-ADM-block-content`, so its removal is 3b anyway. Rejected: `findActiveBookIds` as in `reportBook`, which would give the same situation a second error code (`BOOK_NOT_FOUND`).
+
+**3b on the page is a message, not a `404`.** The use case tells the parent the book is already off the shelf, and the parent shelf page may be stale (the child removed it first). The family check runs before the shelf check, so the message reveals nothing about another family's children. Rejected: the report page's `404` for a book not on the shelf. That page has no 3b to show; this one does.
+
+**A plain removal writes no exclusion** (developer, 2026-11-24; `OI-66`). The book may come back through a later recommendation or the child's own search. A parent who wants it gone for good uses Report, which excludes it (`KD-book-exclusion`). Rejected: excluding it here, which would make this use case a report without the admin review (`BR-parent-report-book`).
+
+**The removal notice reads "_&lt;title&gt;_ was taken off your shelf."** This is the team's wording, asked of the client in `OI-65`. It gives no reason and names no parent, and it says nothing about "a grown-up", because the use case hides the parent's identity and a report and a removal must read the same. The child's shelf already resolves the title from the notice's book ID (Key decisions above). When the Catalog does not return the title, the notice reads "A book was taken off your shelf." (also proposed in `OI-65`). Because the wording lives in the child's shelf view and not in stored data, the client's answer changes two strings.
+
+**"Removed by" is kept only in the audit entry** (`actorId`). No step of the use case shows it to a parent, and the child must not see it. Rejected: storing it on the notice, which is the child's record and is read by the child's shelf. The use case's "Parent-visible" note for this property is raised under Open questions below.
+
+**Step 6 is a result screen in component state, not a redirect.** Rejected: a redirect to the shelf with a query flag. That adds a URL parameter to a read-only page, and a reload or shared link would repeat the message.
 
 ### Child sign-in (no use case, `OI-46`)
 
@@ -564,6 +713,8 @@ New configuration (8.2.6), read once by the config module:
 | `CHILD_DEVICE_MAX_CHILDREN` | 4, how many children one browser's cookie trusts at once; the oldest entry goes first (developer, 2026-11-20) |
 | `CHILD_DEVICE_SECRET` | required secret that signs the cookie; in Vercel environment variables and the untracked `.env.local`, never in the repo |
 
+`UC-SHLF-parent-remove-book` adds no collection or field: `SHELF_ENTRY` and `CHILD_NOTICE` (`book-removed`) are defined above in this Data model, the `shelf.parent-removed` audit shape in [`design/par.md`](par.md)'s Data model, and `children.writeVersion` by #119. Every `childId` in this document is the child's internal UUID, stored as a string.
+
 
 ## Reuse & cross-cutting
 
@@ -647,6 +798,28 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | UC-SHLF-kid-view-shelf authorization | integration | No session redirects to `/child/sign-in`; a parent session and an admin session get `404`; no request can name another child |
 | `/child` home | integration | A signed-in child sees only their nickname and avatar, "My Shelf" and "Sign out"; a parent session gets `404` |
 
+### UC-SHLF-parent-remove-book
+
+| Use case, flow | Level | Asserts |
+|---|---|---|
+| UC-SHLF-parent-remove-book main | integration | Under a fixed clock, a Main Parent's removal deletes the shelf entry and writes one `book-removed` notice holding the child ID and book ID and no reason or parent, and one `shelf.parent-removed` audit entry with IDs only (actor, role `parent`, child ID, the deleted entry's ID, book ID, time); the result is `{ ok: true }` |
+| main, Sub Parent | integration | A Sub Parent of the family gets the same result |
+| 5c | integration | The child's rating and finish confirmation for the book are unchanged after the removal; the parent's shelf view no longer shows them, and shows them again if the book is added back |
+| 3, confirmation | component | The confirmation names the book and says the child will be told; "Remove" is disabled while the action is pending |
+| 3a | component | "Cancel" links back to the shelf, sends no request and writes nothing |
+| 3b, page | integration | A book not on this child's shelf, or one the Catalog does not return, shows "already off the shelf" and no form; another family's child or an unknown child ID gets the shelf page's `404` instead |
+| 3b, action | integration | Removing a book not on the shelf returns `ALREADY_OFF_SHELF`, writes no notice or audit entry, and leaves the child's `writeVersion` unchanged |
+| 3b, race | integration | Two removals of the same entry at once (two parents), and a parent's removal racing the child's own removal, leave exactly one notice and one audit entry; the loser gets `ALREADY_OFF_SHELF` |
+| 5a | integration | When the notice insert fails, and separately when the audit append fails, the shelf entry is still there, no notice or audit entry exists, and the result is `SAVE_FAILED` with an error ID and no exception text |
+| 5b | integration | The notice stays unseen however far a fixed clock moves on, shows on the child's shelf on every load, and goes only when the child calls `dismissChildNotice` |
+| Kid view | integration | After a removal, the child's shelf no longer lists the book and shows the notice with the book's title and the `OI-65` wording, and with no parent and no reason; when the Catalog does not return the book, the child sees "A book was taken off your shelf." |
+| Confirmation enforced | integration | `confirmed` missing or not `true` returns `NOT_CONFIRMED` and writes nothing |
+| Authorization | integration | No session, a child session, an admin session, another family's child and an unknown child ID are all refused, with `CHILD_NOT_FOUND` for the last two alike, and nothing is written |
+| Child deleted | integration | Once `lockChildForWrite` exists (#119): a removal racing the child's deletion leaves no notice behind, and a removal after the deletion returns `CHILD_NOT_FOUND` |
+| Revoked consent | integration | A parent's removal for a child whose consent is revoked succeeds and writes the notice and the audit entry |
+| No exclusion | integration | After a removal, `listExcludedBookIds` for the child does not include the book, and no report is written |
+| Logging | unit | Nothing logged for a failed or refused removal contains the book title, the nickname or the notice text (§8.2.7) |
+
 ### Supporting flows (`OI-46`): child sign-in and sign-out
 
 | Flow | Level | Asserts |
@@ -701,10 +874,12 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - §5.2 Identity & Access: names the child sign-in record and the child's sign-in attempts. Revision history: a v0.16 row.
 
 
+**For `UC-SHLF-parent-remove-book`:** None. §8.2.8 already lists "a shelf removal and its notice (`UC-SHLF-parent-remove-book`)" as one transaction, and §8.2.9 already lists parent shelf removals. The `lockChildForWrite` rule is #119's change, not this one's.
+
 ## Open questions & risks
 
 - **No dashboard to tap "View Shelf" from yet (team).** The use case triggers from a child's dashboard, which no design or code provides. Until it exists, the entry is the `/parent/shelf` picker. Confirm which design owns the dashboard and its link.
-- **Link targets in other designs (team).** The paths for "Confirm finished", "Edit note", "Remove from shelf" and "Report" are proposed here. When the designs of `UC-SHLF-par-finish-book`, `UC-SHLF-parent-remove-book` and `UC-PAR-report-book` are written they adopt the paths or change this table in the same pull request. Until their pages are built the controls would lead nowhere, so the implementation of this view may land the controls together with those pages.
+- **Link targets in other designs (team).** The paths for "Confirm finished", "Edit note", "Remove from shelf" and "Report" are proposed here. `UC-PAR-report-book` and `UC-SHLF-parent-remove-book` have adopted theirs. When the design of `UC-SHLF-par-finish-book` is written it adopts its path or changes this table in the same pull request. Until their pages are built the controls would lead nowhere, so the implementation of this view may land the controls together with those pages.
 - **Rating visibility (client, `OI-41`).** This design shows a rating on any entry still on the shelf and hides it once the entry is removed or the book is blocked. Both are team proposals written into the use case and not yet confirmed by the client; if the client wants otherwise, the rating rule and its tests change.
 - **Sub Parent access (client, `OI-25`).** The team decision, awaiting the client, is that a Sub Parent has the same access to linked children as the Main Parent, so this view gives a Sub Parent the same shelf. If the client limits it, the check in the page changes.
 - **Seeing move history (client).** The use case leaves open whether a parent sees when a book moved. This design shows only the current category. If history is wanted, it needs its own records, which nothing writes today.
@@ -718,7 +893,7 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - **No use case for child sign-in or the home screen (team, `OI-46`).** Designed here as supporting flows. If the team writes a use case, `/implement` should follow it and this section moves under it.
 - **A suspended parent's children (team, `OI-47`).** The check lives in `childMaySignIn`. `UC-ADM-suspend-parent-account` and `UC-ADM-reinstate-account` do not yet say it, or which parent counts, or whether children return on reinstatement. **Not built here.** The decision stands (a suspended parent's children are suspended), but the suspend and reinstate use cases belong to the administration designs, which are outside this design's scope. This design leaves the contract they follow: `childMaySignIn` is the one place that refuses a child at sign-in, and anything that ends a child's sessions also deletes that session's `childSessionEnds` record (Key decisions), so an administration design that ends sessions adds no cleanup of its own.
 - **The time zone of midnight (team, `OI-48`).** One configured zone for every child. A family in another zone would be signed out at the wrong local hour.
-- **Wording of the removal notice (client).** `UC-SHLF-parent-remove-book` leaves it TBD; the child's shelf shows whatever that design fixes.
+- **Wording of the removal notice (client, `OI-65`).** Fixed provisionally by the `UC-SHLF-parent-remove-book` key decisions: "_&lt;title&gt;_ was taken off your shelf."
 - **Book covers (team, deferred).** The child's shelf shows no cover, and its payload has no `coverUrl`. Covers are left to their own use case, once the open question of where they come from (#111, which adds its own `OI-46` for it) is answered by the team and client; that design adds the Catalog field, any upload in `UC-ADM-add-content`, any route handler (§8.2.3) and the seed spreadsheet column, and extends this view. Nothing here depends on it. This pull request adds no cover picture, `bookCovers` collection, `/covers/{bookId}` route or spreadsheet column.
 - **Book details set (team).** Title, author and series name, a team proposal now written into the use case's Associated Information. If the client wants more (a description, for example), the Catalog read and the payload change together.
 - **Child-facing paths (team).** `/child`, `/child/shelf`, `/child/sign-in` and the link-out paths are proposals the other child use cases adopt or change.
@@ -727,3 +902,13 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - **Username uniqueness.** Settled by `design/par.md` on `main`: usernames are stored lowercased with a unique index, and child sign-in matches them exactly after the same trim and lowercase.
 - **`UC-SHLF-par-finish-book` design (team).** Its save must be conditional on the entry still awaiting confirmation and must show the parent the cancelled-request message (its extension 1a, edited in this pull request).
 - **Pull requests this document relied on.** #98 (`createDatabaseSession`, `signOutParent`), #102 and #100 have merged, so their designs are on `main`. `deleteChildSignIn` was named by #104, which was closed, so this design states what it must do (Components, `child-credentials.ts`) and the design that builds it follows that. Open issue numbers: `main` ends at `OI-45`, so this document uses `OI-46` to `OI-49`; another open pull request that takes the same numbers renumbers.
+
+**For `UC-SHLF-parent-remove-book`:**
+
+- **Notice wording (client, `OI-65`).** Built with the team's wording above, including "A book was taken off your shelf." when the Catalog does not return the title, until answered.
+- **Can a removed book be recommended again? (client, `OI-66`)** Designed as yes: no exclusion is written.
+- **"Removed by" is "Parent-visible" in the use case's Associated Information, but no step shows it (team).** This design keeps it in the audit entry only. Either the use case drops "Parent-visible", or a later use case (a parent's history view, which none asks for) shows it. Not built here.
+- **#119 is open.** The `lockChildForWrite` call and its test depend on it. `/implement` for this use case waits until #119 merges; it does not ship without the lock or build the lock itself. If #119 changes, the call and its test change with it.
+- **Audit event naming (team, inherited from `design/par.md`).** `shelf.parent-removed` follows the name `par.md` fixes. Whichever of `UC-PAR-report-book` and this use case is built first settles the style with the existing events.
+- **Shared, unbuilt pieces.** `shelf-entries.ts`, `child-notices.ts`, the transaction handle on `getChildForFamily` and the audit branch are designed in `par.md` and built by whichever use case is implemented first.
+- **Inherited:** rating visibility once the entry is gone (`OI-41`); Sub Parent access (`OI-25`).

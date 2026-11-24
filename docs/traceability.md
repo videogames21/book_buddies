@@ -152,7 +152,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-SHLF-kid-remove-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-rate-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-kid-add-note` |  | ❌ Not started |  |  |  |  |
-| `UC-SHLF-parent-remove-book` |  | ❌ Not started |  |  |  |  |
+| `UC-SHLF-parent-remove-book` |  | 📐 Designed | `design/shlf.md` |  |  |  |
 | `UC-SHLF-manual-search` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-add-content` |  | 📐 Designed | [design/adm.md](../design/adm.md) |  |  |  |
 | `UC-ADM-edit-content` |  | ❌ Not started |  |  |  |  |

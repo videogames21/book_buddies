@@ -54,6 +54,8 @@ const nextBin = fileURLToPath(
 // Invented, and only valid in this run's temporary database.
 const DEMO_EMAIL = "demo-parent@example.test";
 const DEMO_PASSWORD = "demo-password-123";
+const DEMO_ADMIN_EMAIL = "demo-admin@example.test";
+const DEMO_ADMIN_PASSWORD = "demo-admin-password-123";
 
 // The stored format and cost of src/server/identity-access/passwords.ts.
 async function hashDemoPassword(password) {
@@ -134,6 +136,8 @@ try {
     MAIL_FROM:
       mail.DEMO_MAIL_FROM ?? "BookBuddies demo <no-reply@bookbuddies.test>",
     NEXT_TELEMETRY_DISABLED: "1",
+    // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
+    ALLOW_ADMIN_PARENT_SIGNIN: "1",
   };
   console.log("Building the demo application...");
   app = spawn(process.execPath, [nextBin, "build"], {
@@ -155,6 +159,19 @@ try {
   );
   const [setupCode] = await once(setup, "exit");
   if (setupCode !== 0) throw new Error("Demo database setup failed.");
+  // The client's seed catalog, as active books: the admin list and the parent's
+  // favorite-book picker both read it.
+  const seed = spawn(
+    process.execPath,
+    ["--experimental-transform-types", "scripts/seed-catalog.mjs"],
+    {
+      cwd: root,
+      env,
+      stdio: "inherit",
+    },
+  );
+  const [seedCode] = await once(seed, "exit");
+  if (seedCode !== 0) throw new Error("Demo catalog seed failed.");
 
   client = new MongoClient(uri);
   const db = client.db("bookbuddies_demo");
@@ -168,6 +185,13 @@ try {
     name: "Demo Parent",
     email: DEMO_EMAIL,
     passwordHash: await hashDemoPassword(DEMO_PASSWORD),
+  });
+  await db.collection("users").insertOne({
+    _id: new ObjectId(),
+    role: "admin",
+    name: "Demo Admin",
+    email: DEMO_ADMIN_EMAIL,
+    passwordHash: await hashDemoPassword(DEMO_ADMIN_PASSWORD),
   });
   const acknowledgedAt = new Date();
   await db.collection("consentRecords").insertOne({
@@ -222,7 +246,17 @@ try {
       ? "Emails (sign-up confirmation, password reset) go to Mailpit, not a real inbox:\n  Start it: docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1\n  Read them: http://localhost:8025"
       : `Emails go out for real through ${mailHost}, to the address typed at sign-up.`;
   console.log(
-    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\n${mailNote}\nPress Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
+    `
+BookBuddies demo: ${appOrigin}
+Sign in with the invented parent:
+  Email:    ${DEMO_EMAIL}
+  Password: ${DEMO_PASSWORD}
+And the invented admin (same page, opens /admin/catalog):
+  Email:    ${DEMO_ADMIN_EMAIL}
+  Password: ${DEMO_ADMIN_PASSWORD}
+${mailNote}
+Press Ctrl+C to stop. Restart npm run demo for a fresh family.
+`,
   );
 } catch (error) {
   console.error(

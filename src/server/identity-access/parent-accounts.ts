@@ -120,6 +120,24 @@ export async function findParentEmail(userId: string): Promise<string | null> {
 }
 
 /**
+ * An admin's sign-in record by lowercased email: ID and hash only. Admin accounts are
+ * made by hand with a passwordHash; they share the parent sign-in page (developer
+ * decision 2026-11-24).
+ */
+export async function findAdminByEmail(
+  email: string,
+): Promise<{ userId: string; passwordHash: string } | null> {
+  const user = await getDb()
+    .collection<{ passwordHash?: string }>(USERS)
+    .findOne(
+      { email, role: "admin" },
+      { projection: { _id: 1, passwordHash: 1 } },
+    );
+  if (!user?.passwordHash) return null;
+  return { userId: user._id.toHexString(), passwordHash: user.passwordHash };
+}
+
+/**
  * Deletes a parent's user document (name, email, hash), all their sessions, any
  * password reset record and the sign-in throttle row keyed by their email.
  */

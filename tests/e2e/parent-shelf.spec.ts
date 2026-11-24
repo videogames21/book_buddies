@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { ObjectId } from "mongodb";
-import { closeE2eDb, e2eDb, signInWithRole, signInParent } from "./session-fixture";
+import {
+  closeE2eDb,
+  e2eDb,
+  signInWithRole,
+  signInParent,
+} from "./session-fixture";
 
 // UC-SHLF-parent-view-shelf, end to end. Invented test data only. Nothing in the app
 // writes shelf records yet, so the tests put them in directly.
@@ -45,11 +50,23 @@ async function insertChild(familyId: ObjectId, nickname = "Starfish") {
 async function insertBook(title: string, status = "active") {
   const db = await e2eDb();
   const _id = randomUUID();
-  await db
-    .collection<{ _id: string; title: string; author: string; status: string }>(
-      "books",
-    )
-    .insertOne({ _id, title, author: "A. Writer", status });
+  // The `books` validator requires every field below (design/adm.md, Data model).
+  await db.collection("books").insertOne({
+    _id: _id as never,
+    title,
+    author: "A. Writer",
+    matchKey: `${title.toLowerCase()}a writer${_id}`,
+    year: 2001,
+    genres: ["fantasy"],
+    moods: ["calm"],
+    format: "picture book",
+    length: "quick read",
+    ageMin: 6,
+    ageMax: 8,
+    readingChallenge: "reading independently",
+    status,
+    createdAt: new Date(),
+  });
   createdBookIds.push(_id);
   return _id;
 }

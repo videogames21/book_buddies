@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOnboardingStep } from "@/server/accounts-family/families";
 import { requireParent } from "@/server/identity-access/sessions";
-import { SignOutButton } from "@/app/sign-in/sign-out-button";
 import {
   CHECK_EMAIL_PATH,
   NEW_CHILD_PATH,
@@ -33,7 +32,6 @@ export default async function ParentHomePage() {
       <p>
         <Link href={NEW_CHILD_PATH}>Add a Child</Link>
       </p>
-      <SignOutButton />
     </main>
   );
 }

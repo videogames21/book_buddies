@@ -182,7 +182,8 @@ test("double submit sends one action and keeps the first password", async ({
   page.on("request", (request) => {
     if (request.method() === "POST") posts++;
   });
-  await page.locator("form").evaluate((form: HTMLFormElement) => {
+  // The child form, not the layout's sign-out form.
+  await page.locator("main form").evaluate((form: HTMLFormElement) => {
     form.requestSubmit();
     form.requestSubmit();
   });

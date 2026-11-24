@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { SignOutButton } from "@/app/sign-in/sign-out-button";
 import { NOT_SENT_FLAG, SIGN_UP_PATH } from "../paths";
 import { ResendButton } from "./resend-button";
 import { checkEmailView } from "./view";
@@ -30,7 +29,6 @@ export default async function CheckEmailPage({
             Consent was not confirmed in time, so we are deleting the account.
             Please <Link href={SIGN_UP_PATH}>start again</Link>.
           </p>
-          <SignOutButton />
         </div>
       </main>
     );
@@ -47,7 +45,6 @@ export default async function CheckEmailPage({
           then you can add your child.
         </p>
         <ResendButton notSentAtStart={notSent} />
-        <SignOutButton />
       </div>
     </main>
   );

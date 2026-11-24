@@ -5,7 +5,7 @@ import { useState } from "react";
 import { SIGN_IN_PATH } from "@/app/(parent)/parent/onboarding/paths";
 import { signOutParent } from "./actions";
 
-/** Sign-out (OI-44), shown on /parent and check-email. */
+/** Sign-out (OI-44), shown at the top of every parent page by the (parent) layout. */
 export function SignOutButton({ className }: { className?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

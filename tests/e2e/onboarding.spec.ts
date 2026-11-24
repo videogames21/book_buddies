@@ -166,6 +166,20 @@ test("8a: a confirmed parent with a child comes back to the parent home, and sig
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 
+test("sign-out is on every parent page, including the first-child form (8a)", async ({
+  context,
+  page,
+}) => {
+  await signInParent(context, { parentRole: "main", consentConfirmed: true });
+  await page.goto("/parent");
+  await expect(page).toHaveURL(/\/parent\/children\/new$/);
+  await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await page.goto("/parent/children/new");
+  await expect(page).toHaveURL(/\/sign-in$/);
+});
+
 test("password reset: the link changes nothing until submitted, and the token never reaches a URL", async ({
   page,
 }) => {

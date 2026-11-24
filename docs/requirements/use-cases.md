@@ -39,7 +39,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-17]_ | 0.16    | `UC-PAR-onboarding`, from its design (`design/par.md`): added extension 5b (the confirmation email fails to send; the account is kept and resend is offered); step 7 has the Parent confirm on the page the link opens; 4a's password-reset link leads to the reset flow designed with this use case (`OI-44`); the parent password rule is set (8–128 characters, developer decision); the data tables of `UC-PAR-onboarding` and `UC-PAR-create-kid-account` now carry the values the developer approved in `design/par-field-values.md`; 6a treats the account as expired from the deadline on; open issues cite `OI-44` (no sign-in use case) | _Claude_ |
 | _[2026-11-21]_ | 0.17    | `UC-PAR-report-book`, from its design (`design/par.md`) and its review: the open issues cite the conflict between the "Reported book" rule and 7b (`OI-54`) and the comment limit, still TBD (`OI-55`); the reason list cites `OI-52`; the "Reported by" row no longer says parent-visible, since no step shows the reporter, and cites `OI-53` for the client to confirm; `BR-parent-content-removal` is no longer cited, since it governs flagged content and abuse reports, not book reports | _McKenzie Mitchell-Richardson_, _Claude_ |
 | _[2026-11-20]_ | 0.18    | `UC-SHLF-kid-view-shelf`, from its design (`design/shlf.md`): step 5 shows the book's details (title, author, series name) and the child's own rating; 2a and 3a say the four categories always show, with the empty-state message at the top and nothing under an empty category; 3c lets the child move or remove an entry awaiting confirmation; 3d and 3f keep a notice on screen until the child taps OK; new Associated Information rows for the book details and the child's rating; `UC-SHLF-par-finish-book` 1a and its child notice row match; `BR-parent-shelf-removal` added; step 3 and its Associated Information show the title and no cover, which is left to its own use case | _Claude_ |
-| _[2026-11-23]_ | 0.19    | `UC-REC-parent-review`, from its design (`design/rec.md`): 6a now says release is part of the confirmation's save, so a failed release is 5a and nothing is retried separately; the data table gains the release deadline (`OI-61`); open issues cite the review window (`OI-61`) and the parent's late review of a released batch (`OI-62`). Also sets the header to the latest version (it still said 0.17) | _Claude_ |
+| _[2026-11-23]_ | 0.19    | `UC-REC-parent-review`, from its design (`design/rec.md`): 6a now says release is part of the confirmation's save, so a failed release is 5a and nothing is retried separately; the data table gains the release deadline (`OI-65`); open issues cite the review window (`OI-65`) and the parent's late review of a released batch (`OI-66`). Also sets the header to the latest version (it still said 0.17) | _Claude_ |
 
 ---
 
@@ -1101,7 +1101,7 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 |---------------|---------------------------------|-------------------------------------|------------------------------------------------------|--------------------|
 | Batch status  | enum (pending, released, empty) | system-set                          | Parent-visible; never shown to the child as a status | —                  |
 | Removed books | list of book references         | optional; each must be in the batch | Parent-only; never shown to the child                | —                  |
-| Release deadline | date                          | system-set when the batch is stored: its creation time plus the review window (24 hours, provisional, `OI-61`) | Parent-visible; never shown to the child | — |
+| Release deadline | date                          | system-set when the batch is stored: its creation time plus the review window (24 hours, provisional, `OI-65`) | Parent-visible; never shown to the child | — |
 
 **Related Use Cases:** `UC-REC-recommend-quiz-rules` and `UC-REC-recommend-quiz-ai` (upstream, mutually exclusive); `UC-REC-kid-review` (downstream); `UC-PAR-report-book` (the Parent may report a book from step 4 instead of only removing it, so it is never recommended to this child again)\
 **Assumptions:** Parent-suggested books (`UC-PAR-suggest-book`) go straight to the child's recommendation list and do not pass through this review, per `BR-parent-rec-not-forced`.\
@@ -1109,8 +1109,8 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 - **No `FEAT-*` covers this.** `FEAT-parent-review-dashboard` in `vision-and-scope.md` v0.4 covers viewing the child's shelf and removing a shelf book, not reviewing recommendations. Confirm with the client that this review is wanted before it is built.
 - Whether the batch is blocked until the parent acts (extension 2a) contradicts nothing in `business-rules.md` as long as it stays non-blocking, but it has not been confirmed.
 - The 24-hour review rule is dropped (client answers 2026-10-28, Q10), so a missed review never suspends an account and extension 2a stands.
-- **Review window (`OI-61`).** How long a batch waits for the parent before 2a releases it unchanged. Built with 24 hours, configurable.
-- **Late review (`OI-62`).** Once a batch is released, the parent can no longer remove or report its books before the child reacts.
+- **Review window (`OI-65`).** How long a batch waits for the parent before 2a releases it unchanged. Built with 24 hours, configurable.
+- **Late review (`OI-66`).** Once a batch is released, the parent can no longer remove or report its books before the child reacts.
 
 ---
 

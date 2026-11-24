@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOnboardingStep } from "@/server/accounts-family/families";
-import { requireParent } from "@/server/identity-access/sessions";
+import { requireAdmin, requireParent } from "@/server/identity-access/sessions";
 import { CHECK_EMAIL_PATH, SIGN_IN_PATH } from "./children/new/access";
 import styles from "./children/new/new-child.module.css";
 
@@ -13,6 +13,8 @@ export default async function ParentHomePage() {
   const session = await requireParent();
   if (!session.ok) {
     if (session.error.code === "NOT_SIGNED_IN") redirect(SIGN_IN_PATH);
+    // An admin signs in on the parent page and goes on to the catalog.
+    if ((await requireAdmin()).ok) redirect("/admin/catalog");
     notFound();
   }
 

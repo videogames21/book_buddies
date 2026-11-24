@@ -74,3 +74,29 @@ export async function signInParent(
   ]);
   return { familyId };
 }
+
+/** Signs in a hand-made account of the given role (an admin or a child), with no family. */
+export async function signInWithRole(
+  context: BrowserContext,
+  role: "admin" | "child",
+): Promise<void> {
+  const db = await e2eDb();
+  const userId = new ObjectId();
+  await db.collection("users").insertOne({ _id: userId, role });
+  const sessionToken = randomBytes(32).toString("hex");
+  await db.collection("sessions").insertOne({
+    sessionToken,
+    userId,
+    expires: new Date(Date.now() + 60 * 60 * 1000),
+  });
+  await context.addCookies([
+    {
+      name: "next-auth.session-token",
+      value: sessionToken,
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+}

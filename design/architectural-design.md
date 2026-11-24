@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Dr. Yang Yang, Research Scientist, IBR/Knight D Research
-**Version:** 0.17
+**Version:** 0.18
 
 ---
 
@@ -50,7 +50,7 @@ _[These are slugs, like every other identifier in your project, so an inserted d
 | 0.14 | 2026-11-17 | Team 05 (with Claude) | From the `UC-PAR-onboarding` design in `design/par.md`: sessions are written by Identity & Access in the Auth.js adapter's shape rather than through the Credentials provider (refines `KD-auth-sessions`, §8.1); the Email Service is Resend in production, reached over SMTP, with Mailpit outside production (§5.1, developer decision); consent confirmation and password reset tokens are never logged (§8.2.7); a Main Parent can sign out and reset a forgotten password through an emailed link (§8.1, `OI-44`) |
 | 0.15 | 2026-11-21 | Team 05 (with Claude) | From the `UC-PAR-report-book` design in `design/par.md`: a dated refinement of `KD-book-exclusion` (Accounts & Family returns a child's excluded book IDs for other components to filter on), and nothing else; the child removal notice uses `childNotices` as `design/shlf.md` (#106) fixes it. |
 | 0.16 | 2026-11-19 | Team 05 (with Claude) | `design/shlf.md` extended for `UC-SHLF-kid-view-shelf` and child sign-in (a supporting flow with no use case, `OI-46`): a Child sign-in paragraph in section 8.1 (the parent's throttle with the child's numbers and no lockout; session until the next midnight, `OI-48`; a suspended parent's children, `OI-47`); the Catalog's shelf read also returns author and series name; Notification and Identity & Access rows name the child's reads and records. |
-| 0.17 | 2026-11-22 | Team 05 | Child-data review adds a family-scoped Child Identity Store read and records views and exports in the audit log. |
+| 0.18 | 2026-11-24 | Team 05 (with Claude) | From `UC-PAR-review-child-data`: the Child Identity Store is queried by the caller's family ID and child ID (`OI-25`); §8.2.9 logs child-data views and exports without file contents; the review reuses Main Parent sign-in throttling for both re-auth actions (`OI-63`); export format and requester confirmation are `OI-64`. Numbered after #119's v0.17; renumber on rebase if another architecture change merges first. |
 
 ---
 

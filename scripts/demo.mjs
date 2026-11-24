@@ -133,11 +133,15 @@ try {
   if (setupCode !== 0) throw new Error("Demo database setup failed.");
   // The client's seed catalog, as active books: the admin list and the parent's
   // favorite-book picker both read it.
-  const seed = spawn(process.execPath, ["--experimental-transform-types", "scripts/seed-catalog.mjs"], {
-    cwd: root,
-    env,
-    stdio: "inherit",
-  });
+  const seed = spawn(
+    process.execPath,
+    ["--experimental-transform-types", "scripts/seed-catalog.mjs"],
+    {
+      cwd: root,
+      env,
+      stdio: "inherit",
+    },
+  );
   const [seedCode] = await once(seed, "exit");
   if (seedCode !== 0) throw new Error("Demo catalog seed failed.");
 

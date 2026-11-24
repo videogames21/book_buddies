@@ -184,6 +184,10 @@ test("password reset: the link changes nothing until submitted, and the token ne
 
   await page.goto("/sign-in");
   await page.getByRole("link", { name: "Forgot password?" }).click();
+  // Sign-in has an Email field too: wait for the new page before filling it.
+  await expect(
+    page.getByRole("heading", { name: "Forgot your password?" }),
+  ).toBeVisible();
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Send the link" }).click();
   await expect(page.getByRole("status")).toContainText("If a parent account");

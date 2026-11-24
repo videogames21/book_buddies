@@ -44,6 +44,20 @@ export async function setSessionCookie(session: NewSession): Promise<void> {
   });
 }
 
+/**
+ * Sign-out (OI-44): deletes this request's session document, so the session ends on the
+ * server at once, then clears the cookie. The user's other sessions are untouched.
+ */
+export async function endCurrentSession(): Promise<void> {
+  const { name } = sessionCookie();
+  const jar = await cookies();
+  const sessionToken = jar.get(name)?.value;
+  if (sessionToken) {
+    await getDb().collection(SESSIONS).deleteOne({ sessionToken });
+  }
+  jar.delete(name);
+}
+
 /** Ends every session of a user, as deleting an account or resetting a password needs. */
 export async function deleteSessionsOfUser(userId: string, tx: Tx) {
   await getDb()

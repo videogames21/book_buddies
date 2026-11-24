@@ -252,6 +252,39 @@ it("creates consentRecords with a unique familyId and a validator (DI-consent-re
   await records.deleteMany({});
 });
 
+it("creates passwordResets with one row per user and per token hash, and a validator (OI-44)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const resets = getDb().collection("passwordResets");
+  const row = {
+    userId: new ObjectId(),
+    tokenHash: "b".repeat(64),
+    issuedAt: new Date(),
+    expiresAt: new Date(),
+  };
+  await resets.insertOne({ ...row });
+  await expect(
+    resets.insertOne({ ...row, tokenHash: "c".repeat(64) }),
+  ).rejects.toThrow(/userId_unique/);
+  await expect(
+    resets.insertOne({ ...row, userId: new ObjectId() }),
+  ).rejects.toThrow(/tokenHash_unique/);
+  // The plaintext token, or a row with no expiry, is refused.
+  await expect(
+    resets.insertOne({ ...row, userId: new ObjectId(), token: "plaintext" }),
+  ).rejects.toThrow();
+  const { expiresAt: _dropped, ...noExpiry } = row;
+  await expect(
+    resets.insertOne({ ...noExpiry, userId: new ObjectId() }),
+  ).rejects.toThrow();
+  expect(
+    (await resets.indexes()).find((index) => index.name === "expiresAt"),
+  ).toMatchObject({ key: { expiresAt: 1 } });
+  await resets.deleteMany({});
+});
+
 it("accepts exactly the audit shapes §8.2.9 allows, IDs only", async () => {
   const { ObjectId } = await import("mongodb");
   const { getDb } = await import("@/server/lib/db");

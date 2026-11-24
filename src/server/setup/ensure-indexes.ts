@@ -4,6 +4,7 @@ import { ensureAccountsFamilyIndexes } from "@/server/accounts-family/child-acco
 import { ensureConsentRecordIndexes } from "@/server/accounts-family/consent-record-schema";
 import { ensureChildIdentityIndexes } from "@/server/child-identity/child-identity";
 import { ensureIdentityAccessIndexes } from "@/server/identity-access/indexes";
+import { ensurePasswordResetIndexes } from "@/server/identity-access/password-reset-schema";
 import { ensureSignInAttemptIndexes } from "@/server/identity-access/sign-in-throttle";
 
 import { ensureParentNoteIndexes } from "@/server/accounts-family/parent-notes";
@@ -17,6 +18,7 @@ import { ensureReadingProfileIndexes } from "@/server/recommendation/reading-pro
 export async function ensureIndexes(db: Db): Promise<void> {
   await ensureIdentityAccessIndexes(db);
   await ensureSignInAttemptIndexes(db);
+  await ensurePasswordResetIndexes(db);
   await ensureAccountsFamilyIndexes(db);
   await ensureConsentRecordIndexes(db);
   await ensureChildIdentityIndexes(db);

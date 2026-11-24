@@ -17,6 +17,7 @@ export const NAME_MAX = 100;
 export const EMAIL_MAX = 254;
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;
+const NOTICE_VERSION_MAX = 100;
 
 export const signUpSchema = z
   .object({
@@ -38,6 +39,9 @@ export const signUpSchema = z
       .max(PASSWORD_MAX, { error: "WEAK_PASSWORD" }),
     // 3b: the literal true only; a pre-checked or missing box is no consent.
     acknowledged: z.literal(true, { error: "CONSENT_NOT_ACKNOWLEDGED" }),
+    // The notice version the page showed; createFamily compares it with the current
+    // one (3b). Not a form field, so a bad value is INVALID_INPUT.
+    noticeVersion: z.string().min(1).max(NOTICE_VERSION_MAX),
   })
   .refine(
     (input) => input.password.toLowerCase() !== input.email.toLowerCase(),

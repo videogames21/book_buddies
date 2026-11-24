@@ -53,6 +53,7 @@ export function SignUpForm({
   const [acknowledged, setAcknowledged] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [emailTaken, setEmailTaken] = useState(false);
+  const [noticeChanged, setNoticeChanged] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -61,7 +62,9 @@ export function SignUpForm({
     if (inFlight.current) return;
     setSubmitError(null);
     setEmailTaken(false);
-    const input = { name, email, password, acknowledged };
+    setNoticeChanged(false);
+    // The version shown, so the server never records a notice the parent did not see.
+    const input = { name, email, password, acknowledged, noticeVersion };
     const parsed = signUpSchema.safeParse(input);
     if (!parsed.success) {
       setErrors(fieldErrorsOf(parsed.error)); // 3b, 4b, 4c inline
@@ -84,6 +87,11 @@ export function SignUpForm({
       const code = result.error.code;
       if (code === "EMAIL_TAKEN") {
         setEmailTaken(true); // 4a
+      } else if (code === "NOTICE_CHANGED") {
+        // 3b: show the current notice and ask for a fresh acknowledgment.
+        setAcknowledged(false);
+        setNoticeChanged(true);
+        router.refresh();
       } else if (code in VALIDATION_MESSAGES) {
         const validation = code as ValidationErrorCode;
         setErrors({ [FIELD_OF_CODE[validation]]: validation });
@@ -217,12 +225,17 @@ export function SignUpForm({
           onChange={(e) => {
             setAcknowledged(e.target.checked);
           }}
-          aria-invalid={errors.acknowledged ? true : undefined}
+          aria-invalid={errors.acknowledged || noticeChanged ? true : undefined}
         />
         I am the parent or guardian, I have read the consent notice, and I
         consent.
       </label>
       {errorFor("acknowledged")}
+      {noticeChanged && (
+        <p role="alert" className={styles.error}>
+          The consent notice has changed. Please read it again and tick the box.
+        </p>
+      )}
 
       {submitError && (
         <p role="alert" className={styles.error}>

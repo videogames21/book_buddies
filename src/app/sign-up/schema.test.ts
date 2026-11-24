@@ -6,6 +6,7 @@ const valid = {
   email: "invented.parent@example.test",
   password: "correct horse",
   acknowledged: true,
+  noticeVersion: "2026-11-23-placeholder-14d",
 };
 
 function codeOf(input: Record<string, unknown>) {
@@ -17,6 +18,15 @@ describe("UC-PAR-onboarding sign-up schema (design/par-field-values.md)", () => 
   it("accepts a valid sign-up", () => {
     expect(codeOf(valid)).toBeNull();
   });
+
+  it.each([undefined, "", 7, "v".repeat(101)])(
+    "3b: refuses the notice version %j as no form field (INVALID_INPUT)",
+    (noticeVersion) => {
+      const parsed = signUpSchema.safeParse({ ...valid, noticeVersion });
+      expect(parsed.success).toBe(false);
+      expect(parsed.success || firstErrorOf(parsed.error)).toBeNull();
+    },
+  );
 
   it.each([undefined, false, "true", 1, "on"])(
     "3b: refuses an acknowledgment of %s with CONSENT_NOT_ACKNOWLEDGED",

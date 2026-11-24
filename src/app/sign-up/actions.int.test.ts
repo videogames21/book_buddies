@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { Collection, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertUserWithRole } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
@@ -32,7 +32,7 @@ vi.mock("@/server/identity-access/sessions", async (importOriginal) => {
     createDatabaseSession: vi.fn(actual.createDatabaseSession),
   };
 });
-// A set version replaces the real one, to make the validator refuse the insert (5a).
+// A set version replaces the current one, as a deploy that changes the notice would (3b).
 const notice = vi.hoisted(() => ({ version: null as string | null }));
 vi.mock("@/server/accounts-family/consent-notice", async (importOriginal) => {
   const actual =
@@ -80,6 +80,8 @@ const input = {
   email: "Invented.Parent@Example.test",
   password: "correct horse battery",
   acknowledged: true,
+  // The version the page shows with the default 14-day window.
+  noticeVersion: `${CONSENT_NOTICE_VERSION}-14d`,
 };
 const EMAIL = "invented.parent@example.test";
 
@@ -179,6 +181,49 @@ describe("signUpParent, UC-PAR-onboarding main (steps 3–5)", () => {
       expect(await signUpParent({ ...input, acknowledged })).toMatchObject({
         ok: false,
         error: { code: "CONSENT_NOT_ACKNOWLEDGED" },
+      });
+    }
+    await expectNothingStored();
+  });
+
+  it("3b: a form showing an older notice is NOTICE_CHANGED and stores nothing", async () => {
+    // The notice text changed after the page was rendered.
+    notice.version = "2027-01-01-revised-14d";
+    vi.mocked(hashPassword).mockClear();
+    expect(await signUpParent(input)).toMatchObject({
+      ok: false,
+      error: { code: "NOTICE_CHANGED" },
+    });
+    expect(hashPassword).not.toHaveBeenCalled();
+    await expectNothingStored();
+  });
+
+  it("3b: a changed confirmation window alone makes the form stale", async () => {
+    notice.version = `${CONSENT_NOTICE_VERSION}-30d`;
+    expect(await signUpParent(input)).toMatchObject({
+      error: { code: "NOTICE_CHANGED" },
+    });
+    await expectNothingStored();
+  });
+
+  it("3b: once the parent acknowledges the current notice, that version is recorded", async () => {
+    notice.version = "2027-01-01-revised-14d";
+    expect(await signUpParent(input)).toMatchObject({
+      error: { code: "NOTICE_CHANGED" },
+    });
+    expect(
+      await signUpParent({ ...input, noticeVersion: "2027-01-01-revised-14d" }),
+    ).toMatchObject({ ok: true });
+    expect(await db().collection("consentRecords").findOne({})).toMatchObject({
+      noticeVersion: "2027-01-01-revised-14d",
+    });
+  });
+
+  it("a missing or empty notice version is INVALID_INPUT and stores nothing", async () => {
+    for (const noticeVersion of [undefined, ""]) {
+      expect(await signUpParent({ ...input, noticeVersion })).toMatchObject({
+        ok: false,
+        error: { code: "INVALID_INPUT" },
       });
     }
     await expectNothingStored();
@@ -317,8 +362,17 @@ describe("4a: email already registered", () => {
 
 describe("5a: the account cannot be saved", () => {
   it("when the Consent Record insert fails, no user, record or session remains and no cookie is set", async () => {
-    // An empty notice version fails the consentRecords validator inside the transaction.
-    notice.version = "";
+    // The Consent Record insert fails inside the transaction, after the user insert.
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const insertOne = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "consentRecords")
+        return Promise.reject(new Error("write failed"));
+      return insertOne.apply(this, args);
+    });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await signUpParent(input);
     expect(result).toMatchObject({ ok: false, error: { code: "SAVE_FAILED" } });

@@ -104,9 +104,15 @@ export async function purgeExpiredUnconfirmed(): Promise<number> {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type NewParent = { name: string; email: string; password: string };
+export type NewParent = {
+  name: string;
+  email: string;
+  password: string;
+  /** The notice version the sign-up page showed. */
+  noticeVersion: string;
+};
 
-export type SignUpErrorCode = "EMAIL_TAKEN" | "SAVE_FAILED";
+export type SignUpErrorCode = "NOTICE_CHANGED" | "EMAIL_TAKEN" | "SAVE_FAILED";
 
 /** A parent's email is free again only once that Main Parent's sign-up has expired (6a). */
 async function emailBlocksSignUp(email: string): Promise<boolean> {
@@ -117,10 +123,12 @@ async function emailBlocksSignUp(email: string): Promise<boolean> {
 }
 
 /**
- * UC-PAR-onboarding step 5. One transaction writes the Main Parent, the Consent Record
- * and the session (5a). The cookie and the email come after the commit, so a failure
- * there cannot be reported as "nothing saved": the account exists, and the parent is
- * offered a resend (5b) or can sign in.
+ * UC-PAR-onboarding step 5. A notice version other than the current one is no
+ * acknowledgment (3b): the parent saw text that is no longer shown, so nothing is
+ * stored. One transaction writes the Main Parent, the Consent Record and the session
+ * (5a). The cookie and the email come after the commit, so a failure there cannot be
+ * reported as "nothing saved": the account exists, and the parent is offered a resend
+ * (5b) or can sign in.
  */
 export async function createFamily(
   input: NewParent,
@@ -131,6 +139,13 @@ export async function createFamily(
   const { CONSENT_CONFIRMATION_DAYS: days, CONSENT_METHOD: method } =
     getConfig();
   const noticeVersion = consentNoticeVersion(days);
+  // The notice text and window are fixed for one deployment, so this check is exact.
+  if (input.noticeVersion !== noticeVersion) {
+    return fail(
+      "NOTICE_CHANGED",
+      "The consent notice has changed. Please read it again and tick the box.",
+    );
+  }
   const confirmBy = new Date(acknowledgedAt.getTime() + days * DAY_MS);
 
   let session;

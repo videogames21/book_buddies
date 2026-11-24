@@ -1,6 +1,7 @@
 // Starts an in-memory MongoDB replica set and the Next.js dev server against it, for
 // Playwright. The tests read the database URI from tests/e2e/.mongo-uri to seed
-// invented test accounts and sessions.
+// invented test accounts and sessions. Email goes to Mailpit, which must be running
+// (locally: docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1).
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { writeFileSync } from "node:fs";
@@ -30,6 +31,9 @@ const server = spawn(
       AUTH_SECRET: randomBytes(32).toString("hex"),
       AUTH_TRUST_HOST: "true",
       APP_URL: `http://localhost:${port}`,
+      // Mailpit, which CI runs as a service and tests/e2e/mailpit.ts reads back.
+      SMTP_URL: process.env.E2E_SMTP_URL ?? "smtp://127.0.0.1:1025",
+      MAIL_FROM: "BookBuddies <no-reply@bookbuddies.test>",
     },
   },
 );

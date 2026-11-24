@@ -33,9 +33,3 @@ export async function checkCreateChildAccess(): Promise<
   }
   return ok(session.data);
 }
-
-// UC-PAR-onboarding's routes (1c redirects to check-email).
-export {
-  CHECK_EMAIL_PATH,
-  SIGN_IN_PATH,
-} from "@/app/(parent)/parent/onboarding/paths";

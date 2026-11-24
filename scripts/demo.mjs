@@ -34,6 +34,8 @@ const nextBin = fileURLToPath(
 // Invented, and only valid in this run's temporary database.
 const DEMO_EMAIL = "demo-parent@example.test";
 const DEMO_PASSWORD = "demo-password-123";
+const DEMO_ADMIN_EMAIL = "demo-admin@example.test";
+const DEMO_ADMIN_PASSWORD = "demo-admin-password-123";
 
 // The stored format and cost of src/server/identity-access/passwords.ts.
 async function hashDemoPassword(password) {
@@ -108,6 +110,8 @@ try {
     APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
     NEXT_TELEMETRY_DISABLED: "1",
+    // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
+    ALLOW_ADMIN_PARENT_SIGNIN: "1",
   };
   console.log("Building the demo application...");
   app = spawn(process.execPath, [nextBin, "build"], {
@@ -129,6 +133,19 @@ try {
   );
   const [setupCode] = await once(setup, "exit");
   if (setupCode !== 0) throw new Error("Demo database setup failed.");
+  // The client's seed catalog, as active books: the admin list and the parent's
+  // favorite-book picker both read it.
+  const seed = spawn(
+    process.execPath,
+    ["--experimental-transform-types", "scripts/seed-catalog.mjs"],
+    {
+      cwd: root,
+      env,
+      stdio: "inherit",
+    },
+  );
+  const [seedCode] = await once(seed, "exit");
+  if (seedCode !== 0) throw new Error("Demo catalog seed failed.");
 
   client = new MongoClient(uri);
   const db = client.db("bookbuddies_demo");
@@ -142,6 +159,13 @@ try {
     name: "Demo Parent",
     email: DEMO_EMAIL,
     passwordHash: await hashDemoPassword(DEMO_PASSWORD),
+  });
+  await db.collection("users").insertOne({
+    _id: new ObjectId(),
+    role: "admin",
+    name: "Demo Admin",
+    email: DEMO_ADMIN_EMAIL,
+    passwordHash: await hashDemoPassword(DEMO_ADMIN_PASSWORD),
   });
   const acknowledgedAt = new Date();
   await db.collection("consentRecords").insertOne({
@@ -190,7 +214,10 @@ try {
   }
 
   console.log(
-    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\nPress Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
+    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\nAnd the invented admin (same page, opens /admin/catalog):
+  Email:    ${DEMO_ADMIN_EMAIL}
+  Password: ${DEMO_ADMIN_PASSWORD}
+Press Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
   );
 } catch (error) {
   console.error(

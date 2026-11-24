@@ -12,6 +12,7 @@ import type { NewBook } from "@/shared/catalog/new-book-schema";
 import {
   BOOKS_COLLECTION,
   booksCollection,
+  type BookDocument,
   type BookStatus,
 } from "./books-collection";
 import { classifyInsertError, type ExistingBook } from "./insert-error";
@@ -169,30 +170,19 @@ function duplicateMessage(book: ExistingBook): string {
   return `This book is already in the catalog: ${book.title} by ${book.author} (${String(book.year)}), status ${book.status}.`;
 }
 
-export type AdminBookRow = {
-  id: string;
-  title: string;
-  author: string;
-  year: number;
-  status: BookStatus;
-};
+/** Every stored field of a book, as the admin sees it. */
+export type AdminBookRow = Omit<BookDocument, "_id"> & { id: string };
 
-/** Every book, blocked ones included, newest first (the catalog list, step 7). Needs an admin session (§8.1). */
+/** Every book with every field, blocked ones included, newest first (the catalog list, step 7). Needs an admin session (§8.1). */
 export async function listBooksForAdmin(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the type is the check
   _session: AdminSession,
 ): Promise<AdminBookRow[]> {
   const books = await booksCollection(getDb())
-    .find({}, { projection: { title: 1, author: 1, year: 1, status: 1 } })
+    .find({})
     .sort({ createdAt: -1, _id: 1 })
     .toArray();
-  return books.map((book) => ({
-    id: book._id,
-    title: book.title,
-    author: book.author,
-    year: book.year,
-    status: book.status,
-  }));
+  return books.map(({ _id, ...book }) => ({ id: _id, ...book }));
 }
 
 /** The distinct custom tags across all books, sorted. Needs an admin session (§8.1). */

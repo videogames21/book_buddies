@@ -142,7 +142,6 @@ describe("signInParent", () => {
   });
 
   it.each([
-    ["an admin", { role: "admin" }],
     ["a child", { role: "child" }],
     ["a Sub Parent", { parentRole: "sub" }],
   ])("refuses %s with the correct password", async (_label, fields) => {
@@ -152,6 +151,12 @@ describe("signInParent", () => {
       error: { code: "INVALID_CREDENTIALS" },
     });
     expect(await getDb().collection("sessions").countDocuments()).toBe(0);
+  });
+
+  it("signs in an admin who has a password", async () => {
+    await insertAccount({ role: "admin" });
+    expect((await attempt(PASSWORD)).ok).toBe(true);
+    expect(await getDb().collection("sessions").countDocuments()).toBe(1);
   });
 
   it("refuses malformed input without creating throttle state", async () => {

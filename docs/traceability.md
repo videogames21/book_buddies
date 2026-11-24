@@ -154,7 +154,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-SHLF-kid-add-note` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-parent-remove-book` |  | ❌ Not started |  |  |  |  |
 | `UC-SHLF-manual-search` |  | ❌ Not started |  |  |  |  |
-| `UC-ADM-add-content` |  | 📐 Designed | [design/adm.md](../design/adm.md) |  |  |  |
+| `UC-ADM-add-content` |  | ✅ Built | [design/adm.md](../design/adm.md) | [action](../src/app/(admin)/admin/catalog/new/actions.ts), [pages](../src/app/(admin)/admin/catalog/page.tsx), [Catalog](../src/server/catalog/books.ts), [shared](../src/shared/catalog/new-book-schema.ts) | Units (`src/shared/catalog`, `insert-error`), MongoDB integration (`books*.int.test.ts`, `actions.int.test.ts`, `sessions.int.test.ts`, `schema-setup`), Playwright (`tests/e2e/add-content.spec.ts`: main, 4a, 3a, 1a) | ✅ Verified |
 | `UC-ADM-edit-content` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-block-content` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-unblock-content` |  | ❌ Not started |  |  |  |  |

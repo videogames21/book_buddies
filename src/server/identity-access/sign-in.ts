@@ -1,11 +1,11 @@
 import "server-only";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
-import { findParentByEmail } from "./parent-accounts";
+import { findAdminByEmail, findParentByEmail } from "./parent-accounts";
 import { verifyPassword } from "./passwords";
 import { createDatabaseSession, type NewSession } from "./sessions";
 import { claimSignInAttempt, clearSignInAttempts } from "./sign-in-throttle";
 
-// A Main Parent's sign-in (OI-44, design/par.md, Supporting flows). It knows nothing
+// A Main Parent's or an admin's sign-in (OI-44, design/par.md, Supporting flows). It knows nothing
 // about onboarding: the gate on /parent decides where the parent goes next.
 
 export type SignInCode = "INVALID_CREDENTIALS" | "TOO_MANY_ATTEMPTS";
@@ -35,15 +35,22 @@ export async function signInMainParent(
   }
 
   const parent = await findParentByEmail(email);
+  // TEMPORARY (OI-61): off unless the demo or e2e server sets the flag, so the rig
+  // cannot reach a live environment.
+  const admin =
+    parent || process.env.ALLOW_ADMIN_PARENT_SIGNIN !== "1"
+      ? null
+      : await findAdminByEmail(email);
+  const account = parent ?? admin;
   const matches = await verifyPassword(
     password,
-    parent?.passwordHash ?? DECOY_HASH,
+    account?.passwordHash ?? DECOY_HASH,
   );
   // Sub Parent sign-in comes with UC-PAR-create-sub-parent-account.
-  if (!parent || parent.parentRole !== "main" || !matches) {
+  if (!account || (parent && parent.parentRole !== "main") || !matches) {
     return fail("INVALID_CREDENTIALS", "That email or password is incorrect.");
   }
 
   await clearSignInAttempts(email);
-  return ok(await createDatabaseSession(parent.userId));
+  return ok(await createDatabaseSession(account.userId));
 }

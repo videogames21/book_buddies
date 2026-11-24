@@ -6,6 +6,7 @@ import {
   deleteParentAccount,
   EmailTakenError,
   findParentByEmail,
+  findParentEmail,
   insertMainParent,
 } from "@/server/identity-access/parent-accounts";
 import { hashPassword } from "@/server/identity-access/passwords";
@@ -207,6 +208,66 @@ export async function confirmConsentByToken(
   if (record.confirmedAt)
     return ok({ familyId: record.familyId.toHexString() });
   return fail("LINK_EXPIRED", "This link has expired.");
+}
+
+export type ResendCode =
+  "ALREADY_CONFIRMED" | "SIGN_UP_EXPIRED" | "SEND_FAILED";
+
+/**
+ * UC-PAR-onboarding 6b. One conditional update stores a new token's hash in place of
+ * the old one, so the earlier link stops working; `confirmBy` is never touched. The
+ * family comes from the caller's session. A failed send keeps the new token, so the
+ * parent can try again.
+ */
+export async function resendConsentEmailFor(parent: {
+  userId: string;
+  familyId: string;
+}): Promise<ActionResult<null, ResendCode>> {
+  const { token, tokenHash } = newConfirmationToken();
+  const records = getDb().collection<{
+    familyId: ObjectId;
+    noticeVersion: string;
+    confirmBy: Date;
+    confirmedAt?: Date;
+  }>(CONSENT_RECORDS);
+  const familyId = new ObjectId(parent.familyId);
+  const record = await records.findOneAndUpdate(
+    {
+      familyId,
+      confirmedAt: { $exists: false },
+      revokedAt: { $exists: false },
+      confirmBy: { $gt: now() },
+    },
+    { $set: { confirmationTokenHash: tokenHash } },
+    { projection: { confirmBy: 1, noticeVersion: 1 } },
+  );
+  if (!record) {
+    const current = await records.findOne(
+      { familyId },
+      { projection: { confirmedAt: 1 } },
+    );
+    return current?.confirmedAt
+      ? fail("ALREADY_CONFIRMED", "Your consent is already confirmed.")
+      : fail("SIGN_UP_EXPIRED", "Your sign-up expired. Please start again.");
+  }
+
+  const email = await findParentEmail(parent.userId);
+  const sent = email
+    ? await sendEmail({
+        to: email,
+        ...buildConsentEmail({
+          token,
+          confirmBy: record.confirmBy,
+          noticeVersion: record.noticeVersion,
+        }),
+      })
+    : { ok: false };
+  return sent.ok
+    ? ok(null)
+    : fail(
+        "SEND_FAILED",
+        "We couldn't send the email. Please try again in a few minutes.",
+      );
 }
 
 export type OnboardingStep =

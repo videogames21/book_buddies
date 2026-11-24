@@ -88,6 +88,17 @@ export async function findParentByEmail(
   };
 }
 
+/** A parent's own address, to email them; never logged (§8.2.7). */
+export async function findParentEmail(userId: string): Promise<string | null> {
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOne(
+      { _id: new ObjectId(userId), role: "parent" },
+      { projection: { email: 1 } },
+    );
+  return user?.email ?? null;
+}
+
 /**
  * Deletes a parent's user document (name, email, hash), all their sessions and the
  * sign-in throttle row keyed by their email.

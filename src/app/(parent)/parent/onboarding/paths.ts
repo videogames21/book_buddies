@@ -5,9 +5,13 @@
 export const SIGN_UP_PATH = "/sign-up";
 export const SIGN_IN_PATH = "/sign-in";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
+export const RESET_PASSWORD_PATH = "/reset-password";
 export const PARENT_HOME_PATH = "/parent";
 export const CHECK_EMAIL_PATH = "/parent/onboarding/check-email";
 export const NEW_CHILD_PATH = "/parent/children/new";
 
 /** Query flag for 5b: sign-up saved the account but the email could not be sent. */
 export const NOT_SENT_FLAG = "notSent";
+
+/** Query flag on /sign-in after a password reset. */
+export const PASSWORD_CHANGED_FLAG = "passwordChanged";

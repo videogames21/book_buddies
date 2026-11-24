@@ -89,6 +89,25 @@ export async function findParentByEmail(
   };
 }
 
+/**
+ * Password reset (OI-44): replaces a Main Parent's hash inside the reset transaction.
+ * Returns their email, the sign-in throttle's key, or null when no Main Parent matched.
+ */
+export async function replaceMainParentPassword(
+  tx: Tx,
+  userId: string,
+  passwordHash: string,
+): Promise<string | null> {
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOneAndUpdate(
+      { _id: new ObjectId(userId), role: "parent", parentRole: "main" },
+      { $set: { passwordHash } },
+      { projection: { email: 1 }, session: tx },
+    );
+  return user?.email ?? null;
+}
+
 /** A parent's own address, to email them; never logged (§8.2.7). */
 export async function findParentEmail(userId: string): Promise<string | null> {
   const user = await getDb()

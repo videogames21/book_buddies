@@ -46,6 +46,25 @@ export async function appendUnconfirmedPurgeAudit(
     );
 }
 
+/** A parent reset their own password (OI-44). The user ID only. */
+export async function appendPasswordResetAudit(
+  tx: Tx,
+  userId: string,
+): Promise<void> {
+  await getDb()
+    .collection("auditLog")
+    .insertOne(
+      {
+        actorId: new ObjectId(userId),
+        actorRole: "parent",
+        event: "account.password-reset",
+        userId: new ObjectId(userId),
+        occurredAt: now(),
+      },
+      { session: tx },
+    );
+}
+
 export type AuditEntry = {
   event: "catalog.book_added";
   actorId: string;

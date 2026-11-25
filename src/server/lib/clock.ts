@@ -15,3 +15,4 @@ export function setClock(next: () => Date): void {
 export function resetClock(): void {
   source = () => new Date();
 }
+const   badlyFormatted   =   1

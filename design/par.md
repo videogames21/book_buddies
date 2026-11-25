@@ -1287,6 +1287,8 @@ No new item is stored about a child: reports, per-child exclusions and in-app no
 
 ## Reuse & cross-cutting
 
+For `UC-ADM-block-content` 3a, the parent Notification view displays the false-report warning saved by `saveFalseReportWarning(recipientId, tx)` to the authenticated recipient. See [the block design](adm.md#blocking-and-report-decisions).
+
 _[Which existing services, components, and conventions this area uses rather than rebuilding: authentication, the error handler, email, the clock, another area's service. Cite your architecture-of-record's section 8.2 for each convention by name rather than restating it.]_
 
 Nothing exists to reuse yet, so this use case builds the shared pieces the conventions name, once, for every later use case:

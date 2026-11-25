@@ -263,6 +263,8 @@ The only new logging case is a fixed `recommendation-request-failed` event with 
 
 ## Reuse & cross-cutting
 
+For `UC-ADM-block-content`, Recommendation provides `removeFromCurrentLists(bookId, tx)` to remove a book from pending and released lists in the admin's transaction. See [the block design](adm.md#blocking-and-report-decisions).
+
 - **Authentication and authorization:** `requireParent()` and the family check on page and action (`KD-auth-sessions`, §8.1).
 - **Error handling:** the shared result helper (§8.2.1).
 - **Time:** `savedAt` from the clock module, stored in UTC, set once at the insert (§8.2.2). The date range of the admin's figure is applied on read; nothing is purged by age.

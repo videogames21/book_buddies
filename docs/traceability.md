@@ -94,7 +94,7 @@ _BookBuddies' rules. "Enforced by" lists every use case whose Business Rules fie
 | `BR-notes-visible-to-parent` | Meeting 2 notes, "Book Notes and Privacy" | `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-remove-book`, `UC-SHLF-kid-add-note`, `UC-ADM-flag-review`, `UC-PAR-review-child-data`; `FR-NOTE-reflection`, `SEC-no-private-notes` |
 | `BR-24hr-review-window` | Concept brief, "Parental Controls…" (unconfirmed, `OI-16`) | `UC-ADM-suspend-account`; `FR-PAR-review-window` (TBD). Deliberately unenforced until `OI-16` is answered. |
 | `BR-parent-content-removal` | Concept brief, "Parental Controls…" | `UC-SHLF-kid-add-note`, `UC-ADM-flag-review`; `FR-PAR-content-removal`. No use case lets a parent remove flagged content. |
-| `BR-parent-report-book` | Client, in conversation with the team, 2026-10-13 (no source document yet) | `UC-PAR-report-book`, `UC-ADM-block-content`, `UC-PAR-suggest-book`, `UC-REC-recommend-quiz-rules`, `UC-SHLF-manual-search` (per-child exclusions), `UC-ADM-unblock-content`, `UC-PAR-approve-shelf-request`, `UC-PAR-delete-child-data`, `UC-ADM-suspend-parent-account`; `FR-PAR-report-book`, `FR-ADM-report-review`, `FR-REC-rules`, `FR-SEARCH-manual`, `FR-ACCT-sub-parent-invite`, `DI-report-exclusion`, `SAF-child-content` |
+| `BR-parent-report-book` | Client, in conversation with the team, 2026-10-13 (no source document yet) | `UC-PAR-report-book`, [`UC-ADM-block-content` design](../design/adm.md#blocking-and-report-decisions), `UC-PAR-suggest-book`, `UC-REC-recommend-quiz-rules`, `UC-SHLF-manual-search` (per-child exclusions), `UC-ADM-unblock-content`, `UC-PAR-approve-shelf-request`, `UC-PAR-delete-child-data`, `UC-ADM-suspend-parent-account`; `FR-PAR-report-book`, `FR-ADM-report-review`, `FR-REC-rules`, `FR-SEARCH-manual`, `FR-ACCT-sub-parent-invite`, `DI-report-exclusion`, `SAF-child-content` |
 | `BR-no-open-discovery` | Concept brief, "What's not included in adult-facing profile"; PM deck, Screen 5 | **No use case.** `CO-no-social` |
 | `BR-group-adult-approval` | Profiles notes, "Adult-facing profile"; PM deck, Screen 5 | None: groups are removed until further notice. |
 | `BR-buddy-visibility-boundary` | Profiles notes, "Recommender" ("Social boundary") | None: peer sharing is removed until further notice. |
@@ -156,7 +156,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-SHLF-manual-search` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-add-content` |  | ✅ Built | [design/adm.md](../design/adm.md) | [action](../src/app/(admin)/admin/catalog/new/actions.ts), [pages](../src/app/(admin)/admin/catalog/page.tsx), [Catalog](../src/server/catalog/books.ts), [shared](../src/shared/catalog/new-book-schema.ts) | Units (`src/shared/catalog`, `insert-error`), MongoDB integration (`books*.int.test.ts`, `actions.int.test.ts`, `sessions.int.test.ts`, `schema-setup`), Playwright (`tests/e2e/add-content.spec.ts`: main, 4a, 3a, 1a) | ✅ Verified |
 | `UC-ADM-edit-content` |  | ❌ Not started |  |  |  |  |
-| `UC-ADM-block-content` |  | ❌ Not started |  |  |  |  |
+| `UC-ADM-block-content` |  | 📐 Designed | [design/adm.md](../design/adm.md#uc-adm-block-content-block-a-catalog-book) |  |  |  |
 | `UC-ADM-unblock-content` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-suspend-account` |  | ❌ Not started |  |  |  |  |
 | `UC-ADM-suspend-parent-account` |  | ❌ Not started |  |  |  |  |

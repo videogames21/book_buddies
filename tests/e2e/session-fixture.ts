@@ -1,3 +1,4 @@
+import { consentNoticeVersion } from "../../src/server/accounts-family/consent-notice";
 import { ensureIndexes } from "../../src/server/setup/ensure-indexes";
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -43,13 +44,16 @@ export async function signInParent(
     email: `parent-${userId.toHexString()}@example.test`,
   });
   const acknowledgedAt = new Date();
+  const confirmationDays = 14;
   await db.collection("consentRecords").insertOne({
     familyId,
     parentUserId: userId,
-    noticeVersion: "test",
+    noticeVersion: consentNoticeVersion(confirmationDays),
     method: "email-plus",
     acknowledgedAt,
-    confirmBy: new Date(acknowledgedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
+    confirmBy: new Date(
+      acknowledgedAt.getTime() + confirmationDays * 24 * 60 * 60 * 1000,
+    ),
     confirmationTokenHash: createHash("sha256")
       .update(randomBytes(32))
       .digest("hex"),

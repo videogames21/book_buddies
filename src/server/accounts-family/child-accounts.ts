@@ -15,6 +15,7 @@ import { ensureCollection } from "@/server/lib/collections";
 import { getDb, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { AvatarKey } from "./avatars";
+import { CONSENT_RECORDS } from "./consent-record-schema";
 
 import { insertParentNote, type NoteState } from "./parent-notes";
 import {
@@ -28,10 +29,6 @@ import { appendNoteFlagAudit } from "@/server/audit/audit-log";
 // which is all other components hold about a child (KD-pii-segregation).
 
 const CHILDREN = "children";
-// The family's consent record belongs to UC-PAR-onboarding, which is not designed yet.
-// Assumed shape: one document per family with `confirmedAt` set once consent is
-// confirmed (DI-consent-record; design/par.md, Open questions).
-const CONSENT_RECORDS = "consentRecords";
 
 class ConsentNotConfirmedError extends Error {}
 

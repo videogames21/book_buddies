@@ -17,7 +17,8 @@ export type SignInCode = "INVALID_CREDENTIALS" | "TOO_MANY_ATTEMPTS";
 const DECOY_HASH =
   "scrypt$131072$8$1$ASF4qnLVVD7atYpYJEuqrg==$qlkASV3hwmIhSA4/KhIZNxlILS69qMropx/FchDk4LL2++uZRhHATluhGXsaQVYcGUl6AkayphRjPPJ9EnVksw==";
 
-function waitMessage(seconds: number): string {
+/** The TOO_MANY_ATTEMPTS message, shared by every password entry point. */
+export function waitMessage(seconds: number): string {
   const [amount, unit] =
     seconds < 60 ? [seconds, "second"] : [Math.ceil(seconds / 60), "minute"];
   const plural = amount === 1 ? "" : "s";

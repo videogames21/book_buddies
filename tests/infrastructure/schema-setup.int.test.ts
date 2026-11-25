@@ -439,3 +439,167 @@ it("accepts exactly the audit shapes §8.2.9 allows, IDs only", async () => {
   ).rejects.toThrow();
   await audit.deleteMany({});
 });
+
+it("creates bookReports and childBookExclusions with their indexes and validators (UC-PAR-report-book)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const reports = getDb().collection("bookReports");
+  const exclusions = getDb().collection("childBookExclusions");
+
+  const reportIndexes = await reports.indexes();
+  expect(reportIndexes.find((i) => i.name === "bookId_status")).toMatchObject({
+    key: { bookId: 1, status: 1 },
+  });
+  expect(
+    reportIndexes.find((i) => i.name === "status_reportedAt"),
+  ).toMatchObject({ key: { status: 1, reportedAt: 1 } });
+  expect(reportIndexes.find((i) => i.name === "childId")).toMatchObject({
+    key: { childId: 1 },
+  });
+  expect(
+    (await exclusions.indexes()).find(
+      (i) => i.name === "childId_bookId_unique",
+    ),
+  ).toMatchObject({ key: { childId: 1, bookId: 1 }, unique: true });
+
+  const report = {
+    childId: "child-1",
+    bookId: "book-1",
+    reportedByUserId: new ObjectId(),
+    reason: "inappropriate-content",
+    comment: "Too scary",
+    status: "open",
+    reportedAt: new Date(),
+  };
+  await expect(reports.insertOne({ ...report })).resolves.toBeTruthy();
+  // The shape UC-PAR-delete-kid-account leaves: no childId and no comment.
+  const { childId: _c, comment: _m, ...afterDeletion } = report;
+  await expect(reports.insertOne(afterDeletion)).resolves.toBeTruthy();
+  // No role, child detail or off-list value may be stored.
+  await expect(
+    reports.insertOne({ ...report, reporterRole: "main" }),
+  ).rejects.toThrow();
+  await expect(reports.insertOne({ ...report, age: 8 })).rejects.toThrow();
+  await expect(
+    reports.insertOne({ ...report, reason: "boring" }),
+  ).rejects.toThrow();
+  await expect(
+    reports.insertOne({ ...report, comment: "x".repeat(251) }),
+  ).rejects.toThrow();
+
+  const exclusion = {
+    childId: "child-1",
+    bookId: "book-1",
+    reportId: new ObjectId(),
+    createdAt: new Date(),
+  };
+  await exclusions.insertOne({ ...exclusion });
+  await expect(exclusions.insertOne({ ...exclusion })).rejects.toThrow();
+  await reports.deleteMany({});
+  await exclusions.deleteMany({});
+});
+
+it("creates childNotices with a childId and seenAt index, holding the book ID only", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const notices = getDb().collection("childNotices");
+  expect(
+    (await notices.indexes()).find((i) => i.name === "childId_seenAt"),
+  ).toMatchObject({ key: { childId: 1, seenAt: 1 } });
+  const notice = {
+    childId: "child-1",
+    kind: "book-removed",
+    bookId: "book-1",
+    createdAt: new Date(),
+  };
+  await expect(notices.insertOne({ ...notice })).resolves.toBeTruthy();
+  // No reason and no parent reach a child's notice (§8.2.11).
+  await expect(
+    notices.insertOne({ ...notice, reason: "inappropriate-content" }),
+  ).rejects.toThrow();
+  await expect(
+    notices.insertOne({ ...notice, parentId: "p" }),
+  ).rejects.toThrow();
+  await notices.deleteMany({});
+});
+
+it("accepts the book report and parent shelf removal audit shapes, and refuses an extra field", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const audit = getDb().collection("auditLog");
+  const reported = {
+    actorId: new ObjectId(),
+    actorRole: "parent",
+    event: "book.reported",
+    childId: "child-1",
+    recordId: new ObjectId(),
+    occurredAt: new Date(),
+  };
+  const removed = {
+    ...reported,
+    event: "shelf.parent-removed",
+    bookId: "book-1",
+  };
+  await expect(audit.insertOne({ ...reported })).resolves.toBeTruthy();
+  await expect(audit.insertOne({ ...removed })).resolves.toBeTruthy();
+  await expect(
+    audit.insertOne({ ...reported, comment: "text" }),
+  ).rejects.toThrow();
+  await expect(
+    audit.insertOne({ ...reported, reason: "other" }),
+  ).rejects.toThrow();
+  await expect(
+    audit.insertOne({ ...removed, nickname: "Starfish" }),
+  ).rejects.toThrow();
+  const { bookId: _b, ...removedNoBook } = removed;
+  await expect(audit.insertOne(removedNoBook)).rejects.toThrow();
+  await audit.deleteMany({});
+});
+
+it("lets children and consentRecords carry their write-lock counters only as integers", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const children = getDb().collection<
+    { _id: string } & Record<string, unknown>
+  >("children");
+  const child = {
+    _id: "00000000-0000-4000-8000-000000000001",
+    familyId: new ObjectId(),
+    nickname: "Starfish",
+    avatar: "1-1",
+    createdAt: new Date(),
+  };
+  await expect(
+    children.insertOne({ ...child, writeVersion: 1 }),
+  ).resolves.toBeTruthy();
+  await expect(
+    children.insertOne({
+      ...child,
+      _id: "00000000-0000-4000-8000-000000000002",
+      writeVersion: "1",
+    }),
+  ).rejects.toThrow();
+  await children.deleteMany({});
+
+  const consent = getDb().collection("consentRecords");
+  const record = (version: unknown) => ({
+    familyId: new ObjectId(),
+    parentUserId: new ObjectId(),
+    noticeVersion: "test",
+    method: "email-plus",
+    acknowledgedAt: new Date(),
+    confirmBy: new Date(),
+    confirmationTokenHash: new ObjectId().toHexString().padEnd(64, "0"),
+    consentWriteVersion: version,
+  });
+  await expect(consent.insertOne(record(1))).resolves.toBeTruthy();
+  await expect(consent.insertOne(record("1"))).rejects.toThrow();
+  await consent.deleteMany({});
+});

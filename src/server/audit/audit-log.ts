@@ -92,7 +92,8 @@ export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
 // One shape per event, IDs only (§8.2.9). A new sign-up or the cron removes an expired
 // account, so it has no actor: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
 // own act on their own account (OI-44).
-// A catalog entry names a book and an admin, and has no child.
+// A catalog entry names a book and an admin, and has no child. A book report and a
+// parent's shelf removal name the parent, the child and the record (UC-PAR-report-book).
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
@@ -151,6 +152,51 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
           event: { enum: ["catalog.book_added"] },
           // The book's UUID string.
           recordId: { bsonType: "string" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      // UC-PAR-report-book: the report's ID. No reason, comment or nickname.
+      {
+        required: [
+          "actorId",
+          "actorRole",
+          "event",
+          "childId",
+          "recordId",
+          "occurredAt",
+        ],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["book.reported"] },
+          childId: { bsonType: "string" },
+          recordId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      // A parent's shelf removal (UC-PAR-report-book; reused by UC-SHLF-parent-remove-book):
+      // the deleted entry's ID, and the book ID so the entry can still be named after the delete.
+      {
+        required: [
+          "actorId",
+          "actorRole",
+          "event",
+          "childId",
+          "recordId",
+          "bookId",
+          "occurredAt",
+        ],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["shelf.parent-removed"] },
+          childId: { bsonType: "string" },
+          recordId: { bsonType: "objectId" },
+          bookId: { bsonType: "string" },
           occurredAt: { bsonType: "date" },
         },
       },

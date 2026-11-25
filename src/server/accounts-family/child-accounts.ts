@@ -180,6 +180,8 @@ export async function ensureAccountsFamilyIndexes(db: Db): Promise<void> {
       nickname: { bsonType: "string", minLength: 1 },
       avatar: { bsonType: "string" },
       createdAt: { bsonType: "date" },
+      // lockChildForWrite's counter; absent means 0 (architecture §8.2.8).
+      writeVersion: { bsonType: ["int", "long"] },
     },
   });
   await db

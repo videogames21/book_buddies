@@ -412,6 +412,13 @@ Added for `UC-PAR-delete-kid-account` (new unless marked reused or extended):
 - `src/server/audit/audit-log.ts` (extended): `appendChildDeletedAudit(tx, parentUserId, childId)`, the event `child-account-deleted` (POST-5).
 - Notification (new when Sub Parents exist): `insertNotice(tx, recipientUserId, kind)` for step 6. Sub Parent accounts and in-app notices are not built yet (`UC-PAR-create-sub-parent-account`), so until they are, `deleteChild` finds no Sub Parents and writes no notice.
 
+_Changed at `/implement` (2026-11-24, #66):_
+- _Shelf's `deleteChildRecords` is built now, in [`shelf-collections.ts`](../src/server/shelf/shelf-collections.ts), because its entries, ratings and finish confirmations are on `main` (developer decision). The completeness test seeds them from fixtures, since no Shelf write path exists yet._
+- _`deleteChildSignIn` deletes the credential, the sessions and the `child:<username>:` throttle rows. It has no `childSignIns` or `childSessionEnds` delete yet: those collections are not built and their fields are not fixed. Child sign-in adds them here._
+- _`deleteChild` also refuses a Sub Parent (`NOT_MAIN_PARENT`), as a second check next to the data; the action checks first._
+- _The schema adds `PASSWORD_REQUIRED`, `NICKNAME_REQUIRED` and `INVALID_INPUT` (a malformed child ID or an over-long field). `TOO_MANY_ATTEMPTS` carries the wait in its message, worded by sign-in's `waitMessage`, because §8.2.1 has no data slot on an error. A refused re-check is logged as the `reauth-refused` security event (§8.2.7), the event the child-data review also names._
+- _Two indexes are added for the deletion's lookups: `users.childId` (unique where set) and `noteFlags.childId`._
+
 ## Sequence
 
 _[One sequence diagram per use case for its main success scenario, plus one for each extension that does not just return an error. **Label each interaction with the use case step it implements**, so a reviewer can check that every step is realized and nothing extra was invented. Use `alt` blocks for extensions that branch off the main flow. Give each use case its own `###` heading; that heading is the anchor your traceability matrix cites.]_

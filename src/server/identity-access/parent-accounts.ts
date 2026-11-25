@@ -1,7 +1,9 @@
 import "server-only";
 import { ObjectId } from "mongodb";
 import { getDb, type Tx } from "@/server/lib/db";
+import { deletePasswordResetOf } from "./password-resets";
 import { deleteSessionsOfUser } from "./sessions";
+import { clearSignInAttempts } from "./sign-in-throttle";
 
 // Main Parent accounts in Identity & Access's `users` collection (UC-PAR-onboarding).
 // The fields requireParent() reads (role, parentRole, familyId), plus the name, the
@@ -88,6 +90,36 @@ export async function findParentByEmail(
 }
 
 /**
+ * Password reset (OI-44): replaces a Main Parent's hash inside the reset transaction.
+ * Returns their email, the sign-in throttle's key, or null when no Main Parent matched.
+ */
+export async function replaceMainParentPassword(
+  tx: Tx,
+  userId: string,
+  passwordHash: string,
+): Promise<string | null> {
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOneAndUpdate(
+      { _id: new ObjectId(userId), role: "parent", parentRole: "main" },
+      { $set: { passwordHash } },
+      { projection: { email: 1 }, session: tx },
+    );
+  return user?.email ?? null;
+}
+
+/** A parent's own address, to email them; never logged (§8.2.7). */
+export async function findParentEmail(userId: string): Promise<string | null> {
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOne(
+      { _id: new ObjectId(userId), role: "parent" },
+      { projection: { email: 1 } },
+    );
+  return user?.email ?? null;
+}
+
+/**
  * An admin's sign-in record by lowercased email: ID and hash only. Admin accounts are
  * made by hand with a passwordHash; they share the parent sign-in page (developer
  * decision 2026-11-24).
@@ -105,15 +137,23 @@ export async function findAdminByEmail(
   return { userId: user._id.toHexString(), passwordHash: user.passwordHash };
 }
 
-/** Deletes a parent's user document (name, email, hash) and all their sessions. */
+/**
+ * Deletes a parent's user document (name, email, hash), all their sessions, any
+ * password reset record and the sign-in throttle row keyed by their email.
+ */
 export async function deleteParentAccount(
   tx: Tx,
   userId: string,
 ): Promise<void> {
-  await getDb()
-    .collection(USERS)
-    .deleteOne({ _id: new ObjectId(userId) }, { session: tx });
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOneAndDelete(
+      { _id: new ObjectId(userId) },
+      { projection: { email: 1 }, session: tx },
+    );
   await deleteSessionsOfUser(userId, tx);
+  await deletePasswordResetOf(userId, tx);
+  if (user?.email) await clearSignInAttempts(user.email, tx);
 }
 
 function isDuplicateEmail(err: unknown): boolean {

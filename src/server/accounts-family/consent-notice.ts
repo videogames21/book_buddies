@@ -2,12 +2,13 @@ import "server-only";
 
 // The direct notice shown at sign-up (UC-PAR-onboarding step 2) and restated in the
 // confirmation email (step 5). TEAM- AND LAWYER-EDITABLE: placeholder wording until
-// legal review (OI-20, OI-21). It holds every element BR-coppa-notice lists. Changing
-// any text below means raising CONSENT_NOTICE_VERSION. Each Consent Record stores
+// legal review (OI-20, OI-21). It holds every element BR-coppa-notice lists. Keep
+// each published template unchanged and register new text under a new version. Each Consent Record stores
 // consentNoticeVersion(days), so it always points at the exact text the parent saw,
 // including the configured window.
 
-export const CONSENT_NOTICE_VERSION = "2026-11-20-placeholder";
+const PLACEHOLDER_NOTICE_VERSION = "2026-11-23-placeholder";
+export const CONSENT_NOTICE_VERSION = PLACEHOLDER_NOTICE_VERSION;
 
 export type ConsentNoticeSection = { heading: string; paragraphs: string[] };
 
@@ -16,9 +17,7 @@ export function consentNoticeVersion(confirmationDays: number): string {
 }
 
 /** `confirmationDays` is the configured window (OI-22), stated in the notice. */
-export function consentNotice(
-  confirmationDays: number,
-): ConsentNoticeSection[] {
+function placeholderNotice(confirmationDays: number): ConsentNoticeSection[] {
   return [
     {
       heading: "Your consent is needed first",
@@ -39,8 +38,9 @@ export function consentNotice(
     {
       heading: "Who receives it",
       paragraphs: [
-        "No one outside BookBuddies receives your child's information. We do not sell it, use it for advertising or use it to train AI. Because nothing is shared, there is no separate sharing permission to give.",
-        "Our email provider receives only your name and email address, to send you account emails.",
+        "We do not sell your child's information, use it for advertising or use it to train AI, and no third party receives it for its own purposes. Because nothing is shared that way, there is no separate sharing permission to give.",
+        "Two service providers hold it only to run BookBuddies for us: Vercel hosts the app and MongoDB Atlas stores the data.",
+        "Our email provider, Resend, receives only your name and email address, to send you account emails. It never receives your child's information.",
       ],
     },
     {
@@ -57,4 +57,36 @@ export function consentNotice(
       ],
     },
   ];
+}
+
+// Retain published templates so a resend can restate the original acknowledgment.
+const noticeTemplates = {
+  [PLACEHOLDER_NOTICE_VERSION]: placeholderNotice,
+} satisfies Record<string, (days: number) => ConsentNoticeSection[]>;
+
+export function consentNotice(
+  confirmationDays: number,
+): ConsentNoticeSection[] {
+  return noticeTemplates[CONSENT_NOTICE_VERSION](confirmationDays);
+}
+
+export function consentNoticeForVersion(
+  noticeVersion: string,
+): ConsentNoticeSection[] | null {
+  const match = /^(.+)-([1-9][0-9]?)d$/.exec(noticeVersion);
+  if (!match) return null;
+
+  const [, version, window] = match;
+  const confirmationDays = Number(window);
+  if (
+    !version ||
+    !Object.hasOwn(noticeTemplates, version) ||
+    confirmationDays > 90
+  ) {
+    return null;
+  }
+
+  return noticeTemplates[version as keyof typeof noticeTemplates](
+    confirmationDays,
+  );
 }

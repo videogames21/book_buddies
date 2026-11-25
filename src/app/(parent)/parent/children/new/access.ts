@@ -33,7 +33,3 @@ export async function checkCreateChildAccess(): Promise<
   }
   return ok(session.data);
 }
-
-export const SIGN_IN_PATH = "/sign-in";
-// The check-email page arrives with the rest of UC-PAR-onboarding (design/par.md).
-export const CHECK_EMAIL_PATH = "/parent/onboarding/check-email";

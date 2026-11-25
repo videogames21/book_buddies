@@ -339,6 +339,36 @@ describe("reportBook (UC-PAR-report-book)", () => {
     await expectNothingWritten(childId, bookId);
   });
 
+  it("7c, error mapping: the duplicate is read from its keyPattern, not its message wording", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await bookOnShelf(childId);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "childBookExclusions") {
+        return Promise.reject(
+          new MongoServerError({
+            message: "duplicate key (wording the server may change)",
+            code: 11000,
+            keyPattern: { childId: 1, bookId: 1 },
+          }),
+        );
+      }
+      return original.apply(this, args);
+    });
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "ALREADY_REPORTED" },
+    });
+    await expectNothingWritten(childId, bookId);
+  });
+
   it("child check: a deleted child is CHILD_NOT_FOUND, nothing is written, and the read uses the transaction", async () => {
     const { main, childId } = await consentedFamily();
     const bookId = await bookOnShelf(childId);

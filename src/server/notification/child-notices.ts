@@ -23,7 +23,9 @@ export async function ensureChildNoticeIndexes(db: Db): Promise<void> {
       _id: { bsonType: "objectId" },
       childId: { bsonType: "string", minLength: 1 },
       kind: { enum: [...CHILD_NOTICE_KINDS] },
-      // The catalog's book IDs are UUID strings.
+      // The catalog's book IDs are UUID strings. bookId is required only because
+      // book-removed is the only kind so far; finish-declined (no book) will need a
+      // per-kind rule.
       bookId: { bsonType: "string", minLength: 1 },
       createdAt: { bsonType: "date" },
       seenAt: { bsonType: "date" },

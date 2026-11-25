@@ -10,11 +10,7 @@ import { logUnexpectedError } from "@/server/lib/log";
 import { createRemovalNoticeInTx } from "@/server/notification/child-notices";
 import { removeShelfEntryInTx } from "@/server/shelf/shelf-entries";
 import type { ReportReason } from "@/shared/accounts-family/book-report";
-import {
-  BOOK_REPORTS,
-  CHILD_BOOK_EXCLUSIONS,
-  EXCLUSION_UNIQUE_INDEX,
-} from "./book-report-schema";
+import { BOOK_REPORTS, CHILD_BOOK_EXCLUSIONS } from "./book-report-schema";
 import { getChildForFamily, lockChildForWrite } from "./child-accounts";
 import { lockConsentForWrite } from "./families";
 
@@ -79,14 +75,16 @@ class ReportRefused extends Error {
   }
 }
 
-/** Only a duplicate on the exclusions' unique index is 7c; any other error is 7a. */
+/**
+ * Only a duplicate on the exclusions' unique index (EXCLUSION_UNIQUE_INDEX) is 7c; any
+ * other error is 7a. It reads the error's keyPattern, not its message, whose wording the
+ * server may change. No other unique index in this transaction is on { childId, bookId }.
+ */
 function isAlreadyReported(err: unknown): boolean {
+  if (!(err instanceof MongoServerError) || err.code !== 11000) return false;
+  const keys = Object.keys((err.keyPattern ?? {}) as Record<string, unknown>);
   return (
-    err instanceof MongoServerError &&
-    err.code === 11000 &&
-    err.message.includes(
-      `.${CHILD_BOOK_EXCLUSIONS} index: ${EXCLUSION_UNIQUE_INDEX}`,
-    )
+    keys.length === 2 && keys.includes("childId") && keys.includes("bookId")
   );
 }
 

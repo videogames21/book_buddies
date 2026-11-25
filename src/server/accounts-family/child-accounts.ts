@@ -224,7 +224,8 @@ export async function getChildForFamily(
  * The conditional write every transaction that inserts a record for a child makes first
  * (architecture §8.2.8). It writes the document a child deletion deletes, so the two
  * conflict and a write racing the deletion fails instead of leaving an orphan. Returns
- * whether a child matched; callers answer `CHILD_NOT_FOUND` when it did not.
+ * whether a child matched; callers answer `CHILD_NOT_FOUND` when it did not. Callers
+ * check the child's family first.
  */
 export async function lockChildForWrite(
   tx: Tx,

@@ -2,7 +2,7 @@ import "server-only";
 import type { Db } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb } from "@/server/lib/db";
+import { getDb, type Tx } from "@/server/lib/db";
 
 // Sign-in throttling per account key, the lowercased email (SEC-signin-throttling,
 // design/par-field-values.md). A growing delay and never a lockout. The key is an email,
@@ -152,10 +152,14 @@ export async function claimSignInAttempt(
   return { allowed: false, waitSeconds: Math.max(1, Math.ceil(waitMs / 1000)) };
 }
 
-export async function clearSignInAttempts(accountKey: string): Promise<void> {
+/** Pass `tx` when the count must clear together with another change. */
+export async function clearSignInAttempts(
+  accountKey: string,
+  tx?: Tx,
+): Promise<void> {
   await getDb()
     .collection<SignInAttempt>(SIGN_IN_ATTEMPTS)
-    .deleteOne({ accountKey });
+    .deleteOne({ accountKey }, tx ? { session: tx } : {});
 }
 
 /** Scheduled Cleanup: deletes only counts that have already expired. */

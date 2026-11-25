@@ -1,0 +1,30 @@
+/* Adds to the new-child form's styles (new-child.module.css), which sign-up reuses. */
+.consent {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #d6ddd9;
+  border-radius: 0.75rem;
+  background: #f7faf8;
+}
+.consent h2 {
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+.consent h3 {
+  font-size: 1rem;
+  margin: 1rem 0 0.25rem;
+}
+.consent p {
+  margin: 0.25rem 0;
+}
+.checkbox {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-weight: 500 !important;
+}
+.checkbox input {
+  width: auto !important;
+  min-height: 0 !important;
+  margin-top: 0.3rem;
+}

@@ -11,7 +11,7 @@ _OI-1, OI-3, OI-4, OI-5, OI-6, OI-7, OI-8, OI-10, OI-12, OI-13, OI-16, OI-17, OI
 
 _OI-46 to OI-49 are not missing either: open pull requests (#105, #106 and #111) file them, and they appear here when those merge._
 
-_OI-56 to OI-60, OI-63 and OI-64 are not missing either: open pull requests (#109, #112 and #119) file them. `UC-REC-parent-review`'s questions are OI-69 and OI-66: #117 used OI-61 and OI-62, #111 used OI-65, and #120 files OI-67 and OI-68._
+_OI-60 is not missing either: it was never filed, because #112 renumbered its `OI-59` and `OI-60` to `OI-63` and `OI-64` before merging. `UC-REC-parent-review`'s questions are OI-69 and OI-66: #117 used OI-61 and OI-62, #111 used OI-65, and #120 files OI-67 and OI-68._
 
 _OI-24 to OI-27 were raised in the architecture-of-record v0.4 (2026-10-15) under the numbers OI-20 to OI-23, which this file had already given to other questions. They were renumbered on 2026-10-25 when filed here._
 

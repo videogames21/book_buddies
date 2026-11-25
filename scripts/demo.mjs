@@ -1,11 +1,13 @@
 // Local demo harness, outside the application. Seeds one invented Main Parent, who
-// signs in through the real /sign-in page. Never uses .env.local.
+// signs in through the real /sign-in page. Takes only its mail settings from .env or
+// .env.local; never their database or other settings.
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, scrypt } from "node:crypto";
 import { once } from "node:events";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { parseArgs, promisify } from "node:util";
+import { parseArgs, parseEnv, promisify } from "node:util";
 import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
@@ -27,6 +29,24 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) {
 }
 const appOrigin = `http://localhost:${port}`;
 const root = fileURLToPath(new URL("../", import.meta.url));
+
+// The demo's mail settings, and nothing else, may come from the untracked .env or
+// .env.local, so a developer can keep a Resend key there. A shell variable wins over a
+// file, and .env.local over .env. Every other setting in those files is ignored.
+const MAIL_KEYS = ["DEMO_SMTP_URL", "DEMO_MAIL_FROM"];
+function demoMailSettings() {
+  const settings = {};
+  for (const name of [".env", ".env.local"]) {
+    const file = fileURLToPath(new URL(`../${name}`, import.meta.url));
+    if (!existsSync(file)) continue;
+    const parsed = parseEnv(readFileSync(file, "utf8"));
+    for (const key of MAIL_KEYS) if (parsed[key]) settings[key] = parsed[key];
+  }
+  for (const key of MAIL_KEYS)
+    if (process.env[key]) settings[key] = process.env[key];
+  return settings;
+}
+const mail = demoMailSettings();
 const nextBin = fileURLToPath(
   new URL("../node_modules/next/dist/bin/next", import.meta.url),
 );
@@ -109,6 +129,12 @@ try {
     AUTH_SECRET: randomBytes(32).toString("hex"),
     APP_URL: appOrigin,
     PRIVACY_NOTICE_URL: `${appOrigin}/privacy-notice`,
+    // Production mode has no default mail server. With DEMO_SMTP_URL (Resend's SMTP
+    // URL) and DEMO_MAIL_FROM set, email is really delivered; otherwise it goes to
+    // local Mailpit and never leaves this machine (design/par.md, Email Service).
+    SMTP_URL: mail.DEMO_SMTP_URL ?? "smtp://127.0.0.1:1025",
+    MAIL_FROM:
+      mail.DEMO_MAIL_FROM ?? "BookBuddies demo <no-reply@bookbuddies.test>",
     NEXT_TELEMETRY_DISABLED: "1",
     // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
     ALLOW_ADMIN_PARENT_SIGNIN: "1",
@@ -213,11 +239,24 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
+  // Names the mail host only, never the URL, which can hold an API key.
+  const mailHost = new URL(env.SMTP_URL).hostname;
+  const mailNote =
+    mailHost === "127.0.0.1" || mailHost === "localhost"
+      ? "Emails (sign-up confirmation, password reset) go to Mailpit, not a real inbox:\n  Start it: docker run -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.33.1\n  Read them: http://localhost:8025"
+      : `Emails go out for real through ${mailHost}, to the address typed at sign-up.`;
   console.log(
-    `\nBookBuddies demo: ${appOrigin}\nSign in with the invented parent:\n  Email:    ${DEMO_EMAIL}\n  Password: ${DEMO_PASSWORD}\nAnd the invented admin (same page, opens /admin/catalog):
+    `
+BookBuddies demo: ${appOrigin}
+Sign in with the invented parent:
+  Email:    ${DEMO_EMAIL}
+  Password: ${DEMO_PASSWORD}
+And the invented admin (same page, opens /admin/catalog):
   Email:    ${DEMO_ADMIN_EMAIL}
   Password: ${DEMO_ADMIN_PASSWORD}
-Press Ctrl+C to stop. Restart npm run demo for a fresh family.\n`,
+${mailNote}
+Press Ctrl+C to stop. Restart npm run demo for a fresh family.
+`,
   );
 } catch (error) {
   console.error(

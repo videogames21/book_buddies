@@ -12,7 +12,7 @@ import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { AvatarKey } from "./avatars";
 import { CONSENT_RECORDS } from "./consent-record-schema";
@@ -197,8 +197,15 @@ export async function familyHasChild(familyId: string): Promise<boolean> {
   return child !== null;
 }
 
-/** Family-scoped summary only. Pages authenticate before calling this function. */
-export async function getChildForFamily(familyId: string, childId: string) {
+/**
+ * Family-scoped summary only. Pages authenticate before calling this function. With `tx`
+ * the read joins that transaction's snapshot (UC-PAR-report-book).
+ */
+export async function getChildForFamily(
+  familyId: string,
+  childId: string,
+  tx?: Tx,
+) {
   return getDb()
     .collection<{
       _id: string;
@@ -209,8 +216,28 @@ export async function getChildForFamily(familyId: string, childId: string) {
     }>(CHILDREN)
     .findOne(
       { _id: childId, familyId: new ObjectId(familyId) },
-      { projection: { _id: 1, nickname: 1, avatar: 1 } },
+      { projection: { _id: 1, nickname: 1, avatar: 1 }, session: tx },
     );
+}
+
+/**
+ * The conditional write every transaction that inserts a record for a child makes first
+ * (architecture §8.2.8). It writes the document a child deletion deletes, so the two
+ * conflict and a write racing the deletion fails instead of leaving an orphan. Returns
+ * whether a child matched; callers answer `CHILD_NOT_FOUND` when it did not.
+ */
+export async function lockChildForWrite(
+  tx: Tx,
+  childId: string,
+): Promise<boolean> {
+  const result = await getDb()
+    .collection<{ _id: string; writeVersion?: number }>(CHILDREN)
+    .updateOne(
+      { _id: childId },
+      { $inc: { writeVersion: 1 } },
+      { session: tx },
+    );
+  return result.matchedCount === 1;
 }
 
 /**

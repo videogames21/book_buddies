@@ -1,6 +1,8 @@
 import "server-only";
-import type { Db } from "mongodb";
+import type { Db, ObjectId } from "mongodb";
+import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
+import { getDb, type Tx } from "@/server/lib/db";
 
 // Notification's in-app notices to a child (`childNotices`, architecture §5.2). The shape
 // is design/shlf.md's (Data model, "Additions for the child's shelf"): the opaque child ID
@@ -30,4 +32,31 @@ export async function ensureChildNoticeIndexes(db: Db): Promise<void> {
   await db
     .collection(CHILD_NOTICES)
     .createIndex({ childId: 1, seenAt: 1 }, { name: "childId_seenAt" });
+}
+
+type ChildNoticeDocument = {
+  _id: ObjectId;
+  childId: string;
+  kind: (typeof CHILD_NOTICE_KINDS)[number];
+  bookId: string;
+  createdAt: Date;
+  seenAt?: Date;
+};
+
+/**
+ * The child's notice that a book left their shelf, written inside the caller's
+ * transaction. It holds the book ID only: no reason and no parent, so a report and a
+ * plain removal look the same to the child (UC-PAR-report-book POST-4, §8.2.11).
+ */
+export async function createRemovalNoticeInTx(
+  tx: Tx,
+  childId: string,
+  bookId: string,
+): Promise<void> {
+  await getDb()
+    .collection<Omit<ChildNoticeDocument, "_id">>(CHILD_NOTICES)
+    .insertOne(
+      { childId, kind: "book-removed", bookId, createdAt: now() },
+      { session: tx },
+    );
 }

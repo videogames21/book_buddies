@@ -65,26 +65,41 @@ export async function appendPasswordResetAudit(
     );
 }
 
-export type AuditEntry = {
-  event: "catalog.book_added";
-  actorId: string;
-  actorRole: "admin";
-  /** The record the event is about: IDs only, never a title, name or text (§8.2.9). */
-  recordId: string;
-};
+// One member per event, matching its validator branch below. `recordId` is the record the
+// event is about: IDs only, never a title, name, reason or text (§8.2.9).
+export type AuditEntry =
+  | {
+      event: "catalog.book_added";
+      actorId: string;
+      actorRole: "admin";
+      /** The book's UUID. */
+      recordId: string;
+    }
+  | {
+      event: "book.reported";
+      actorId: string;
+      actorRole: "parent";
+      childId: string;
+      /** The report's ID. */
+      recordId: ObjectId;
+    }
+  | {
+      event: "shelf.parent-removed";
+      actorId: string;
+      actorRole: "parent";
+      childId: string;
+      /** The deleted shelf entry's ID. */
+      recordId: ObjectId;
+      /** So the deleted entry can still be identified. */
+      bookId: string;
+    };
 
 /** Appends one entry inside the caller's transaction, so it exists only if the change does. */
 export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
   await getDb()
     .collection("auditLog")
     .insertOne(
-      {
-        actorId: new ObjectId(entry.actorId),
-        actorRole: entry.actorRole,
-        event: entry.event,
-        recordId: entry.recordId,
-        occurredAt: now(),
-      },
+      { ...entry, actorId: new ObjectId(entry.actorId), occurredAt: now() },
       { session: tx },
     );
 }

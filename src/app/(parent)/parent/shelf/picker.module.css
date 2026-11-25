@@ -1,0 +1,45 @@
+.page {
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 5rem;
+}
+.title {
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 500;
+  margin: 0.25rem 0 1.5rem;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.child {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #c6cec2;
+  border-radius: 0.75rem;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.child:hover,
+.child:focus-visible {
+  border-color: #2f5d3a;
+  box-shadow: 0 0 0 2px #2f5d3a;
+}
+@media (prefers-color-scheme: dark) {
+  .child {
+    border-color: #3a4338;
+  }
+  .child:hover,
+  .child:focus-visible {
+    border-color: #8fd19e;
+    box-shadow: 0 0 0 2px #8fd19e;
+  }
+}

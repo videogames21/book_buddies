@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.22
+**Version:** 0.23
 
 ---
 
@@ -42,6 +42,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-21]_ | 0.19    | `UC-SHLF-parent-view-shelf`: noted that no catalog document defines a book cover, so the built view shows title and author (`OI-65`) | _Tam Nguyen_, _Claude_ |
 | _[2026-11-24]_ | 0.20    | `UC-PAR-delete-kid-account` (from its design in `design/par.md`): 5a deletes a flagged note, its flag and dangerous content list entries with the account (team proposal, `OI-59`); POST-2 says what a report keeps and that audit entries stay; the consent need not be active (Assumptions, citing `UC-PAR-revoke-consent` 2a); the nickname match rule is in Associated Information; 4a counts a wrong password in the same count as sign-in; the Sub Parent notice does not name the child. `UC-PAR-delete-child-data` Open Issues point to `OI-59`. Numbered v0.20 because open #118 and #111 both claim v0.19; whichever of the three merges later renumbers on rebase. | _Ethan Paredez_, _Claude_ |
 | _[2026-11-24]_ | 0.22    | `UC-PAR-suggest-book`, from its design (`design/par.md`): the trigger names the parent's list of active catalog books, since no use case gives a parent a book detail page or search; PRE-4 requires confirmed consent; the note is at most 250 characters (new extension 3b) and is not checked against the word list (`OI-68`); extension 4a's warning comes before the Parent confirms, and "suggest anyway" on a pending suggestion replaces its note; extension 5a and the Open Issues cite `OI-67`. Renumbered from v0.19 on merging `main`; open #118 claims v0.21 | _Cabdifataax Maxamuud_, _Claude_ |
+| _[2026-11-25]_ | 0.23    | From the review of #120 (`UC-PAR-suggest-book`): step 1 says "Suggest", since the child is chosen in 1a; 4a no longer says what the check covers until other use cases are built (that is in `design/par.md`); `UC-PAR-review-child-data` step 5 lists parent suggestions and their notes, and `UC-PAR-delete-child-data` POST-1 deletes them, matching the `BR-kid-data-stored` row | _Cabdifataax Maxamuud_, _Claude_ |
 
 ---
 
@@ -380,7 +381,7 @@ If the account record is created but the invite email fails (4a), the account re
 
 **Main Success Scenario:**
 
-1. The Parent finds a book and taps "Suggest to [child]."
+1. The Parent finds a book in the list of books and taps "Suggest."
 2. The system displays a confirmation screen with an optional note field of up to 250 characters (e.g., "I think you'll like this because...").
 3. The Parent confirms the suggestion, with or without a note.
 4. The system adds the book, with any note, to the child's recommendation list.
@@ -392,7 +393,7 @@ If the account record is created but the invite email fails (4a), the account re
 - 3a. The Parent cancels before confirming. Use case ends; no suggestion is recorded.
 - 3b. The note is longer than 250 characters. The system displays an inline validation error and records no suggestion; returns to step 3.
 - 1b. The book is excluded for the chosen child by an earlier report (PRE-3 fails). The system tells the Parent the book cannot be suggested to this child and records no suggestion; a report is final (`BR-parent-report-book`).
-- 4a. The book is already on the child's shelf or already in their recommendation list. The system tells the Parent on the confirmation screen, before they confirm, and asks whether to suggest it anyway or cancel. If the book is already suggested and still waiting for the child, "suggest anyway" replaces that suggestion's note with the new one (or removes it, if the new note is blank), so the child sees the book once (developer, 2026-11-19). Until `UC-REC-parent-review` (which releases batch books to the child) is designed, the check covers the shelf and pending suggestions only.
+- 4a. The book is already on the child's shelf or already in their recommendation list. The system tells the Parent on the confirmation screen, before they confirm, and asks whether to suggest it anyway or cancel. If the book is already suggested and still waiting for the child, "suggest anyway" replaces that suggestion's note with the new one (or removes it, if the new note is blank), so the child sees the book once (developer, 2026-11-19).
 - 5a. The child never logs in to see the suggestion. The suggestion remains pending indefinitely in the recommendation list; no expiry is currently defined (`OI-67`). It is removed with the child's other data by `UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account` or the inactivity limit of `BR-coppa-retention`.
 
 **Priority:** Medium-High — `FEAT-parent-suggest-book` is confirmed in scope for the MVP.\
@@ -571,7 +572,7 @@ A report is final. There is no way for the Parent or the admin to remove the exc
 2. The system asks which child, if the Parent has more than one.
 3. The system asks the Parent to enter their password again, so the person reviewing is that child's parent (`BR-coppa-parent-rights`: the requester must be confirmed as the parent).
 4. The Parent enters their password.
-5. The system displays the child's data by category, each with the purpose it is held for: identity (nickname, internal child ID, age, grade, optional reading level, username, avatar); reading profile (interests, favorite books) and the interest profile built from the child's choices, ratings and shelf activity; the parent note and any safety flag on it; recommendations and reactions, including decline reasons; shelf and shelf history; ratings; shelf requests; usage records (sign-in and action times); books reported for the child and their per-child exclusions; notifications; and the family's consent record. The child's password is never shown.
+5. The system displays the child's data by category, each with the purpose it is held for: identity (nickname, internal child ID, age, grade, optional reading level, username, avatar); reading profile (interests, favorite books) and the interest profile built from the child's choices, ratings and shelf activity; the parent note and any safety flag on it; recommendations and reactions, including decline reasons; shelf and shelf history; ratings; shelf requests; usage records (sign-in and action times); books reported for the child and their per-child exclusions; notifications; books a parent suggested to the child, with any note (`UC-PAR-suggest-book`); and the family's consent record. The child's password is never shown.
 6. The Parent taps "Download a copy."
 7. The system generates a file of the same data and offers it to the Parent as a download.
 8. The system records the view and the export. Use case ends.
@@ -626,7 +627,7 @@ Quality attributes: `SEC-role-authorization` (a parent reaches only linked child
 
 **Postconditions:**
 
-- POST-1. The child's reading profile (interests, favorite books), the interest profile built from their activity, recommendation batches, reactions and decline reasons, shelf entries and shelf history, ratings, the parent note, shelf requests, notifications and usage records are deleted, so they are no longer retrievable in the normal course of business.
+- POST-1. The child's reading profile (interests, favorite books), the interest profile built from their activity, recommendation batches, reactions and decline reasons, shelf entries and shelf history, ratings, the parent note, shelf requests, notifications, parent suggestions and their notes (`UC-PAR-suggest-book`) and usage records are deleted, so they are no longer retrievable in the normal course of business.
 - POST-2. The child account, its internal child ID, its identity fields (nickname, age, grade, optional reading level, username, avatar), its credentials, the family's consent record and any per-child exclusions are kept.
 - POST-3. Onboarding is marked incomplete for the child, so the Parent is asked to fill in the reading profile again (`UC-REC-kid-onboarding`; how the Parent returns to the form is `OI-39`).
 - POST-4. Any aggregate statistic derived from the child's data no longer counts it (`FR-DATA-removal`).

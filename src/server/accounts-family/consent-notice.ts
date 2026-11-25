@@ -7,7 +7,7 @@ import "server-only";
 // consentNoticeVersion(days), so it always points at the exact text the parent saw,
 // including the configured window.
 
-export const CONSENT_NOTICE_VERSION = "2026-11-20-placeholder";
+export const CONSENT_NOTICE_VERSION = "2026-11-23-placeholder";
 
 export type ConsentNoticeSection = { heading: string; paragraphs: string[] };
 
@@ -39,8 +39,9 @@ export function consentNotice(
     {
       heading: "Who receives it",
       paragraphs: [
-        "No one outside BookBuddies receives your child's information. We do not sell it, use it for advertising or use it to train AI. Because nothing is shared, there is no separate sharing permission to give.",
-        "Our email provider receives only your name and email address, to send you account emails.",
+        "We do not sell your child's information, use it for advertising or use it to train AI, and no third party receives it for its own purposes. Because nothing is shared that way, there is no separate sharing permission to give.",
+        "Two service providers hold it only to run BookBuddies for us: Vercel hosts the app and MongoDB Atlas stores the data.",
+        "Our email provider, Resend, receives only your name and email address, to send you account emails. It never receives your child's information.",
       ],
     },
     {

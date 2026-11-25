@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type SubmitEvent } from "react";
+import {
+  FORGOT_PASSWORD_PATH,
+  SIGN_UP_PATH,
+} from "@/app/(parent)/parent/onboarding/paths";
 import { signInParent } from "./actions";
 import styles from "./sign-in.module.css";
 
-export function SignInForm() {
+export function SignInForm({ passwordChanged }: { passwordChanged: boolean }) {
   const router = useRouter();
   const inFlight = useRef(false);
   const [email, setEmail] = useState("");
@@ -44,6 +49,11 @@ export function SignInForm() {
     >
       <p className={styles.brand}>BOOKBUDDIES</p>
       <h1>Parent sign in</h1>
+      {passwordChanged && !error && (
+        <p role="status">
+          Your password was changed. Sign in with your new password.
+        </p>
+      )}
       {error && (
         <p className={styles.error} role="alert">
           {error}
@@ -80,6 +90,12 @@ export function SignInForm() {
       <button type="submit" disabled={submitting}>
         {submitting ? "Signing in..." : "Sign in"}
       </button>
+      <p>
+        <Link href={FORGOT_PASSWORD_PATH}>Forgot password?</Link>
+      </p>
+      <p>
+        New to BookBuddies? <Link href={SIGN_UP_PATH}>Create Account</Link>
+      </p>
     </form>
   );
 }

@@ -485,7 +485,7 @@ Rejected: cutting a visit off at midnight, which the developer ruled out; a mini
 
 `lastSeenAt` and `lastActiveAt` are deleted when the session ends: `requireChild()` deletes the session and its `childSessionEnds` record in the same conditional step in which it refuses an ended or idle one, `signOutChild` and `deleteChildSignIn` delete them, and the daily cleanup deletes any that nobody reached again, so no activity time outlives its session by more than a day and a session nobody touches again is gone within that day (`SEC-auth`, `BR-coppa-minimization`). They are never copied to `childSignIns`, and are not a stored session length (`BR-kid-data-stored`, `DI-usage-records`); see `OI-48`. Rejected: counting keep-alives as activity, which would make a tablet left open never time out. Rejected: setting `updateAge` at least as long as the longest session, because it is one setting for both roles and would stop parent sessions from sliding, which changes the #98 design on `main`. Rejected: a fixed 24-hour lifetime, which is not what was asked and would end a morning session in the middle of the next day.
 
-**The sign-in record is written in the same transaction as the session** (8.2.8), so there is no session without its `DI-usage-records` entry and no record without a session.
+**The sign-in record is written in the same transaction as the session** (8.2.8), so there is no session without its `DI-usage-records` entry and no record without a session. Amended by the `UC-PAR-delete-kid-account` design (architecture §8.2.8, [`design/par.md`](par.md)): that transaction first calls Accounts & Family's `lockChildForWrite(tx, childId)` and answers `INVALID_CREDENTIALS` when it matches nothing, so a sign-in that races the child's deletion leaves no session, `childSignIns` or `childSessionEnds` record behind.
 
 **A child's sign-in deletes the session the browser's old cookie named.** Rejected: leaving it, because on a shared family tablet a parent's session would stay valid but unreachable until it expires.
 
@@ -567,6 +567,8 @@ New configuration (8.2.6), read once by the config module:
 
 
 ## Reuse & cross-cutting
+
+For `UC-ADM-block-content`, Shelf provides a count of entries for a book and `removeEntriesForBook(bookId, tx)`. The latter removes entries across children in the admin's transaction. Ratings and finish records are retained. See [the block design](adm.md#blocking-and-report-decisions).
 
 - **Sessions:** `requireParent()` from the [PAR design](par.md), called by each page (8.1 Authentication; middleware is never the check). There is no shared layout guard.
 - **Account states:** a child account exists only after the parent confirmed consent (`UC-PAR-create-kid-account` PRE-3), so this view checks nothing more. The data model has no suspended state, and a deleted child is simply not found.

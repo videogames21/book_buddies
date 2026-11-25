@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import type { ObjectId } from "mongodb";
 import { expect, test, type Page } from "@playwright/test";
 import { closeE2eDb, e2eDb, signInParent } from "./session-fixture";
 import { verifyPassword } from "../../src/server/identity-access/passwords";
@@ -65,13 +67,33 @@ test("1a: leaving the form without submitting writes nothing", async ({
     parentRole: "main",
     consentConfirmed: true,
   });
+  // A family with no child is sent back to this form from /parent (UC-PAR-onboarding
+  // 8a), so Cancel is tested while adding a second child, where /parent stays put.
+  const db = await e2eDb();
+  await db
+    .collection<{
+      _id: string;
+      familyId: ObjectId;
+      nickname: string;
+      avatar: string;
+      createdAt: Date;
+    }>("children")
+    .insertOne({
+      _id: randomUUID(),
+      familyId,
+      nickname: "Seahorse",
+      avatar: "1",
+      createdAt: new Date(),
+    });
   await page.goto(PATH);
 
   await page.getByRole("link", { name: "Cancel" }).click();
 
   await expect(page).toHaveURL(/\/parent$/);
-  const db = await e2eDb();
-  expect(await db.collection("children").countDocuments({ familyId })).toBe(0);
+  await expect(
+    page.getByRole("heading", { name: "Welcome to BookBuddies" }),
+  ).toBeVisible();
+  expect(await db.collection("children").countDocuments({ familyId })).toBe(1);
 });
 
 test("1b: a Sub Parent sees an explanation and no form", async ({
@@ -182,7 +204,8 @@ test("double submit sends one action and keeps the first password", async ({
   page.on("request", (request) => {
     if (request.method() === "POST") posts++;
   });
-  await page.locator("form").evaluate((form: HTMLFormElement) => {
+  // The child form, not the layout's sign-out form.
+  await page.locator("main form").evaluate((form: HTMLFormElement) => {
     form.requestSubmit();
     form.requestSubmit();
   });

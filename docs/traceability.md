@@ -136,7 +136,7 @@ _Added 2026-10-27 with the first design under `/design`. One row per use case in
 | `UC-PAR-suggest-book` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-view-growth-report` | Out, pending client (`FEAT-recap-adult`) | ❌ Not started |  |  |  |  |
 | `UC-PAR-report-book` |  | 📐 Designed | [design/par.md](../design/par.md#uc-par-report-book-report-a-book-for-a-child); 7d deferred to `UC-REC-parent-review`, which owns `removeFromPendingBatchInTx`; 7b deliberately refused (`NOT_ON_SHELF_OR_BATCH`), a temporary departure pending `OI-54` |  |  |  |
-| `UC-PAR-review-child-data` |  | ❌ Not started |  |  |  |  |
+| `UC-PAR-review-child-data` | MVP | 📐 Designed | [design/par.md](../design/par.md#uc-par-review-child-data-review-and-export) |  |  |  |
 | `UC-PAR-delete-child-data` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-revoke-consent` |  | ❌ Not started |  |  |  |  |
 | `UC-PAR-delete-kid-account` |  | 📐 Designed | [design/par.md](../design/par.md) |  |  |  |

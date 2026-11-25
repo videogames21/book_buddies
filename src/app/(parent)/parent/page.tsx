@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getOnboardingStep } from "@/server/accounts-family/families";
 import { requireAdmin, requireParent } from "@/server/identity-access/sessions";
-import { CHECK_EMAIL_PATH, SIGN_IN_PATH } from "./children/new/access";
+import {
+  CHECK_EMAIL_PATH,
+  NEW_CHILD_PATH,
+  SIGN_IN_PATH,
+} from "./onboarding/paths";
 import styles from "./children/new/new-child.module.css";
 
 export const metadata = { title: "Home · BookBuddies" };
@@ -21,14 +25,14 @@ export default async function ParentHomePage() {
   if (session.data.parentRole === "main") {
     const step = await getOnboardingStep(session.data.familyId);
     if (step === "awaiting" || step === "expired") redirect(CHECK_EMAIL_PATH);
-    if (step === "needs-first-child") redirect("/parent/children/new");
+    if (step === "needs-first-child") redirect(NEW_CHILD_PATH);
   }
 
   return (
     <main className={styles.page}>
       <h1>Welcome to BookBuddies</h1>
       <p>
-        <Link href="/parent/children/new">Add a Child</Link>
+        <Link href={NEW_CHILD_PATH}>Add a Child</Link>
       </p>
     </main>
   );

@@ -1,8 +1,10 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/server/lib/db";
 
-// Invented test accounts only (CLAUDE.md: never real children's data). The parent
-// shape is the one requireParent() assumes until UC-PAR-onboarding is designed.
+// Invented test accounts only (CLAUDE.md: never real children's data). A parent here
+// has the fields requireParent() reads and an email, but no name or password hash, so
+// sign-in and password reset treat it as having no account; tests that need those add
+// a hash.
 
 export async function insertParent(options: {
   parentRole: "main" | "sub";

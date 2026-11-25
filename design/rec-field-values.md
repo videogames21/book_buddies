@@ -67,7 +67,7 @@ A missing record or not-yet-designed source contributes zero; an error from an e
 
 ## Batch review (`UC-REC-parent-review` 2a)
 
-Decided by the developer, 2026-11-23, **provisional** until the client answers `OI-65`.
+Decided by the developer, 2026-11-23, **provisional** until the client answers `OI-69`.
 
 | Rule | Value |
 |---|---|

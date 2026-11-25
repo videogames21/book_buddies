@@ -1,10 +1,7 @@
 import { getPrivacyNoticeUrl } from "@/server/lib/config";
 import { notFound, redirect } from "next/navigation";
-import {
-  CHECK_EMAIL_PATH,
-  checkCreateChildAccess,
-  SIGN_IN_PATH,
-} from "./access";
+import { CHECK_EMAIL_PATH, SIGN_IN_PATH } from "../../onboarding/paths";
+import { checkCreateChildAccess } from "./access";
 import { NewChildForm } from "./new-child-form";
 import styles from "./new-child.module.css";
 

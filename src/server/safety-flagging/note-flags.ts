@@ -74,4 +74,7 @@ export async function ensureNoteFlagIndexes(db: Db): Promise<void> {
     },
   });
   await db.collection("noteFlags").createIndex({ noteId: 1 }, { unique: true });
+  await db
+    .collection("noteFlags")
+    .createIndex({ childId: 1 }, { name: "childId" });
 }

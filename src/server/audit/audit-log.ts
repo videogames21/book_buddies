@@ -92,7 +92,8 @@ export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
 // One shape per event, IDs only (§8.2.9). A new sign-up or the cron removes an expired
 // account, so it has no actor: `system` (UC-PAR-onboarding 6a). A password reset is the parent's
 // own act on their own account (OI-44).
-// A catalog entry names a book and an admin, and has no child.
+// A catalog entry names a book and an admin, and has no child. A child deletion names
+// the Main Parent and the deleted child, and has no record of its own.
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
@@ -151,6 +152,18 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
           event: { enum: ["catalog.book_added"] },
           // The book's UUID string.
           recordId: { bsonType: "string" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      {
+        required: ["actorId", "actorRole", "event", "childId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["child-account-deleted"] },
+          childId: { bsonType: "string" },
           occurredAt: { bsonType: "date" },
         },
       },

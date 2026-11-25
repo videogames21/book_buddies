@@ -39,6 +39,19 @@ export async function ensureConsentRecordIndexes(db: Db): Promise<void> {
       confirmedAt: { bsonType: "date" },
       revokedAt: { bsonType: "date" },
       childCreationVersion: { bsonType: ["int", "long"] },
+      // UC-PAR-delete-kid-account POST-4: each deleted child's ID and when it was removed.
+      removedChildren: {
+        bsonType: "array",
+        items: {
+          bsonType: "object",
+          required: ["childId", "removedAt"],
+          additionalProperties: false,
+          properties: {
+            childId: { bsonType: "string" },
+            removedAt: { bsonType: "date" },
+          },
+        },
+      },
     },
   });
   await db

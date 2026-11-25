@@ -180,6 +180,9 @@ export async function ensureAccountsFamilyIndexes(db: Db): Promise<void> {
       nickname: { bsonType: "string", minLength: 1 },
       avatar: { bsonType: "string" },
       createdAt: { bsonType: "date" },
+      // Raised by lockChildForWrite so a child write conflicts with the child's deletion
+      // (§8.2.8, UC-PAR-delete-kid-account). Absent means 0; never shown or read.
+      writeVersion: { bsonType: ["int", "long"] },
     },
   });
   await db

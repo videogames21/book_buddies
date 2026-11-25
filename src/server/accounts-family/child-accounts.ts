@@ -210,3 +210,24 @@ export async function getChildForFamily(familyId: string, childId: string) {
       { projection: { _id: 1, nickname: 1, avatar: 1 } },
     );
 }
+
+/**
+ * Every child in the family, by nickname and avatar only, oldest account first. Pages
+ * authenticate before calling this function, as for `getChildForFamily`.
+ */
+export async function listChildrenForFamily(familyId: string) {
+  return getDb()
+    .collection<{
+      _id: string;
+      nickname: string;
+      avatar: AvatarKey;
+      familyId: ObjectId;
+      createdAt: Date;
+    }>(CHILDREN)
+    .find(
+      { familyId: new ObjectId(familyId) },
+      { projection: { _id: 1, nickname: 1, avatar: 1 } },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
+}

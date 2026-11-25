@@ -65,6 +65,26 @@ export async function appendPasswordResetAudit(
     );
 }
 
+/** UC-PAR-delete-kid-account POST-5: the Main Parent and the deleted child's ID only. */
+export async function appendChildDeletedAudit(
+  tx: Tx,
+  parentUserId: string,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection("auditLog")
+    .insertOne(
+      {
+        actorId: new ObjectId(parentUserId),
+        actorRole: "parent",
+        event: "child-account-deleted",
+        childId,
+        occurredAt: now(),
+      },
+      { session: tx },
+    );
+}
+
 export type AuditEntry = {
   event: "catalog.book_added";
   actorId: string;

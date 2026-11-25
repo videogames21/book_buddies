@@ -31,6 +31,20 @@ export async function insertNoteFlag(
   return _id;
 }
 
+/**
+ * UC-PAR-delete-kid-account 5a: the child's note flags, whatever their status. Earlier
+ * `parent-note-flagged` audit entries stay (§8.2.9). Dangerous content list entries for
+ * the child are added here when UC-ADM-flag-review builds the list.
+ */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection("noteFlags")
+    .deleteMany({ childId }, { session: tx });
+}
+
 export async function ensureNoteFlagIndexes(db: Db): Promise<void> {
   await ensureCollection(db, "noteFlags", {
     bsonType: "object",

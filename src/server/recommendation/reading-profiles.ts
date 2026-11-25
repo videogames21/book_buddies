@@ -9,7 +9,7 @@ import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { InterestKey } from "./interests";
 
@@ -128,6 +128,19 @@ export async function saveOnboardingProfile(
       logUnexpectedError("saveOnboardingProfile", err),
     );
   }
+}
+
+/**
+ * UC-PAR-delete-kid-account: the child's reading profile. The interest profile, batches,
+ * reactions and decline reasons are added here as Recommendation builds them.
+ */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection(READING_PROFILES)
+    .deleteMany({ childId }, { session: tx });
 }
 
 /** Whether a completed profile exists for a child of this family (PRE-3). */

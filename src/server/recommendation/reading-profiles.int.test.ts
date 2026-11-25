@@ -226,6 +226,7 @@ describe("saveOnboardingProfile (UC-REC-kid-onboarding)", () => {
     // Admin totals and the parent's export arrive with their own use cases (design/rec.md).
     expect(Object.keys(readingProfiles).sort()).toEqual([
       "READING_PROFILES",
+      "deleteChildRecords",
       "ensureReadingProfileIndexes",
       "isOnboardingComplete",
       "saveOnboardingProfile",

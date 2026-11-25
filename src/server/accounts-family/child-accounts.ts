@@ -211,6 +211,25 @@ export async function lockChildForWrite(
   return matchedCount === 1;
 }
 
+/**
+ * UC-PAR-delete-kid-account step 5: deletes the child account where both its ID and the
+ * family match, inside the deletion's transaction. Returns whether one was deleted, so
+ * a double submit or another family's child finds nothing.
+ */
+export async function deleteChildForFamily(
+  tx: Tx,
+  familyId: string,
+  childId: string,
+): Promise<boolean> {
+  const { deletedCount } = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .deleteOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      { session: tx },
+    );
+  return deletedCount === 1;
+}
+
 /** Whether the family has at least one child. Callers authenticate first. */
 export async function familyHasChild(familyId: string): Promise<boolean> {
   const child = await getDb()

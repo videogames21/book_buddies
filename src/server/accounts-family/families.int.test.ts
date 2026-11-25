@@ -79,13 +79,15 @@ describe("admin boundary (DI-consent-record)", () => {
   it("no export returns a Consent Record's fields; reads answer a step or a result code", async () => {
     const families = await import("./families");
     // createFamily and resendConsentEmailFor return whether an email was sent;
-    // confirmConsentByToken the family ID; getOnboardingStep a step name. None is reachable
+    // confirmConsentByToken the family ID; getOnboardingStep a step name; markChildRemoved
+    // only writes (UC-PAR-delete-kid-account POST-4). None is reachable
     // from an admin page or action.
     expect(Object.keys(families).sort()).toEqual([
       "confirmConsentByToken",
       "createFamily",
       "getOnboardingStep",
       "hashConfirmationToken",
+      "markChildRemoved",
       "newConfirmationToken",
       "purgeExpiredUnconfirmed",
       "removeExpiredUnconfirmedFamily",

@@ -22,7 +22,11 @@ import { logUnexpectedError } from "@/server/lib/log";
 import { sendEmail } from "@/server/notification/email";
 import { familyHasChild } from "./child-accounts";
 import { buildConsentEmail } from "./consent-email";
-import { consentNoticeVersion } from "./consent-notice";
+import {
+  consentNotice,
+  consentNoticeForVersion,
+  consentNoticeVersion,
+} from "./consent-notice";
 import { CONSENT_RECORDS } from "./consent-record-schema";
 
 // Accounts & Family's families (UC-PAR-onboarding). A family is its `familyId`; there
@@ -204,7 +208,12 @@ export async function createFamily(
   try {
     const sent = await sendEmail({
       to: input.email,
-      ...buildConsentEmail({ token, confirmBy, noticeVersion }),
+      ...buildConsentEmail({
+        token,
+        confirmBy,
+        noticeVersion,
+        notice: consentNotice(days),
+      }),
     });
     emailSent = sent.ok;
   } catch (err) {
@@ -275,21 +284,55 @@ export async function resendConsentEmailFor(parent: {
     noticeVersion: string;
     confirmBy: Date;
     confirmedAt?: Date;
+    revokedAt?: Date;
   }>(CONSENT_RECORDS);
   const familyId = new ObjectId(parent.familyId);
-  const record = await records.findOneAndUpdate(
+  const record = await records.findOne(
+    { familyId },
     {
+      projection: {
+        confirmBy: 1,
+        confirmedAt: 1,
+        noticeVersion: 1,
+        revokedAt: 1,
+      },
+    },
+  );
+  if (record?.confirmedAt) {
+    return fail("ALREADY_CONFIRMED", "Your consent is already confirmed.");
+  }
+  if (!record || record.revokedAt || record.confirmBy <= now()) {
+    return fail("SIGN_UP_EXPIRED", "Your sign-up expired. Please start again.");
+  }
+
+  const notice = consentNoticeForVersion(record.noticeVersion);
+  const email = await findParentEmail(parent.userId);
+  if (!notice || !email) {
+    return fail(
+      "SEND_FAILED",
+      "We couldn't send the email. Please try again in a few minutes.",
+    );
+  }
+  const message = buildConsentEmail({
+    token,
+    confirmBy: record.confirmBy,
+    noticeVersion: record.noticeVersion,
+    notice,
+  });
+  const rotated = await records.updateOne(
+    {
+      _id: record._id,
       familyId,
+      noticeVersion: record.noticeVersion,
       confirmedAt: { $exists: false },
       revokedAt: { $exists: false },
       confirmBy: { $gt: now() },
     },
     { $set: { confirmationTokenHash: tokenHash } },
-    { projection: { confirmBy: 1, noticeVersion: 1 } },
   );
-  if (!record) {
+  if (!rotated.matchedCount) {
     const current = await records.findOne(
-      { familyId },
+      { _id: record._id },
       { projection: { confirmedAt: 1 } },
     );
     return current?.confirmedAt
@@ -297,17 +340,7 @@ export async function resendConsentEmailFor(parent: {
       : fail("SIGN_UP_EXPIRED", "Your sign-up expired. Please start again.");
   }
 
-  const email = await findParentEmail(parent.userId);
-  const sent = email
-    ? await sendEmail({
-        to: email,
-        ...buildConsentEmail({
-          token,
-          confirmBy: record.confirmBy,
-          noticeVersion: record.noticeVersion,
-        }),
-      })
-    : { ok: false };
+  const sent = await sendEmail({ to: email, ...message });
   return sent.ok
     ? ok(null)
     : fail(

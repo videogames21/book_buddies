@@ -864,7 +864,7 @@ The Sub Parent notice of step 6 says that a child account in the family was dele
 
 The password reset email goes only to the Main Parent's own address. It holds the link and when it expires, says to ignore it if the parent did not ask, and holds no child data.
 
-The confirmation email (`CI-email-parent`) goes to the parent's own address only. It restates what was consented to, names the notice version, links the online privacy notice (`BR-coppa-notice`, added at `/implement` 2026-11-23), says how to revoke (in words: account settings; the revoke link waits for `UC-PAR-revoke-consent`), gives the link and the date it stops working, and holds no child data (no child exists yet).
+The confirmation email (`CI-email-parent`) goes to the parent's own address only. It restates what was consented to, names the notice version, links the online privacy notice (`BR-coppa-notice`, added at `/implement` 2026-11-23), says how to revoke (in words: account settings; the revoke link waits for `UC-PAR-revoke-consent`), gives the link and the date it stops working, and holds no child data (no child exists yet). A resend uses the template and window from the recorded notice version. If the version cannot be rendered, it leaves the existing link in place and returns `SEND_FAILED`.
 
 The parent's screens may show the child's nickname and avatar. The system holds no real name. Nothing in this use case sends the age, grade, reading level or note to a child's screen (`FR-ACCT-child-display`, `BR-parent-note`, §8.2.11).
 

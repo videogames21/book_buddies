@@ -1,6 +1,6 @@
 import "server-only";
-import { getAppUrl, getConfig, getPrivacyNoticeUrl } from "@/server/lib/config";
-import { consentNotice } from "./consent-notice";
+import { getAppUrl, getPrivacyNoticeUrl } from "@/server/lib/config";
+import type { ConsentNoticeSection } from "./consent-notice";
 
 // The confirmation email (UC-PAR-onboarding step 5, CI-email-parent). It restates what
 // was consented to, names the notice version, links the online privacy notice
@@ -18,13 +18,14 @@ export function buildConsentEmail(input: {
   token: string;
   confirmBy: Date;
   noticeVersion: string;
+  notice: ConsentNoticeSection[];
 }): { subject: string; text: string } {
   const deadline = input.confirmBy.toLocaleString("en-US", {
     dateStyle: "long",
     timeStyle: "long",
     timeZone: "UTC",
   });
-  const notice = consentNotice(getConfig().CONSENT_CONFIRMATION_DAYS)
+  const notice = input.notice
     .map(
       (section) =>
         `${section.heading}\n${section.paragraphs.map((p) => `- ${p}`).join("\n")}`,

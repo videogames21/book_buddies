@@ -26,6 +26,8 @@ const { checkEmailView } = await import("./view");
 const { confirmConsent } = await import("@/app/consent/confirm/actions");
 const { hashConfirmationToken } =
   await import("@/server/accounts-family/families");
+const { consentNoticeVersion } =
+  await import("@/server/accounts-family/consent-notice");
 const { auth } = await import("@/server/identity-access/auth");
 const { getDb } = await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
@@ -46,14 +48,19 @@ const tokenFrom = (text: string) =>
   decodeURIComponent(/#token=([A-Za-z0-9_%-]+)/.exec(text)?.[1] ?? "");
 
 /** A signed-in Main Parent awaiting confirmation, whose first link holds OLD_TOKEN. */
-async function signedInAwaiting() {
+async function signedInAwaiting(noticeVersion = consentNoticeVersion(14)) {
   const parent = await insertParent({ parentRole: "main" });
   await insertConsentRecord(parent, false);
   await getDb()
     .collection("consentRecords")
     .updateOne(
       { familyId: new ObjectId(parent.familyId) },
-      { $set: { confirmationTokenHash: hashConfirmationToken(OLD_TOKEN) } },
+      {
+        $set: {
+          confirmationTokenHash: hashConfirmationToken(OLD_TOKEN),
+          noticeVersion,
+        },
+      },
     );
   mockedAuth.mockResolvedValue({ user: { id: parent.userId } });
   return parent;
@@ -89,6 +96,33 @@ describe("resendConsentEmail (UC-PAR-onboarding 6b)", () => {
       error: { code: "LINK_INVALID" },
     });
     expect(await confirmConsent(newToken)).toMatchObject({ ok: true });
+  });
+
+  it("restates the notice and window the parent originally acknowledged", async () => {
+    const version = consentNoticeVersion(10);
+    const parent = await signedInAwaiting(version);
+    await getDb()
+      .collection("consentRecords")
+      .updateOne(
+        { familyId: new ObjectId(parent.familyId) },
+        { $set: { acknowledgedAt: new Date("2026-10-05T12:00:00Z") } },
+      );
+    expect(await resendConsentEmail()).toEqual({ ok: true, data: null });
+    expect(sentEmails[0]?.text).toContain(`consent notice version ${version}`);
+    expect(sentEmails[0]?.text).toContain("within 10 days");
+    expect(sentEmails[0]?.text).not.toContain("within 14 days");
+    expect((await recordOf(parent.familyId))?.confirmBy).toEqual(DEADLINE);
+  });
+
+  it("does not send different text or rotate the token for an unknown notice version", async () => {
+    const parent = await signedInAwaiting("unknown-notice-14d");
+    expect(await resendConsentEmail()).toMatchObject({
+      error: { code: "SEND_FAILED" },
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect((await recordOf(parent.familyId))?.confirmationTokenHash).toBe(
+      hashConfirmationToken(OLD_TOKEN),
+    );
   });
 
   it("a confirmed family gets ALREADY_CONFIRMED and no email", async () => {

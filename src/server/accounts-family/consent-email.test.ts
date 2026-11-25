@@ -10,10 +10,12 @@ beforeEach(() => {
 
 const email = async () => {
   const { buildConsentEmail } = await import("./consent-email");
+  const { consentNotice } = await import("./consent-notice");
   return buildConsentEmail({
     token: "invented-token_123",
     confirmBy: new Date("2026-12-04T12:00:00Z"),
     noticeVersion: "v-test",
+    notice: consentNotice(14),
   });
 };
 

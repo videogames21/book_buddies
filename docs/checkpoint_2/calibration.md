@@ -2,11 +2,11 @@
 
 **Status: incomplete.** No estimate was found on any GitHub issue or pull request (searched 2026-11-25), and the weekly activity reports are not in this repository. Each owner fills in their rows.
 
-## Finished use cases
+## Use cases with merged builds
 
 | Use case                                    | Owner                     | Issue            | Build pull requests (merged, UTC)           | State in the matrix          |
 |---------------------------------------------|---------------------------|------------------|---------------------------------------------|------------------------------|
-| `UC-PAR-create-kid-account` (proving slice) | Pradeep1029, videogames21 | #53              | #67 (11-16), #95 (11-13, into #67's branch) | Built, partly verified       |
+| `UC-PAR-create-kid-account` (proving slice) | Pradeep1029, videogames21 | #53              | #67 (11-16), #95 (11-13, into #67's branch) | In progress, partly verified |
 | `UC-PAR-onboarding`                         | Abdifatah2023             | #58              | #107 (11-23), #114 (11-25)                  | Built, verified              |
 | `UC-REC-kid-onboarding`                     | videogames21              | #69              | #102 (11-20)                                | Built, verified              |
 | `UC-ADM-add-content`                        | videogames21              | #83              | #108 (11-24), #117 (11-24)                  | Built, verified              |

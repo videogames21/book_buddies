@@ -1,12 +1,15 @@
 import "server-only";
 import { MongoServerError, ObjectId, type Db } from "mongodb";
-import { getChildForFamily } from "@/server/accounts-family/child-accounts";
+import {
+  getChildForFamily,
+  lockChildForWrite,
+} from "@/server/accounts-family/child-accounts";
 import { findActiveBookIds } from "@/server/catalog/books";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb } from "@/server/lib/db";
+import { getDb, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { InterestKey } from "./interests";
 
@@ -64,10 +67,15 @@ type ReadingProfileDocument = {
 
 const DUPLICATE_KEY = 11000;
 
+class ChildGoneError extends Error {}
+
 /**
  * UC-REC-kid-onboarding step 5. The write is one insert that the unique `childId` index
  * refuses if a completed profile exists, so two simultaneous saves leave one (1a,
  * §8.2.8). The family comes from the session, and the child is checked against it first.
+ * The insert runs in a transaction that first calls lockChildForWrite, so a save racing
+ * the child's deletion fails instead of leaving a profile behind (§8.2.8,
+ * UC-PAR-delete-kid-account).
  */
 export async function saveOnboardingProfile(
   session: ParentSession,
@@ -87,18 +95,27 @@ export async function saveOnboardingProfile(
       );
     }
 
-    await getDb()
-      .collection<ReadingProfileDocument>(READING_PROFILES)
-      .insertOne({
-        _id: new ObjectId(),
-        childId,
-        interests: input.interests,
-        favoriteBookIds: input.favoriteBookIds,
-        onboardingComplete: true,
-        savedAt: now(),
-      });
+    await withTransaction(async (tx) => {
+      if (!(await lockChildForWrite(tx, childId))) throw new ChildGoneError();
+      await getDb()
+        .collection<ReadingProfileDocument>(READING_PROFILES)
+        .insertOne(
+          {
+            _id: new ObjectId(),
+            childId,
+            interests: input.interests,
+            favoriteBookIds: input.favoriteBookIds,
+            onboardingComplete: true,
+            savedAt: now(),
+          },
+          { session: tx },
+        );
+    });
     return ok(null);
   } catch (err) {
+    if (err instanceof ChildGoneError) {
+      return fail("CHILD_NOT_FOUND", "We couldn't find that child.");
+    }
     if (err instanceof MongoServerError && err.code === DUPLICATE_KEY) {
       return fail(
         "ONBOARDING_ALREADY_COMPLETE",

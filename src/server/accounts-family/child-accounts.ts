@@ -12,7 +12,7 @@ import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { AvatarKey } from "./avatars";
 import { CONSENT_RECORDS } from "./consent-record-schema";
@@ -188,6 +188,27 @@ export async function ensureAccountsFamilyIndexes(db: Db): Promise<void> {
   await db
     .collection(CHILDREN)
     .createIndex({ familyId: 1 }, { name: "familyId" });
+}
+
+/**
+ * The first write of every transaction that inserts or upserts a record for a child
+ * (architecture §8.2.8, UC-PAR-delete-kid-account). A conditional `$inc` on the child
+ * account, so it conflicts with the child's deletion where a snapshot read would not;
+ * MongoDB then aborts one, and a rerun finds no child. Returns whether a child matched.
+ * Callers check the child against the session's family first.
+ */
+export async function lockChildForWrite(
+  tx: Tx,
+  childId: string,
+): Promise<boolean> {
+  const { matchedCount } = await getDb()
+    .collection<{ _id: string; writeVersion?: number }>(CHILDREN)
+    .updateOne(
+      { _id: childId },
+      { $inc: { writeVersion: 1 } },
+      { session: tx },
+    );
+  return matchedCount === 1;
 }
 
 /** Whether the family has at least one child. Callers authenticate first. */

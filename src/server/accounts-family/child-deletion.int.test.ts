@@ -17,6 +17,7 @@ import {
 } from "../../../tests/fixtures/shelf";
 import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
+import { recordChildSignIn } from "@/server/identity-access/child-sign-ins";
 import type { ParentSession } from "@/server/identity-access/sessions";
 
 // UC-PAR-delete-kid-account, the deletion itself (design/par.md, Tests). The child's
@@ -132,6 +133,7 @@ async function seedChild(
     .findOne({ role: "child", childId });
   if (!user) throw new Error("seed failed: no credential");
   const userId = user._id.toHexString();
+  await withTransaction((tx) => recordChildSignIn(tx, childId));
   // Child sessions, each with its end record at the next midnight (#134).
   const endsAt = new Date(now().getTime() + 12 * 60 * 60 * 1000);
   const sessionTokens = [
@@ -236,6 +238,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       "finishConfirmations",
       "childBookExclusions",
       "childNotices",
+      "childSignIns",
     ]) {
       const key = name === "children" ? "_id" : "childId";
       expect(
@@ -441,6 +444,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
     ["ratings", "deleteMany"],
     ["finishConfirmations", "deleteMany"],
     ["childSessionEnds", "deleteMany"],
+    ["childSignIns", "deleteMany"],
     ["childBookExclusions", "deleteMany"],
     ["bookReports", "updateMany"],
     ["childNotices", "deleteMany"],

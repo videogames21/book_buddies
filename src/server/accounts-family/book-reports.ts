@@ -211,7 +211,7 @@ export async function isExcluded(
 
 /**
  * The child's excluded book IDs: the one read Recommendation and manual search use to
- * apply `KD-book-exclusion`, as a `$nin` beside the blocked-book filter. No caller yet.
+ * apply `KD-book-exclusion`, as a `$nin` beside the blocked-book filter.
  * Callers check the child's family first.
  */
 export async function listExcludedBookIds(

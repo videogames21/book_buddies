@@ -40,6 +40,8 @@ const configSchema = z.object({
   // UC-PAR-suggest-book release gate (README, "Review and release dependencies").
   // Off unless set to "1"; only the demo and e2e servers, which hold invented data, set it.
   PARENT_SUGGESTIONS_ENABLED: blankAsUnset(z.enum(["0", "1"]).default("0")),
+  // Unknown modes parse normally and are refused when a child uses the quiz (OI-2).
+  RECOMMENDER_MODE: blankAsUnset(z.string().default("rules")),
   // UC-REC-parent-review 2a: how long a batch waits for the parent before it is released
   // unchanged. 24 hours, provisional (OI-69). The quiz's insert adds it to `createdAt`
   // once and stores the result as the batch's `handoffDeadline`.
@@ -87,6 +89,10 @@ export function getConfig(): Config {
     cached = parsed.data;
   }
   return cached;
+}
+
+export function getRecommenderMode(): "rules" | null {
+  return getConfig().RECOMMENDER_MODE === "rules" ? "rules" : null;
 }
 
 const isProduction = () => process.env.NODE_ENV === "production";

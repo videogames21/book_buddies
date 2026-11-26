@@ -224,3 +224,21 @@ it("refuses a device cookie secret shorter than 32 characters", async () => {
   const { getConfig } = await import("./config");
   expect(() => getConfig()).toThrow("Invalid environment: CHILD_DEVICE_SECRET");
 });
+
+it.each([
+  [undefined, "rules"],
+  ["rules", "rules"],
+  ["ai", null],
+  ["off", null],
+  ["invented", null],
+] as const)(
+  "selects an available recommender for mode %s",
+  async (mode, expected) => {
+    vi.resetModules();
+    vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+    vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+    vi.stubEnv("RECOMMENDER_MODE", mode);
+    const { getRecommenderMode } = await import("./config");
+    expect(getRecommenderMode()).toBe(expected);
+  },
+);

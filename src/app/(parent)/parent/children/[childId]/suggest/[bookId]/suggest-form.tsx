@@ -75,6 +75,10 @@ function EditingForm({
   const length = note.trim().length;
   const tooLong = length > SUGGESTION_NOTE_MAX_LENGTH;
   const { conflict } = state;
+  // The server's message is about the note it was sent. Once the parent edits the note,
+  // the live check takes over, so the two never show the same message twice.
+  const edited = note !== state.note;
+  const serverError = edited ? null : state.error;
 
   return (
     <form className={styles.form} action={formAction}>
@@ -102,19 +106,22 @@ function EditingForm({
           {length} / {SUGGESTION_NOTE_MAX_LENGTH}
         </span>
       </label>
-      {tooLong ? (
+      {tooLong && !serverError ? (
         <p role="alert" className={styles.error}>
           Please keep the note to {SUGGESTION_NOTE_MAX_LENGTH} characters or
           fewer.
         </p>
       ) : null}
-      {state.error ? (
+      {serverError ? (
         <p role="alert" className={styles.error}>
-          {state.error}
+          {serverError}
         </p>
       ) : null}
       <div className={styles.buttons}>
-        <button type="submit" disabled={pending || tooLong}>
+        {/* Never disabled by the live check: without JavaScript it cannot rerun after
+            the parent shortens a refused note, and the server checks the length anyway
+            (3b; re-review of #147). */}
+        <button type="submit" disabled={pending}>
           {pending ? "Suggesting…" : conflict ? "Suggest anyway" : "Suggest"}
         </button>
         {/* 3a: leaving writes nothing. */}

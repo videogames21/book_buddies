@@ -209,6 +209,40 @@ test.describe("without JavaScript (before hydration; review of #147)", () => {
     expect(urls.filter((url) => url.includes("note="))).toEqual([]);
   });
 
+  test("3b: a refused note can be shortened and sent again, and never reaches the URL", async ({
+    page,
+    context,
+  }) => {
+    const { familyId } = await signInParent(context, {
+      parentRole: "main",
+      consentConfirmed: true,
+    });
+    const childId = await insertChild(familyId, "Curlew");
+    const bookId = await insertBook("No Script Too Long Suggest E2E");
+    const urls: string[] = [];
+    page.on("request", (request) => urls.push(request.url()));
+    const note = page.getByLabel("A note for Curlew (optional)");
+
+    await page.goto(`/parent/children/${childId}/suggest/${bookId}`);
+    await note.fill("a".repeat(251));
+    await page.getByRole("button", { name: "Suggest", exact: true }).click();
+
+    await expect(
+      page.getByRole("alert").filter({ hasText: "250 characters or fewer" }),
+    ).toBeVisible();
+    await expect(note).toHaveValue("a".repeat(251));
+    expect(await suggestionsFor(childId)).toEqual([]);
+
+    await note.fill("short valid private note");
+    await page.getByRole("button", { name: "Suggest", exact: true }).click();
+
+    await expect(page.getByRole("status")).toHaveText("Suggested to Curlew");
+    expect(await suggestionsFor(childId)).toEqual([
+      { bookId, note: "short valid private note" },
+    ]);
+    expect(urls.filter((url) => url.includes("note="))).toEqual([]);
+  });
+
   test("4a: Suggest anyway works without JavaScript too", async ({
     page,
     context,

@@ -1,19 +1,9 @@
 import "server-only";
 import type { Grade } from "@/server/accounts-family/grades";
-import type { LENGTHS } from "@/shared/catalog/tags";
+import type { RuleCandidate } from "@/server/catalog/rule-candidates";
 
-type BookLength = (typeof LENGTHS)[number];
-type ReadingScale = "lexile" | "arAtos";
-
-type Candidate = {
-  readonly id: string;
-  readonly genres: readonly string[];
-  readonly subjects: readonly string[];
-  readonly length: BookLength;
-  readonly ageMin: number;
-  readonly ageMax: number;
-  readonly comparableLevels: Readonly<Partial<Record<ReadingScale, number>>>;
-};
+type BookLength = RuleCandidate["length"];
+type ReadingScale = keyof RuleCandidate["comparableLevels"];
 
 type ChildProfile = {
   readonly age: number;
@@ -36,7 +26,7 @@ function gradeReferenceAge(grade: Grade): number {
   return Number(grade) + 5;
 }
 
-function ageFit(book: Candidate, referenceAge: number): number {
+function ageFit(book: RuleCandidate, referenceAge: number): number {
   const outside = Math.max(
     book.ageMin - referenceAge,
     referenceAge - book.ageMax,
@@ -47,7 +37,7 @@ function ageFit(book: Candidate, referenceAge: number): number {
   return 0;
 }
 
-function levelPoint(book: Candidate, level: ChildProfile["level"]): number {
+function levelPoint(book: RuleCandidate, level: ChildProfile["level"]): number {
   if (!level) return 0;
   const bookLevel = book.comparableLevels[level.scale];
   if (bookLevel === undefined) return 0;
@@ -58,7 +48,7 @@ function levelPoint(book: Candidate, level: ChildProfile["level"]): number {
 }
 
 function interestScore(
-  book: Candidate,
+  book: RuleCandidate,
   level: ChildProfile["level"],
   weights: InterestWeights,
 ): number {
@@ -74,7 +64,7 @@ function interestScore(
 
 /** OI-2 proposal. Call with books already filtered for eligibility by Catalog. */
 export function rankRuleCandidates(
-  candidates: readonly Candidate[],
+  candidates: readonly RuleCandidate[],
   child: ChildProfile,
   weights: InterestWeights,
 ): string[] {

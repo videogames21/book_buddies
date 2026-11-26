@@ -531,8 +531,8 @@ export async function isInPendingBatch(
 }
 
 /**
- * UC-PAR-delete-kid-account: every batch of the child, whatever its status. Joins
- * DELETE_CHILD_RECORDS in child-deletion.ts once #125 merges.
+ * UC-PAR-delete-kid-account: every batch of the child, whatever its status. One of
+ * DELETE_CHILD_RECORDS in child-deletion.ts.
  */
 export async function deleteChildRecords(
   tx: Tx,

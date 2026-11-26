@@ -8,6 +8,7 @@ import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { deleteChildRecords as deleteChildNotices } from "@/server/notification/child-notices";
+import { deleteChildRecords as deleteBatches } from "@/server/recommendation/batches";
 import { deleteChildRecords as deleteReadingProfile } from "@/server/recommendation/reading-profiles";
 import { deleteChildRecords as deleteNoteFlags } from "@/server/safety-flagging/note-flags";
 import { deleteChildRecords as deleteShelfRecords } from "@/server/shelf/shelf-collections";
@@ -34,6 +35,7 @@ const DELETE_CHILD_RECORDS: readonly ((
   deleteBookReports, // Accounts & Family: exclusions; reports kept without child or comment
   deleteNoteFlags, // Safety Flagging, a flag of any status (5a)
   deleteReadingProfile, // Recommendation
+  deleteBatches, // Recommendation: batches of any status
   deleteShelfRecords, // Shelf
   deleteChildNotices, // Notification
 ];

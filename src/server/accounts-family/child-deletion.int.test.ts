@@ -7,6 +7,7 @@ import {
   type Document,
 } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { insertBatch } from "../../../tests/fixtures/batches";
 import { insertBook } from "../../../tests/fixtures/catalog";
 import { insertConsentedMainParent } from "../../../tests/fixtures/family";
 import {
@@ -19,8 +20,9 @@ import { resetDatabase } from "../../../tests/integration/db";
 import type { ParentSession } from "@/server/identity-access/sessions";
 
 // UC-PAR-delete-kid-account, the deletion itself (design/par.md, Tests). The child's
-// records are created through the real write paths; only Shelf, which has no write path
-// yet, is seeded from fixtures. Invented data only.
+// records are created through the real write paths; only Shelf records and
+// recommendation batches, which have no creating write path yet, are seeded from
+// fixtures. Invented data only.
 
 vi.mock("@/server/safety-flagging/screen-note", async (importOriginal) => {
   const actual =
@@ -89,7 +91,8 @@ async function mainParent() {
  * account, identity, credential and a flagged note with its flag (createChild), a
  * reading profile (saveOnboardingProfile), sessions with their end records
  * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
- * shelf records (fixtures), and a report with its exclusion and notice (reportBook).
+ * shelf records and a recommendation batch (fixtures), and a report with its exclusion
+ * and notice (reportBook).
  */
 async function seedChild(
   session: ParentSession,
@@ -139,6 +142,7 @@ async function seedChild(
   await insertShelfEntry(childId, BOOK_ID, "readingNow");
   await insertRating(childId, BOOK_ID, "lovedIt");
   await insertFinishConfirmation(childId, BOOK_ID);
+  await insertBatch({ childId, bookIds: [BOOK_ID] });
   // A report through the real write path: its exclusion, the report with a comment, the
   // child's removal notice and two audit entries (UC-PAR-report-book).
   const reportedBookId = await insertBook("active", "Reported book");
@@ -212,6 +216,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       "parentNotes",
       "noteFlags",
       "readingProfiles",
+      "recommendationBatches",
       "shelfEntries",
       "ratings",
       "finishConfirmations",
@@ -417,6 +422,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
     ["parentNotes", "deleteMany"],
     ["noteFlags", "deleteMany"],
     ["readingProfiles", "deleteMany"],
+    ["recommendationBatches", "deleteMany"],
     ["shelfEntries", "deleteMany"],
     ["ratings", "deleteMany"],
     ["finishConfirmations", "deleteMany"],

@@ -6,6 +6,7 @@ import {
   signInChild,
   signInParent,
 } from "./session-fixture";
+import { addBook, shelve } from "./shelf-fixture";
 
 // Child sign-in, the home screen, sign-out, keep-alive and the error screen
 // (design/shlf.md, supporting flows). Invented test data only.
@@ -348,8 +349,7 @@ test("Sign out after the session has ended goes to sign-in, and Back stays signe
   await expect(page).toHaveURL(SIGN_IN);
   await expect(page.getByText(SIGN_OUT_FAILED)).toHaveCount(0);
 
-  await page.goBack();
-  await expect(page).toHaveURL(/\/child\/shelf$/);
+  // The shelf seen earlier is asked for again, and refused.
   await page.goBack();
   await expect(page).toHaveURL(SIGN_IN);
   await expect(page.getByText("Starfish")).toHaveCount(0);
@@ -481,7 +481,21 @@ test("a parent creates a child, who signs in, opens My Shelf and signs out", asy
   await page.goto("/child/sign-in");
   await expect(page).toHaveURL(/\/child$/);
 
+  const created = await (
+    await e2eDb()
+  )
+    .collection<{ childId: string }>("users")
+    .findOne({ username: "e2e_sign_in" });
+  await shelve(
+    String(created?.childId),
+    await addBook("First Book"),
+    "readingNow",
+  );
   await openShelf(page);
+  await page.getByRole("button", { name: "First Book" }).click();
+  await expect(
+    page.getByRole("complementary", { name: "Selected book" }),
+  ).toContainText("A. Writer");
   await backHome(page);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(SIGN_IN);

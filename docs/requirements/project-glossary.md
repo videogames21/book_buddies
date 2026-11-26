@@ -148,7 +148,7 @@ _**Status:** applies once the recommender uses cross-user data (post-MVP); the M
 
 The optional reason a child gives when they tap "Not for me" on a recommended book: *Not interested in topic*, *Too easy / too short*, *Too hard / too long*, *Not my style*, or *Other* (flowchart slide 1; `UC-REC-kid-review`). It is always picked from this fixed list; the child types nothing (`BR-child-structured-responses`).
 
-_**Open:** whether the parent sees decline reasons outside the review and export of the child's data (`OI-71`). A declined book can come back in a later batch, ranked lower (`OI-2`)._
+_**Open:** whether the parent sees decline reasons outside the review and export of the child's data (`OI-73`). A declined book can come back in a later batch, ranked lower (`OI-2`)._
 
 ### Finish Confirmation (Confirmed-Finished Icon)
 

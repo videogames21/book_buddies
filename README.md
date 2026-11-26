@@ -180,7 +180,8 @@ The rules are in architecture §8.2.7.
   the deployment's runtime logs; locally they appear in the terminal.
 - **Health check:** `GET /api/health` answers 200 with the database response time and
   the deployed commit, or 503 when the configuration is invalid or the database does
-  not answer within 3 seconds.
+  not answer within 3 seconds. A 200 does not show that every setting a feature needs,
+  such as `APP_URL` in production, is present.
 - **Metrics:** request counts, error rates and durations are in the Vercel and MongoDB
   Atlas dashboards. Nothing notifies the team yet (`TD-no-alerting`).
 

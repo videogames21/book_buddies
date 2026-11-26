@@ -83,7 +83,9 @@ export function getConfig(): Config {
       const names = parsed.error.issues
         .map((issue) => issue.path.join("."))
         .join(", ");
-      throw new Error(`Invalid environment: ${names}`);
+      const err = new Error(`Invalid environment: ${names}`);
+      err.name = "ConfigError";
+      throw err;
     }
     cached = parsed.data;
   }

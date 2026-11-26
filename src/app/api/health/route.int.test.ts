@@ -13,6 +13,7 @@ function captureLog() {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("GET /api/health", () => {
@@ -50,6 +51,22 @@ describe("GET /api/health", () => {
         errorId: log()[0]?.errorId,
       },
     });
+  });
+
+  it("answers 503 and names the error when the configuration is invalid", async () => {
+    vi.stubEnv("AUTH_SECRET", "");
+    // The config is cached once read, so load the route again.
+    vi.resetModules();
+    const route = await import("./route");
+    const log = captureLog();
+
+    const response = await route.GET();
+
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain("AUTH_SECRET");
+    expect(log()).toMatchObject([
+      { where: "health", errorName: "ConfigError" },
+    ]);
   });
 
   it("answers 503 when the database does not answer in time", async () => {

@@ -11,7 +11,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 // Health check (architecture §8.1, §8.2.7). Public on purpose, so a monitor needs no
 // secret: it takes no input, reads no collection and returns nothing about any person.
-// 200 means the configuration is valid and the database answered.
+// 200 means the environment passed the config schema and the database answered. It does
+// not show that every setting a feature needs is present, such as APP_URL in production.
 export async function GET() {
   try {
     const commit = getConfig().VERCEL_GIT_COMMIT_SHA ?? null;

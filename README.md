@@ -185,6 +185,9 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `noteFlags`                 | Note/child IDs, categories, character offsets, detector method/version, state, time | Safety Flagging insert only; no duplicated note text               |
 | `auditLog`                  | Actor/record/child IDs, event/role, time                                            | Append only; no child details or note text                         |
 | `readingProfiles`           | Child UUID, reading interests (fixed list), favorite catalog book IDs, save time    | Recommendation only; parent-entered; never returned to child/admin |
+| `bookReports`               | Child UUID, book ID, reporting parent's user ID, reason (fixed list), optional comment (at most 250 characters, `OI-55`), status, report time | Accounts & Family; admin sees open reports by opaque reference only (`UC-ADM-block-content`); never returned to the child; comment never logged |
+| `childBookExclusions`       | Child UUID, book ID, report ID, creation time                                       | Accounts & Family; Recommendation and search read book IDs only (`KD-book-exclusion`); no undo |
+| `childNotices`              | Child UUID, notice kind, book ID, creation and seen times                           | Notification; shown to the child; no reason and no parent (§8.2.11) |
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.
 

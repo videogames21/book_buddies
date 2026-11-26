@@ -586,7 +586,6 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       error: { code: "DELETE_FAILED", errorId: expect.any(String) as unknown },
     });
     expect(childReadConcerns).toEqual(["majority"]);
-    vi.mocked(Collection.prototype.findOne).mockRestore();
     expect(await dumpDatabase()).toEqual(before);
   });
 

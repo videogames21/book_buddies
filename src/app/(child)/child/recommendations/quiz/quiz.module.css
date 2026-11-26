@@ -1,0 +1,43 @@
+.form {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+  text-align: start;
+}
+
+.group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.group legend {
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.group[aria-invalid="true"] legend {
+  color: #8b2828;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.5rem;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #52635b;
+  border-radius: 0.55rem;
+  cursor: pointer;
+}
+
+.option input {
+  accent-color: #2f4f45;
+}

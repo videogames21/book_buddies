@@ -1,6 +1,7 @@
 import "server-only";
 import type { Db, ObjectId } from "mongodb";
 import { ensureCollection } from "@/server/lib/collections";
+import { getDb, type Tx } from "@/server/lib/db";
 
 // Shelf's three collections (design/shlf.md, Data model), shared by every SHLF use case.
 // Each holds only the opaque child ID and the book ID, never a name, age, grade or
@@ -100,5 +101,19 @@ export async function ensureShelfIndexes(db: Db): Promise<void> {
     await db
       .collection(name)
       .createIndex(UNIQUE_CHILD_BOOK, { unique: true, name: UNIQUE_NAME });
+  }
+}
+
+/**
+ * UC-PAR-delete-kid-account POST-2: the child's shelf entries, ratings and finish
+ * confirmations. Shelf history, shelf requests and the child's notices join this when
+ * those collections are built. Each delete uses the (childId, bookId) index.
+ */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  for (const name of [SHELF_ENTRIES, RATINGS, FINISH_CONFIRMATIONS]) {
+    await getDb().collection(name).deleteMany({ childId }, { session: tx });
   }
 }

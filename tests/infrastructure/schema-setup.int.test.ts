@@ -322,6 +322,19 @@ it("makes signInAttempts unique per account key and indexes its expiry", async (
   };
   await attempts.insertOne({ ...row });
   await expect(attempts.insertOne({ ...row })).rejects.toThrow(/duplicate key/);
+  // The in-flight count (checkPasswordAttempt) is optional and never negative.
+  await attempts.insertOne({
+    ...row,
+    accountKey: "pending@example.test",
+    pending: 2,
+  });
+  await expect(
+    attempts.insertOne({
+      ...row,
+      accountKey: "negative@example.test",
+      pending: -1,
+    }),
+  ).rejects.toThrow();
   await attempts.deleteMany({});
 });
 
@@ -436,6 +449,24 @@ it("accepts exactly the audit shapes §8.2.9 allows, IDs only", async () => {
       familyId: new ObjectId(),
       occurredAt,
     }),
+  ).rejects.toThrow();
+  // A child deletion (UC-PAR-delete-kid-account POST-5): the parent and the child ID,
+  // with no record and nothing else.
+  const deletion = {
+    actorId: new ObjectId(),
+    actorRole: "parent",
+    event: "child-account-deleted",
+    childId: "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a22",
+    occurredAt,
+  };
+  await expect(audit.insertOne({ ...deletion })).resolves.toBeTruthy();
+  const { childId: _noChild, ...deletionWithoutChild } = deletion;
+  await expect(audit.insertOne(deletionWithoutChild)).rejects.toThrow();
+  await expect(
+    audit.insertOne({ ...deletion, nickname: "Starfish" }),
+  ).rejects.toThrow();
+  await expect(
+    audit.insertOne({ ...deletion, actorRole: "admin" }),
   ).rejects.toThrow();
   await audit.deleteMany({});
 });
@@ -602,4 +633,141 @@ it("lets children and consentRecords carry their write-lock counters only as int
   await expect(consent.insertOne(record(1))).resolves.toBeTruthy();
   await expect(consent.insertOne(record("1"))).rejects.toThrow();
   await consent.deleteMany({});
+});
+
+it("accepts the child-deletion fields on children and consentRecords, and indexes what deletion looks up (UC-PAR-delete-kid-account)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const children = getDb().collection<{
+    _id: string;
+    [field: string]: unknown;
+  }>("children");
+  const child = {
+    _id: "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a33",
+    familyId: new ObjectId(),
+    nickname: "Starfish",
+    avatar: "1-1",
+    createdAt: new Date(),
+  };
+  await children.insertOne({ ...child, writeVersion: 3 });
+  await expect(
+    children.insertOne({
+      ...child,
+      _id: "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a34",
+      writeVersion: "3",
+    }),
+  ).rejects.toThrow();
+
+  const records = getDb().collection("consentRecords");
+  const record = {
+    familyId: new ObjectId(),
+    parentUserId: new ObjectId(),
+    noticeVersion: "v1",
+    method: "email-plus",
+    acknowledgedAt: new Date(),
+    confirmBy: new Date(),
+    confirmationTokenHash: "d".repeat(64),
+  };
+  await records.insertOne({
+    ...record,
+    removedChildren: [{ childId: child._id, removedAt: new Date() }],
+  });
+  // A removed-child entry holds the ID and the date only, never the nickname.
+  await expect(
+    records.insertOne({
+      ...record,
+      familyId: new ObjectId(),
+      confirmationTokenHash: "e".repeat(64),
+      removedChildren: [
+        { childId: child._id, removedAt: new Date(), nickname: "Starfish" },
+      ],
+    }),
+  ).rejects.toThrow();
+
+  expect(
+    (await getDb().collection("sessions").indexes()).find(
+      (index) => index.name === "userId",
+    ),
+  ).toMatchObject({ key: { userId: 1 } });
+  expect(
+    (await getDb().collection("users").indexes()).find(
+      (index) => index.name === "childId_unique",
+    ),
+  ).toMatchObject({ key: { childId: 1 }, unique: true });
+
+  await children.deleteMany({});
+  await records.deleteMany({});
+});
+
+it("creates recommendationBatches with its validator and three indexes (UC-REC-parent-review)", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ObjectId } = await import("mongodb");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const batches = getDb().collection("recommendationBatches");
+  const indexes = await batches.indexes();
+  expect(
+    indexes.find((index) => index.name === "childId_requestId_unique"),
+  ).toMatchObject({ key: { childId: 1, requestId: 1 }, unique: true });
+  expect(
+    indexes.find((index) => index.name === "childId_pending_unique"),
+  ).toMatchObject({
+    key: { childId: 1 },
+    unique: true,
+    partialFilterExpression: { status: "pending" },
+  });
+  expect(
+    indexes.find((index) => index.name === "childId_status_createdAt"),
+  ).toMatchObject({ key: { childId: 1, status: 1, createdAt: 1 } });
+
+  const at = new Date("2026-11-24T12:00:00Z");
+  const batch = (overrides: Record<string, unknown> = {}) => ({
+    _id: new ObjectId(),
+    requestId: "11111111-1111-4111-8111-111111111111",
+    childId: "c1",
+    source: "rules",
+    status: "pending",
+    bookIds: ["b1", "b2"],
+    createdAt: at,
+    handoffDeadline: new Date("2026-11-25T12:00:00Z"),
+    ...overrides,
+  });
+  await batches.insertOne(batch());
+  // A second pending batch for the child, even for another request, is refused.
+  await expect(
+    batches.insertOne(
+      batch({ requestId: "22222222-2222-4222-8222-222222222222" }),
+    ),
+  ).rejects.toThrow();
+  // The same request again is refused by the request index, whatever its status.
+  await expect(
+    batches.insertOne(batch({ status: "released" })),
+  ).rejects.toThrow();
+  // A released or empty batch beside the pending one is allowed.
+  await batches.insertOne(
+    batch({
+      requestId: "33333333-3333-4333-8333-333333333333",
+      status: "empty",
+      bookIds: [],
+      removedBookIds: ["b3"],
+      releasedAt: at,
+    }),
+  );
+  // The validator: no batch without handoffDeadline, no status outside the three,
+  // and no field the design does not name (raw quiz answers, age, scores).
+  const noDeadline = Object.fromEntries(
+    Object.entries(batch({ childId: "c2" })).filter(
+      ([field]) => field !== "handoffDeadline",
+    ),
+  );
+  await expect(batches.insertOne(noDeadline)).rejects.toThrow();
+  await expect(
+    batches.insertOne(batch({ childId: "c3", status: "expired" })),
+  ).rejects.toThrow();
+  await expect(
+    batches.insertOne(batch({ childId: "c4", answers: { mood: "calm" } })),
+  ).rejects.toThrow();
+  await batches.deleteMany({});
 });

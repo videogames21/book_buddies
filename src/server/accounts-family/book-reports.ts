@@ -5,9 +5,10 @@ import { findActiveBookIds } from "@/server/catalog/books";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, type Tx, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { createRemovalNoticeInTx } from "@/server/notification/child-notices";
+import { removeFromPendingBatchInTx } from "@/server/recommendation/batches";
 import { removeShelfEntryInTx } from "@/server/shelf/shelf-entries";
 import type { ReportReason } from "@/shared/accounts-family/book-report";
 import { BOOK_REPORTS, CHILD_BOOK_EXCLUSIONS } from "./book-report-schema";
@@ -66,7 +67,7 @@ const MESSAGES: Record<ReportBookErrorCode, string> = {
   CONSENT_NOT_CONFIRMED:
     "Your family's consent must be confirmed before you can report a book.",
   NOT_ON_SHELF_OR_BATCH:
-    "This book is no longer on your child's shelf, so it was not reported. Nothing was saved.",
+    "This book is no longer on your child's shelf or in their recommendations to review, so it was not reported. Nothing was saved.",
   ALREADY_REPORTED: "This book has already been reported for this child.",
   SAVE_FAILED:
     "We couldn't send the report. Nothing was saved, and the book is where it was. Please try again.",
@@ -110,10 +111,12 @@ function isOutcomeUnknown(err: unknown): boolean {
 /**
  * Steps 7 and 8. One transaction inserts the exclusion first (so a book already reported
  * is 7c, before PRE-3), then the report, deletes the shelf entry, and writes the child's
- * notice and the audit entries (§8.2.8, §8.2.9). The family comes from the session. The
- * server enforces PRE-3 with the removal's own result: if nothing was removed, nothing is
- * kept (`NOT_ON_SHELF_OR_BATCH`, which refuses 7b until `OI-54` is answered). The callback
- * may run more than once on a transient conflict, so it creates its IDs and times inside.
+ * notice and the audit entries (§8.2.8, §8.2.9). It also takes the book out of the
+ * child's pending recommendation batch (7d, `removeFromPendingBatchInTx`). The family
+ * comes from the session. The server enforces PRE-3 with the two removals' own results:
+ * if neither removed anything, nothing is kept (`NOT_ON_SHELF_OR_BATCH`, which refuses
+ * 7b until `OI-54` is answered). The callback may run more than once on a transient
+ * conflict, so it creates its IDs and times inside.
  */
 export async function reportBook(
   session: ParentSession,
@@ -160,23 +163,29 @@ export async function reportBook(
       );
 
       const removedEntryId = await removeShelfEntryInTx(tx, childId, bookId);
-      // 7d: UC-REC-parent-review adds removeFromPendingBatchInTx here, and its answer
-      // joins this PRE-3 check ("removed from neither"). Until then only the shelf counts.
-      if (!removedEntryId) {
+      const removedFromBatch = await removeFromPendingBatchInTx(
+        tx,
+        childId,
+        bookId,
+      );
+      // PRE-3: the book left the shelf, a pending batch, or both.
+      if (!removedEntryId && !removedFromBatch) {
         throw new ReportRefused("NOT_ON_SHELF_OR_BATCH");
       }
 
-      // A shelf entry was deleted (POST-4): the notice and the removal's audit entry.
-      // When the batch step joins, these two run only if `removedEntryId` is set (7d).
-      await createRemovalNoticeInTx(tx, childId, bookId);
-      await appendAudit(tx, {
-        event: "shelf.parent-removed",
-        actorId: session.userId,
-        actorRole: "parent",
-        childId,
-        recordId: removedEntryId,
-        bookId,
-      });
+      // Only a deleted shelf entry gets the child's notice and the removal's audit entry
+      // (POST-4). A book only in a pending batch was never shown to the child (7d).
+      if (removedEntryId) {
+        await createRemovalNoticeInTx(tx, childId, bookId);
+        await appendAudit(tx, {
+          event: "shelf.parent-removed",
+          actorId: session.userId,
+          actorRole: "parent",
+          childId,
+          recordId: removedEntryId,
+          bookId,
+        });
+      }
       await appendAudit(tx, {
         event: "book.reported",
         actorId: session.userId,
@@ -184,8 +193,7 @@ export async function reportBook(
         childId,
         recordId: reportId,
       });
-      // Always true until 7d: a report from a pending batch alone will return false.
-      return true;
+      return removedEntryId !== null;
     });
     return ok({ removedFromShelf });
   } catch (err) {
@@ -221,13 +229,38 @@ export async function isExcluded(
 
 /**
  * The child's excluded book IDs: the one read Recommendation and manual search use to
- * apply `KD-book-exclusion`, as a `$nin` beside the blocked-book filter. No caller yet.
+ * apply `KD-book-exclusion`, as a `$nin` beside the blocked-book filter.
  * Callers check the child's family first.
  */
-export async function listExcludedBookIds(childId: string): Promise<string[]> {
+export async function listExcludedBookIds(
+  childId: string,
+  tx?: Tx,
+): Promise<string[]> {
   const exclusions = await getDb()
     .collection<ExclusionDocument>(CHILD_BOOK_EXCLUSIONS)
-    .find({ childId }, { projection: { bookId: 1 } })
+    .find({ childId }, { projection: { bookId: 1 }, session: tx })
     .toArray();
   return exclusions.map((exclusion) => exclusion.bookId);
+}
+
+/**
+ * UC-PAR-delete-kid-account (design/par.md, Components): the child's exclusions are
+ * deleted, and each report made for the child is kept with only its book, its reason and
+ * the reporting parent's reference. Its `childId` and its comment, free text about the
+ * child, are removed. The `bookReports` validator allows that shape.
+ */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection(CHILD_BOOK_EXCLUSIONS)
+    .deleteMany({ childId }, { session: tx });
+  await getDb()
+    .collection(BOOK_REPORTS)
+    .updateMany(
+      { childId },
+      { $unset: { childId: "", comment: "" } },
+      { session: tx },
+    );
 }

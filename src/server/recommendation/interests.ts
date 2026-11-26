@@ -17,3 +17,16 @@ export const INTEREST_KEYS = INTEREST_OPTIONS.map((option) => option.key) as [
   InterestKey,
   ...InterestKey[],
 ];
+
+const catalogKeysByInterest: Record<InterestKey, readonly string[]> = {
+  "realistic-fiction": ["realistic fiction"],
+  fantasy: ["fantasy"],
+  animals: ["animal story", "animals"],
+  adventure: ["adventure"],
+  mystery: ["mystery"],
+  "non-fiction": ["non-fiction"],
+};
+
+export function catalogKeysForInterest(key: InterestKey): readonly string[] {
+  return catalogKeysByInterest[key];
+}

@@ -6,7 +6,7 @@ import type { AdminSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, type Tx, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { NewBook } from "@/shared/catalog/new-book-schema";
 import {
@@ -116,10 +116,16 @@ export async function findActiveBookIds(ids: string[]): Promise<string[]> {
   return books.map((book) => book._id);
 }
 
-export type ShelfBook = { id: string; title: string; author: string };
+export type ShelfBook = {
+  id: string;
+  title: string;
+  author: string;
+  seriesName?: string;
+};
 
 /**
- * The title and author of each active book in `ids`, for the shelf view. A book that is
+ * The title, author and, for a book in a series, the series name of each active book in
+ * `ids`, for the shelf views. A book that is
  * blocked, still a draft or missing is simply absent from the result, so the caller
  * drops its shelf entry (UC-SHLF-parent-view-shelf 5b). One query for every ID: it
  * returns all it found or throws, never part of an outage. The use case asks for a cover
@@ -128,16 +134,75 @@ export type ShelfBook = { id: string; title: string; author: string };
 export async function getBooksForShelf(ids: string[]): Promise<ShelfBook[]> {
   if (ids.length === 0) return [];
   const books = await getDb()
-    .collection<BookFields>(BOOKS)
+    .collection<BookFields & { seriesName?: string }>(BOOKS)
     .find(
       { _id: { $in: ids }, status: "active" },
-      { projection: { title: 1, author: 1 } },
+      { projection: { title: 1, author: 1, seriesName: 1 } },
     )
     .toArray();
   return books.map((book) => ({
     id: book._id,
     title: book.title,
     author: book.author,
+    ...(book.seriesName && { seriesName: book.seriesName }),
+  }));
+}
+
+export type ReviewBook = {
+  id: string;
+  title: string;
+  author: string;
+  genres: string[];
+  subjects: string[];
+  moods: string[];
+  length: string;
+};
+
+/**
+ * The title, author and tags of each active book in `ids`, for a batch under parent
+ * review (UC-REC-parent-review, design/rec.md). One query; draft, blocked and missing books are
+ * absent, in no particular order. With `age` (the child-facing read only) a book must
+ * also have an age band that contains that age, inclusive, as the quiz's candidate read
+ * requires; the parent's review passes no age and sees every active book.
+ */
+export async function getBooksForReview(
+  ids: readonly string[],
+  options: { age?: number; tx?: Tx } = {},
+): Promise<ReviewBook[]> {
+  if (ids.length === 0) return [];
+  const { age, tx } = options;
+  const books = await getDb()
+    .collection<BookDocument>(BOOKS)
+    .find(
+      {
+        _id: { $in: [...ids] },
+        status: "active",
+        ...(age !== undefined && {
+          ageMin: { $lte: age },
+          ageMax: { $gte: age },
+        }),
+      },
+      {
+        projection: {
+          title: 1,
+          author: 1,
+          genres: 1,
+          subjects: 1,
+          moods: 1,
+          length: 1,
+        },
+        session: tx,
+      },
+    )
+    .toArray();
+  return books.map((book) => ({
+    id: book._id,
+    title: book.title,
+    author: book.author,
+    genres: book.genres,
+    subjects: book.subjects ?? [],
+    moods: book.moods,
+    length: book.length,
   }));
 }
 

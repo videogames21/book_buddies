@@ -65,6 +65,8 @@ the Resend account. Never put a key in a tracked file.
    username and password. The password appears only once.
 5. Continue to the reading profile (interests and favorite books from the catalog),
    then to **Onboarding complete**.
+6. To sign in as that child, open `/child/sign-in` and type the username and
+   password from step 4. This ends the parent's session in that browser.
 
 | Field         | Sample value                               |
 | ------------- | ------------------------------------------ |
@@ -188,6 +190,16 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `bookReports`               | Child UUID, book ID, reporting parent's user ID, reason (fixed list), optional comment (at most 250 characters, `OI-55`), status, report time | Accounts & Family; admin sees open reports by opaque reference only (`UC-ADM-block-content`); never returned to the child; comment never logged |
 | `childBookExclusions`       | Child UUID, book ID, report ID, creation time                                       | Accounts & Family; Recommendation and search read book IDs only (`KD-book-exclusion`); no undo |
 | `childNotices`              | Child UUID, notice kind, book ID, creation and seen times                           | Notification; shown to the child; no reason and no parent (§8.2.11) |
+| `childSessionEnds`          | Session record ID, next-midnight end time, last-seen time, last-activity time       | Identity & Access only, to end a child's session; never logged     |
+| `childSignIns`              | Child UUID, sign-in time; no IP address, device ID or session length | Identity & Access, one per successful sign-in; for the usage measures and the admin's lookup by child ID, not yet built. Removed on child-account deletion |
+| `signInAttempts` (child keys) | Username with `shared` or a hash of a device ID, failure count, wait times | Identity & Access; never logged. Removed by a correct password, or by the daily cleanup once every failure is forgiven |
+| `child_device` cookie (on the child's device, not stored) | Random device ID, child UUID and expiry for up to four children, signed | Used only to count wrong passwords; 30 days from the last sign-in (`OI-49`) |
+| `recommendationBatches`     | Child UUID, request UUID, ordered book IDs, source, status, creation and handoff times, removal and release fields | Recommendation and the linked parent during review; only released picks reach the child. Removed with child data, account deletion or inactivity purge. |
+| `recommendationReactions`   | Child UUID, book ID, reaction (fixed list), optional decline reason (fixed list), batch IDs, reaction time; no name or free text | Recommendation; the child's own list, the parent's review and export (`UC-PAR-review-child-data`) and the quiz's signal read. Kept while the account is active; deleted with the child account, by `UC-PAR-delete-child-data` and by the inactivity purge (`BR-coppa-retention`, `OI-22`) |
+
+A `childSessionEnds` record holds no name, username or child ID, and links to the child only through its session. It is deleted with the session: at sign-out, or when a session that is over is refused. The daily cleanup deletes ended sessions and any record whose session is already gone.
+
+Child sign-in needs `CHILD_SESSION_TIME_ZONE` (such as `America/Chicago`) and `CHILD_DEVICE_SECRET` (a random secret of at least 32 characters, never committed). Neither has a default; the demo sets both.
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.
 

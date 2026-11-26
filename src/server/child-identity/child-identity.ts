@@ -1,11 +1,13 @@
 import "server-only";
 import type { Db } from "mongodb";
+import { GRADES, type Grade } from "@/server/accounts-family/grades";
 import { ensureCollection } from "@/server/lib/collections";
 import { now } from "@/server/lib/clock";
 import { getDb, type Tx } from "@/server/lib/db";
 
 // The Child Identity Store: the only place a child's age, grade and reading
-// level are kept (KD-pii-segregation). This use case adds its write path only.
+// level are kept (KD-pii-segregation). It has a write path, a delete, and one read,
+// of the age only.
 
 const COLLECTION = "childIdentities";
 
@@ -36,6 +38,81 @@ export async function insertChildIdentity(
       },
       { session: tx },
     );
+}
+
+type QuizIdentity = {
+  age: number;
+  grade: Grade;
+  level?: { scale: "lexile" | "arAtos"; value: number };
+};
+
+/** Only the profile fields needed for rule ranking. Callers provide the session's child. */
+export async function getRuleQuizProfile(
+  childId: string,
+  tx?: Tx,
+): Promise<QuizIdentity | null> {
+  const identity = await getDb()
+    .collection<{
+      age: number;
+      grade: string;
+      readingLevelScale?: string;
+      readingLevelValue?: string;
+    }>(COLLECTION)
+    .findOne(
+      { childId },
+      {
+        projection: {
+          age: 1,
+          grade: 1,
+          readingLevelScale: 1,
+          readingLevelValue: 1,
+        },
+        session: tx,
+      },
+    );
+  if (!identity || !Number.isInteger(identity.age)) return null;
+
+  const grade = GRADES.find((value) => value === identity.grade);
+  if (!grade) return null;
+  const profile: QuizIdentity = { age: identity.age, grade };
+  const value = identity.readingLevelValue?.trim() ?? "";
+  if (identity.readingLevelScale === "lexile" && /^\d{1,4}L?$/i.test(value)) {
+    profile.level = {
+      scale: "lexile",
+      value: Number(value.replace(/L$/i, "")),
+    };
+  }
+  if (
+    identity.readingLevelScale === "atos" &&
+    /^\d{1,2}(?:\.\d)?$/.test(value) &&
+    Number(value) <= 13
+  ) {
+    profile.level = { scale: "arAtos", value: Number(value) };
+  }
+  return profile;
+}
+
+/** UC-PAR-delete-kid-account: the child's identity record (age, grade, reading level). */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb().collection(COLLECTION).deleteMany({ childId }, { session: tx });
+}
+
+/**
+ * The child's recorded age, for Recommendation's child-facing read of released batches
+ * (UC-REC-parent-review; design/rec.md), or null when no record exists. Age only: no
+ * grade or reading level. Callers check the child session or family first.
+ */
+export async function getChildAgeForRecommendation(
+  childId: string,
+  tx?: Tx,
+): Promise<number | null> {
+  const identity = await getDb()
+    .collection<{ childId: string; age: number }>(COLLECTION)
+    .findOne({ childId }, { projection: { _id: 0, age: 1 }, session: tx });
+  return typeof identity?.age === "number" ? identity.age : null;
 }
 
 export async function ensureChildIdentityIndexes(db: Db): Promise<void> {

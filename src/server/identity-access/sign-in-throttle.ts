@@ -1,5 +1,5 @@
 import "server-only";
-import type { Db } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
@@ -13,7 +13,10 @@ import { getDb, type Tx } from "@/server/lib/db";
 // runs the check and records its outcome, so no caller sequences those steps itself
 // (design/par.md, Child-data review dependencies). `pending` counts claimed attempts
 // whose check has not finished, so a correct password clears only the failures that
-// have settled and keeps one that is still in flight (§8.2.8).
+// have settled and keeps one that is still in flight (§8.2.8). `generation` names one
+// life of the row: a new row, a count restarted after expiry, or a row created after a
+// reset or the cleanup deleted the old one gets a new one, and an attempt settles only
+// on the generation it claimed, so a check that outlives its row changes nothing.
 
 const SIGN_IN_ATTEMPTS = "signInAttempts";
 const FAILURES_BEFORE_DELAY = 5;
@@ -28,12 +31,15 @@ type SignInAttempt = {
   failures: number;
   /** Claimed attempts whose check has not finished. Absent on rows from before it. */
   pending?: number;
+  /** The row's current life; absent on rows from before it, set by the next claim. */
+  generation?: ObjectId;
   allowedAt: Date;
   expiresAt: Date;
 };
 
 export type AttemptClaim =
-  { allowed: true } | { allowed: false; waitSeconds: number };
+  | { allowed: true; generation: ObjectId }
+  | { allowed: false; waitSeconds: number };
 
 export type PasswordAttempt =
   | { outcome: "matched" }
@@ -50,6 +56,7 @@ export async function ensureSignInAttemptIndexes(db: Db): Promise<void> {
       accountKey: { bsonType: "string", minLength: 1 },
       failures: { bsonType: ["int", "long"], minimum: 0 },
       pending: { bsonType: ["int", "long"], minimum: 0 },
+      generation: { bsonType: "objectId" },
       allowedAt: { bsonType: "date" },
       expiresAt: { bsonType: "date" },
     },
@@ -83,7 +90,7 @@ export async function checkPasswordAttempt(
   try {
     matched = await verify();
   } finally {
-    await settleAttempt(accountKey, matched);
+    await settleAttempt(accountKey, claim.generation, matched);
   }
   return matched ? { outcome: "matched" } : { outcome: "refused" };
 }
@@ -97,6 +104,8 @@ export async function claimSignInAttempt(
   accountKey: string,
 ): Promise<AttemptClaim> {
   const at = now();
+  // Used only if this claim creates the row or starts its count again.
+  const generation = new ObjectId();
   const attempts = getDb().collection<SignInAttempt>(SIGN_IN_ATTEMPTS);
   await attempts.updateOne(
     { accountKey },
@@ -104,6 +113,7 @@ export async function claimSignInAttempt(
       $setOnInsert: {
         failures: 0,
         pending: 0,
+        generation,
         allowedAt: at,
         expiresAt: new Date(at.getTime() + RETENTION_HOURS * 60 * 60 * 1000),
       },
@@ -127,6 +137,18 @@ export async function claimSignInAttempt(
               { $gte: [at, "$expiresAt"] },
               1,
               { $add: [{ $ifNull: ["$pending", 0] }, 1] },
+            ],
+          },
+          generation: {
+            $cond: [
+              {
+                $or: [
+                  { $gte: [at, "$expiresAt"] },
+                  { $eq: [{ $ifNull: ["$generation", null] }, null] },
+                ],
+              },
+              { $literal: generation },
+              "$generation",
             ],
           },
         },
@@ -185,9 +207,11 @@ export async function claimSignInAttempt(
         },
       },
     ],
-    { projection: { _id: 1 } },
+    { projection: { generation: 1 }, returnDocument: "after" },
   );
-  if (claimed) return { allowed: true };
+  if (claimed?.generation) {
+    return { allowed: true, generation: claimed.generation };
+  }
 
   const current = await attempts.findOne(
     { accountKey },
@@ -202,22 +226,25 @@ export async function claimSignInAttempt(
  * composes with claims and outcomes running at the same time. A wrong password leaves
  * its failure counted and is no longer pending. A correct password sets the failures to
  * the attempts still pending: those were counted when claimed and have not settled, so
- * a wrong one finishing later is not lost. The row goes once nothing is counted.
+ * a wrong one finishing later is not lost. The row goes once nothing is counted. Only
+ * the generation the attempt claimed is touched: after a reset, the cleanup or a count
+ * restarted on expiry, the row is a new one and this attempt leaves it alone.
  */
 async function settleAttempt(
   accountKey: string,
+  generation: ObjectId,
   matched: boolean,
 ): Promise<void> {
   const attempts = getDb().collection<SignInAttempt>(SIGN_IN_ATTEMPTS);
   if (!matched) {
     await attempts.updateOne(
-      { accountKey, pending: { $gt: 0 } },
+      { accountKey, generation, pending: { $gt: 0 } },
       { $inc: { pending: -1 } },
     );
     return;
   }
   const at = now();
-  await attempts.updateOne({ accountKey }, [
+  await attempts.updateOne({ accountKey, generation }, [
     {
       $set: {
         pending: {
@@ -238,7 +265,12 @@ async function settleAttempt(
       },
     },
   ]);
-  await attempts.deleteOne({ accountKey, pending: 0, failures: 0 });
+  await attempts.deleteOne({
+    accountKey,
+    generation,
+    pending: 0,
+    failures: 0,
+  });
 }
 
 /**

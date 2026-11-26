@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../../../tests/integration/db";
 import { resetClock, setClock } from "@/server/lib/clock";
 import { getDb } from "@/server/lib/db";
-import { checkPasswordAttempt } from "./sign-in-throttle";
+import { checkPasswordAttempt, clearSignInAttempts } from "./sign-in-throttle";
 
 // checkPasswordAttempt, the one way every password entry point checks a password
 // (SEC-signin-throttling; design/par.md, Child-data review dependencies). Each check
@@ -12,7 +12,12 @@ import { checkPasswordAttempt } from "./sign-in-throttle";
 const KEY = "invented-parent@example.test";
 const AT = new Date("2026-11-25T15:00:00Z");
 
-type Row = { failures: number; pending?: number; allowedAt: Date };
+type Row = {
+  failures: number;
+  pending?: number;
+  allowedAt: Date;
+  expiresAt: Date;
+};
 const row = () =>
   getDb().collection<Row & { accountKey: string }>("signInAttempts").findOne({
     accountKey: KEY,
@@ -34,10 +39,14 @@ async function untilPending(count: number) {
   });
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+let clock = AT;
+
 describe("checkPasswordAttempt (§8.2.8)", () => {
   beforeEach(async () => {
     await resetDatabase();
-    setClock(() => AT);
+    clock = AT;
+    setClock(() => clock);
   });
   afterEach(() => {
     resetClock();
@@ -145,5 +154,56 @@ describe("checkPasswordAttempt (§8.2.8)", () => {
     expect(await row()).toMatchObject({ failures: 3, pending: 0 });
     await checkPasswordAttempt(KEY, () => Promise.resolve(true));
     expect(await row()).toBeNull();
+  });
+
+  it("a check that started before a password reset leaves the newer count alone (review of #130)", async () => {
+    const before = heldCheck();
+    const beforeAttempt = checkPasswordAttempt(KEY, before.verify);
+    await untilPending(1);
+    // A password reset deletes the count while that check is still running.
+    await clearSignInAttempts(KEY);
+    const after = heldCheck();
+    const afterAttempt = checkPasswordAttempt(KEY, after.verify);
+    await untilPending(1);
+
+    // The old check succeeds: it must not clear the new count's in-flight failure.
+    before.finish(true);
+    expect(await beforeAttempt).toEqual({ outcome: "matched" });
+    expect(await row()).toMatchObject({ failures: 1, pending: 1 });
+
+    after.finish(false);
+    expect(await afterAttempt).toEqual({ outcome: "refused" });
+    expect(await row()).toMatchObject({ failures: 1, pending: 0 });
+  });
+
+  it("a check that started before its count expired leaves the restarted count alone (review of #130)", async () => {
+    const old = heldCheck();
+    const oldAttempt = checkPasswordAttempt(KEY, old.verify);
+    await untilPending(1);
+
+    // The count expires and a new attempt restarts it while the old check still runs.
+    clock = new Date(AT.getTime() + DAY_MS);
+    const wrong = heldCheck();
+    const wrongAttempt = checkPasswordAttempt(KEY, wrong.verify);
+    await vi.waitFor(async () => {
+      expect((await row())?.expiresAt).toEqual(
+        new Date(clock.getTime() + DAY_MS),
+      );
+    });
+    const right = heldCheck();
+    const rightAttempt = checkPasswordAttempt(KEY, right.verify);
+    await untilPending(2);
+
+    // The old wrong check finishing must not take the new wrong one off pending,
+    // so the correct password then keeps that failure.
+    old.finish(false);
+    expect(await oldAttempt).toEqual({ outcome: "refused" });
+    expect(await row()).toMatchObject({ failures: 2, pending: 2 });
+    right.finish(true);
+    expect(await rightAttempt).toEqual({ outcome: "matched" });
+    wrong.finish(false);
+    expect(await wrongAttempt).toEqual({ outcome: "refused" });
+
+    expect(await row()).toMatchObject({ failures: 1, pending: 0 });
   });
 });

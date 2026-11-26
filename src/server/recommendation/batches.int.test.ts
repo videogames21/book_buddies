@@ -13,6 +13,7 @@ const {
   getBatchForReview,
   isInPendingBatch,
   listPendingBatchesForFamily,
+  listReleasedBatchesForChild,
   removeBookFromBatch,
   releaseExpiredBatchInTx,
   releaseExpiredBatches,
@@ -20,6 +21,15 @@ const {
 } = await import("./batches");
 const { getDb, withTransaction } = await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
+const { insertChildIdentity } =
+  await import("@/server/child-identity/child-identity");
+
+/** The child's Child Identity Store record, which the released read needs for the age. */
+async function withAge(childId: string, age: number) {
+  await withTransaction((tx) =>
+    insertChildIdentity(tx, { childId, age, grade: "3" }),
+  );
+}
 
 // Invented data only. The fixture batch is created 2026-11-24T12:00Z with its
 // handoffDeadline 24 hours later; NOW is in between.
@@ -733,5 +743,204 @@ describe("2a, the timeout release in stored state", () => {
     expect((await getBatchForReview(familyId, childId, expired))?.state).toBe(
       "released",
     );
+  });
+});
+
+describe("listReleasedBatchesForChild (step 6, POST-2; for UC-REC-kid-review)", () => {
+  const ids = (batches: { bookIds: string[] }[]) =>
+    batches.map((batch) => batch.bookIds);
+
+  it("main: after one removal and the confirmation, returns the batch with the two remaining books, and no removedBookIds", async () => {
+    const { main, childId } = await family();
+    await withAge(childId, 7);
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    await removeBookFromBatch(main, {
+      childId,
+      batchId,
+      bookId: bookIds[1],
+    });
+    expect(await listReleasedBatchesForChild(childId)).toEqual([]);
+
+    await confirmBatch(main, { childId, batchId });
+
+    const released = await listReleasedBatchesForChild(childId);
+    expect(released).toEqual([
+      {
+        batchId,
+        releasedAt: NOW,
+        bookIds: [bookIds[0], bookIds[2]],
+        empty: false,
+      },
+    ]);
+    expect(JSON.stringify(released)).not.toContain(bookIds[1]);
+  });
+
+  it("2a, read: past handoffDeadline with no parent activity and nothing run, the batch is released with every book at handoffDeadline, and gone from /parent's list", async () => {
+    const { childId, familyId } = await family();
+    await withAge(childId, 7);
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    setClock(() => new Date(FIXTURE_DEADLINE.getTime() - 1));
+    expect(await listReleasedBatchesForChild(childId)).toEqual([]);
+
+    setClock(() => FIXTURE_DEADLINE);
+    const before = await listReleasedBatchesForChild(childId);
+    expect(before).toEqual([
+      { batchId, releasedAt: FIXTURE_DEADLINE, bookIds, empty: false },
+    ]);
+    expect(await listPendingBatchesForFamily(familyId)).toEqual([]);
+
+    // Recording the release changes nothing the child's read returns.
+    await releaseExpiredBatches();
+    expect(await listReleasedBatchesForChild(childId)).toEqual(before);
+  });
+
+  it("4a: a batch emptied and confirmed is returned with no books and empty: true", async () => {
+    const { main, childId } = await family();
+    await withAge(childId, 7);
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    for (const bookId of bookIds) {
+      await removeBookFromBatch(main, { childId, batchId, bookId });
+    }
+    await confirmBatch(main, { childId, batchId });
+
+    expect(await listReleasedBatchesForChild(childId)).toEqual([
+      { batchId, releasedAt: NOW, bookIds: [], empty: true },
+    ]);
+  });
+
+  it("4a, empty to the child: emptied and never confirmed past the deadline, or confirmed with only blocked or reported books left, is empty: true", async () => {
+    const { main, childId, familyId } = await family();
+    await withAge(childId, 7);
+    const emptied = await pendingBatchOfThree(childId);
+    for (const bookId of emptied.bookIds) {
+      await removeBookFromBatch(main, {
+        childId,
+        batchId: emptied.batchId,
+        bookId,
+      });
+    }
+    // A second child holds the confirmed batch, as one child has one pending batch.
+    const sibling = await insertChild(familyId);
+    await withAge(sibling, 7);
+    const blocked = await insertBook("active", "Blocked later");
+    const reported = await insertBook("active", "Reported later");
+    const confirmed = await insertBatch({
+      childId: sibling,
+      bookIds: [blocked, reported],
+    });
+    await confirmBatch(main, { childId: sibling, batchId: confirmed });
+    await getDb()
+      .collection<{ _id: string }>("books")
+      .updateOne({ _id: blocked }, { $set: { status: "blocked" } });
+    await reportFor(sibling, reported);
+
+    setClock(() => FIXTURE_DEADLINE);
+    expect(await listReleasedBatchesForChild(childId)).toEqual([
+      {
+        batchId: emptied.batchId,
+        releasedAt: FIXTURE_DEADLINE,
+        bookIds: [],
+        empty: true,
+      },
+    ]);
+    expect(await listReleasedBatchesForChild(sibling)).toEqual([
+      { batchId: confirmed, releasedAt: NOW, bookIds: [], empty: true },
+    ]);
+    // Stored released, not empty: only an empty `bookIds` is stored empty.
+    expect((await stored(confirmed))?.status).toBe("released");
+  });
+
+  it("released read: leaves out a book reported for the child after release, and returns released batches newest first", async () => {
+    const { main, childId } = await family();
+    await withAge(childId, 7);
+    const older = await insertBatch({
+      childId,
+      bookIds: [await insertBook("active")],
+      status: "released",
+      releasedAt: new Date("2026-11-20T12:00:00Z"),
+    });
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    await confirmBatch(main, { childId, batchId });
+    await reportFor(childId, bookIds[0]);
+
+    const released = await listReleasedBatchesForChild(childId);
+    expect(released.map((batch) => batch.batchId)).toEqual([batchId, older]);
+    expect(ids(released)[0]).toEqual([bookIds[1], bookIds[2]]);
+  });
+
+  it("released read, age band: a book whose band was narrowed past the child's age stays for the parent while pending and is left out for the child, confirmed or released at the deadline", async () => {
+    const { main, childId, familyId } = await family();
+    await withAge(childId, 7);
+    const narrowed = await insertBook("active", "Narrowed");
+    const kept = await insertBook("active", "Kept");
+    const narrow = () =>
+      getDb()
+        .collection<{ _id: string }>("books")
+        .updateOne({ _id: narrowed }, { $set: { ageMin: 9, ageMax: 11 } });
+
+    // Confirmed by the parent.
+    const confirmed = await insertBatch({ childId, bookIds: [narrowed, kept] });
+    await narrow();
+    expect(
+      (await getBatchForReview(familyId, childId, confirmed))?.books.map(
+        (book) => book.id,
+      ),
+    ).toEqual([narrowed, kept]);
+    await confirmBatch(main, { childId, batchId: confirmed });
+    expect(ids(await listReleasedBatchesForChild(childId))).toEqual([[kept]]);
+
+    // A separate run: no parent activity, released at the deadline (2a).
+    await batches().deleteMany({});
+    await insertBatch({ childId, bookIds: [narrowed, kept] });
+    setClock(() => FIXTURE_DEADLINE);
+    expect(ids(await listReleasedBatchesForChild(childId))).toEqual([[kept]]);
+  });
+
+  it("a failed or missing age read returns no books: the call throws", async () => {
+    const { main, childId } = await family();
+    const { batchId } = await pendingBatchOfThree(childId);
+    await confirmBatch(main, { childId, batchId });
+
+    await expect(listReleasedBatchesForChild(childId)).rejects.toThrow();
+    await withAge(childId, 7);
+    vi.spyOn(Collection.prototype, "findOne").mockRejectedValueOnce(
+      new Error("identity store down"),
+    );
+    await expect(listReleasedBatchesForChild(childId)).rejects.toThrow();
+  });
+
+  it("5a: after a failed confirmation the batch is not returned to the child", async () => {
+    const { main, childId } = await family();
+    await withAge(childId, 7);
+    const { batchId } = await pendingBatchOfThree(childId);
+    vi.spyOn(Collection.prototype, "findOneAndUpdate").mockRejectedValueOnce(
+      new Error("network"),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await confirmBatch(main, { childId, batchId });
+    expect(await listReleasedBatchesForChild(childId)).toEqual([]);
+  });
+
+  it("6a and child-facing: a pending batch is never returned, a confirmed one is returned whole, and no batch carries removedBookIds or a status", async () => {
+    const { main, childId } = await family();
+    await withAge(childId, 7);
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    await removeBookFromBatch(main, {
+      childId,
+      batchId,
+      bookId: bookIds[0],
+    });
+    expect(await listReleasedBatchesForChild(childId)).toEqual([]);
+
+    await confirmBatch(main, { childId, batchId });
+    const [released] = await listReleasedBatchesForChild(childId);
+    expect(released.bookIds).toEqual([bookIds[1], bookIds[2]]);
+    expect(Object.keys(released).sort()).toEqual([
+      "batchId",
+      "bookIds",
+      "empty",
+      "releasedAt",
+    ]);
   });
 });

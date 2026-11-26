@@ -52,12 +52,10 @@ export function expiredPendingFilter(now: Date) {
 
 /** Matches the batches released at `now`, recorded or not (the child's read). */
 export function releasedFilter(now: Date) {
+  const released: BatchStatus[] = ["released", "empty"];
   return {
-    $or: [
-      { status: { $in: ["released", "empty"] } },
-      expiredPendingFilter(now),
-    ],
-  } as const;
+    $or: [{ status: { $in: released } }, expiredPendingFilter(now)],
+  };
 }
 
 /**

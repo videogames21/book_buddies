@@ -17,19 +17,45 @@ const tagsOf = (book: ReviewBook) =>
 
 /**
  * Steps 3-6 and 4a. Each removal is saved when the parent taps Remove; Confirm releases
- * the batch. Every button is disabled while an action runs. A failed save leaves the page
- * as it was with the error (5a); a batch released meanwhile, by the other parent or the
- * deadline, reloads into the released view. The Report control waits for the batch
- * report page (UC-PAR-report-book), so no link leads to a 404.
+ * the batch. Every button is disabled while an action runs. A save that failed before
+ * writing leaves the page as it was with the error (5a). When the outcome is not known
+ * (the request or its response was lost, or `OUTCOME_UNKNOWN`), or the batch was released
+ * meanwhile, the page reloads the batch and keeps its controls disabled until the
+ * reloaded batch arrives (review of #137). The books shown are always the reloaded
+ * view's, less those this tab has just removed, so a released view lists what was sent.
+ * The Report control waits for the batch report page (UC-PAR-report-book), so no link
+ * leads to a 404.
  */
 export function BatchReview({ view }: BatchReviewProps) {
   const router = useRouter();
-  const [books, setBooks] = useState(view.books);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [removedHere, setRemovedHere] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  // The view a reload was asked from: until a new view arrives, the list is hidden and
+  // the controls are disabled.
+  const [reloadingFrom, setReloadingFrom] = useState<
+    BatchReviewProps["view"] | null
+  >(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [unknown, setUnknown] = useState(false);
+  const [confirmedHere, setConfirmedHere] = useState(false);
   const { childId, batchId, nickname } = view;
-  const released = view.state !== "pending" || confirmed;
+  const reloading = reloadingFrom === view;
+  const released = view.state !== "pending" || confirmedHere;
+  const books = view.books.filter((book) => !removedHere.has(book.id));
+  const disabled = busy || reloading;
+
+  function reload() {
+    setReloadingFrom(view);
+    router.refresh();
+  }
+
+  function outcomeUnknown() {
+    setUnknown(true);
+    setNotice(null);
+    reload();
+  }
 
   async function run(
     action: () => Promise<
@@ -38,18 +64,22 @@ export function BatchReview({ view }: BatchReviewProps) {
     onOk: () => void,
   ) {
     setBusy(true);
-    setError(null);
+    setNotice(null);
+    setUnknown(false);
     try {
       const result = await action();
       if (result.ok) {
         onOk();
       } else if (result.error.code === "BATCH_ALREADY_RELEASED") {
-        router.refresh();
+        reload();
+      } else if (result.error.code === "OUTCOME_UNKNOWN") {
+        outcomeUnknown();
       } else {
-        setError(result.error.message);
+        setNotice(result.error.message);
       }
     } catch {
-      setError("We couldn't save that. Please try again.");
+      // The request or its response was lost: the save may have applied.
+      outcomeUnknown();
     } finally {
       setBusy(false);
     }
@@ -61,7 +91,7 @@ export function BatchReview({ view }: BatchReviewProps) {
       <p className={styles.source}>Picked by the rules recommender</p>
       {released ? (
         <p className={styles.released} role="status">
-          {confirmed ? "Released" : "Already released"} to {nickname}.
+          {confirmedHere ? "Released" : "Already released"} to {nickname}.
         </p>
       ) : (
         <p className={styles.deadline}>
@@ -70,7 +100,7 @@ export function BatchReview({ view }: BatchReviewProps) {
         </p>
       )}
 
-      {books.length === 0 ? (
+      {reloading ? null : books.length === 0 ? (
         <p className={styles.none}>
           {released
             ? "No books were sent."
@@ -88,7 +118,7 @@ export function BatchReview({ view }: BatchReviewProps) {
               {!released && (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={disabled}
                   aria-label={`Remove ${book.title}`}
                   onClick={() => {
                     void run(
@@ -99,9 +129,8 @@ export function BatchReview({ view }: BatchReviewProps) {
                           bookId: book.id,
                         }),
                       () => {
-                        setBooks((left) =>
-                          left.filter((other) => other.id !== book.id),
-                        );
+                        setRemovedHere((left) => new Set(left).add(book.id));
+                        router.refresh();
                       },
                     );
                   }}
@@ -114,22 +143,29 @@ export function BatchReview({ view }: BatchReviewProps) {
         </ul>
       )}
 
-      {error && (
+      {unknown && (
         <p className={styles.error} role="alert">
-          {error}
+          {reloading
+            ? "We couldn’t confirm whether that was saved. Checking…"
+            : "We couldn’t confirm whether that was saved. This page now shows what is saved."}
+        </p>
+      )}
+      {notice && (
+        <p className={styles.error} role="alert">
+          {notice}
         </p>
       )}
       {!released && (
         <button
           type="button"
           className={styles.confirm}
-          disabled={busy}
+          disabled={disabled}
           onClick={() => {
             void run(
               () => confirmBatch({ childId, batchId }),
               () => {
-                setConfirmed(true);
-                router.refresh();
+                setConfirmedHere(true);
+                reload();
               },
             );
           }}

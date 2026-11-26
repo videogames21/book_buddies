@@ -1,3 +1,5 @@
+/* No dark-mode override: the page background stays light in every color scheme
+   (globals.css), so these colors keep about 7:1 contrast (review of #137). */
 .page {
   max-width: 48rem;
   margin: 0 auto;
@@ -49,22 +51,4 @@
 }
 .confirm {
   margin-top: 0.5rem;
-}
-@media (prefers-color-scheme: dark) {
-  .source,
-  .deadline,
-  .none,
-  .bookAuthor,
-  .tags {
-    color: #b7c2b3;
-  }
-  .released {
-    color: #8fd19e;
-  }
-  .book {
-    border-color: #3a4338;
-  }
-  .error {
-    color: #f2a3a3;
-  }
 }

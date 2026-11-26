@@ -19,6 +19,7 @@ const { getBooksForShelf } = await import("@/server/catalog/books");
 const { createRemovalNoticeInTx, markNoticeSeen } =
   await import("@/server/notification/child-notices");
 const { getDb, withTransaction } = await import("@/server/lib/db");
+const { setClock, resetClock } = await import("@/server/lib/clock");
 
 const CHILD = "invented-child";
 const OTHER = "another-invented-child";
@@ -52,6 +53,7 @@ async function stored() {
 
 beforeEach(async () => {
   await resetDatabase();
+  resetClock();
 });
 describe("getShelfForChild", () => {
   it("main: only this child's books, under four categories in order, newest move first", async () => {
@@ -121,11 +123,12 @@ describe("getShelfForChild", () => {
     await insertFinishConfirmation(CHILD, reread);
     await insertShelfEntry(CHILD, waiting, "finished");
     await insertRating(CHILD, waiting, "okay");
-    // Another child's confirmation of the same book confirms nothing here.
+    // Another child's confirmation or rating of the same book counts for nothing here.
     await insertFinishConfirmation(OTHER, waiting);
+    await insertRating(OTHER, reread, "lovedIt");
 
     expect(await allEntries()).toMatchObject([
-      { confirmed: true, actions: ["move", "remove", "rate"] },
+      { confirmed: true, rating: null, actions: ["move", "remove", "rate"] },
       { confirmed: false, rating: null, actions: ["move", "remove"] },
     ]);
   });
@@ -171,6 +174,24 @@ describe("getShelfForChild", () => {
     ]);
   });
 
+  it("notices come oldest first, however they were stored", async () => {
+    await getDb()
+      .collection("childNotices")
+      .insertMany([
+        { childId: CHILD, kind: "finish-declined", createdAt: on(2) },
+        {
+          childId: CHILD,
+          kind: "book-removed",
+          bookId: "not-in-catalog",
+          createdAt: on(1),
+        },
+      ]);
+    expect((await shelf()).notices.map((notice) => notice.kind)).toEqual([
+      "book-removed",
+      "finish-declined",
+    ]);
+  });
+
   it("load marks nothing and changes nothing, however often", async () => {
     const book = await insertBook("active");
     await insertShelfEntry(CHILD, book, "finished");
@@ -208,9 +229,11 @@ describe("markNoticeSeen", () => {
   it("marks the child's own unseen notice once, and it does not show again", async () => {
     await finishNotice();
     const [notice] = (await shelf()).notices;
+    setClock(() => on(5));
     expect(await markNoticeSeen(CHILD, notice.id)).toBe(true);
     const [first] = await seenTimes();
-    expect(first).toBeInstanceOf(Date);
+    expect(first).toEqual(on(5));
+    setClock(() => on(6));
     expect(await markNoticeSeen(CHILD, notice.id)).toBe(false);
     expect(await seenTimes()).toEqual([first]);
     expect((await shelf()).notices).toEqual([]);

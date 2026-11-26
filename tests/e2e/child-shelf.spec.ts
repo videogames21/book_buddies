@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ObjectId } from "mongodb";
-import { closeE2eDb, e2eDb, signInChild } from "./session-fixture";
+import {
+  closeE2eDb,
+  e2eDb,
+  signInChild,
+  signInParent,
+} from "./session-fixture";
 import { addBook, shelve } from "./shelf-fixture";
 
 // UC-SHLF-kid-view-shelf in the browser (design/shlf.md, Tests; browser tests stand in
@@ -44,7 +49,8 @@ test("shows the four categories in order, and a tapped book's details without a 
   page,
   context,
 }) => {
-  const { confirmed } = await childWithBooks(context);
+  const { childId, confirmed } = await childWithBooks(context);
+  await shelve(childId, await addBook("Star Map"), "readingNow");
   await openShelf(page);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Reading Now",
@@ -58,9 +64,12 @@ test("shows the four categories in order, and a tapped book's details without a 
   );
   await expect(page.getByText("Find a book you like")).toHaveCount(0);
 
-  const posts: string[] = [];
+  // Any send, and any read of a shelf address.
+  const requests: string[] = [];
   page.on("request", (request) => {
-    if (request.method() === "POST") posts.push(request.url());
+    if (request.method() === "POST" || request.url().includes("/child/shelf")) {
+      requests.push(request.url());
+    }
   });
   const url = page.url();
   await book(page, "Moon Garden").click();
@@ -74,13 +83,19 @@ test("shows the four categories in order, and a tapped book's details without a 
     "Rate",
   ]);
   expect(page.url()).toBe(url);
-  expect(posts).toEqual([]);
+  expect(requests).toEqual([]);
 
   // 3c and 5a: awaiting confirmation has no icon and no Rate.
   await expect(
     book(page, "Moon Garden").getByRole("img", { name: "Finished" }),
   ).toBeVisible();
   await expect(book(page, "River Song").getByRole("img")).toHaveCount(0);
+  // Only a Finished book that is awaiting confirmation is grayed.
+  const GRAY = "rgb(230, 230, 224)";
+  await expect(book(page, "River Song")).toHaveCSS("background-color", GRAY);
+  for (const title of ["Moon Garden", "Star Map"]) {
+    await expect(book(page, title)).not.toHaveCSS("background-color", GRAY);
+  }
   await book(page, "River Song").click();
   await expect(panel(page).getByRole("link")).toHaveText(["Move", "Remove"]);
   await expect(panel(page)).not.toContainText("Series");
@@ -128,12 +143,22 @@ test("an empty shelf says to find a book, and each notice stays until OK", async
   await db.collection("childNotices").insertMany([
     { childId, kind: "book-removed", bookId: removed, createdAt: new Date(1) },
     { childId, kind: "finish-declined", createdAt: new Date(2) },
+    // The Catalog returns no such book, so this notice has no title.
+    {
+      childId,
+      kind: "book-removed",
+      bookId: "not-in-catalog",
+      createdAt: new Date(3),
+    },
   ]);
   await openShelf(page);
   await expect(page.getByText("Find a book you like")).toBeVisible();
   const removal = page.getByText("Gone Book was taken off your shelf.");
   await expect(removal).toBeVisible();
   await expect(page.getByText(FINISH_NOTICE)).toBeVisible();
+  await expect(
+    page.getByText("A book was taken off your shelf."),
+  ).toBeVisible();
 
   // Loading again uses nothing up.
   await openShelf(page);
@@ -145,6 +170,64 @@ test("an empty shelf says to find a book, and each notice stays until OK", async
   await openShelf(page);
   await expect(removal).toHaveCount(0);
   await expect(page.getByText(FINISH_NOTICE)).toBeVisible();
+});
+
+test("after OK, Back does not bring the notice back", async ({
+  page,
+  context,
+}) => {
+  const { childId } = await signInChild(context);
+  const db = await e2eDb();
+  await db
+    .collection("childNotices")
+    .insertOne({ childId, kind: "finish-declined", createdAt: new Date() });
+  await openShelf(page);
+  await page.getByRole("button", { name: "OK" }).click();
+  await expect(page.getByText(FINISH_NOTICE)).toHaveCount(0);
+  await page.getByRole("link", { name: "My Dashboard" }).click();
+  await expect(page).toHaveURL(/\/child\/dashboard$/);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "My Shelf" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText(FINISH_NOTICE)).toHaveCount(0);
+});
+
+test("each rating shows in its own words", async ({ page, context }) => {
+  const { childId } = await signInChild(context);
+  const db = await e2eDb();
+  const ratings = [
+    ["lovedIt", "Loved it"],
+    ["likedIt", "Liked it"],
+    ["okay", "It was okay"],
+    ["notForMe", "Not for me"],
+  ] as const;
+  for (const [value, words] of ratings) {
+    const key = { childId, bookId: await addBook(`Book ${words}`) };
+    await shelve(childId, key.bookId, "finished");
+    await db.collection("finishConfirmations").insertOne({
+      ...key,
+      confirmedByParentId: new ObjectId(),
+      confirmedAt: new Date(),
+    });
+    await db
+      .collection("ratings")
+      .insertOne({ ...key, value, ratedAt: new Date() });
+  }
+  await openShelf(page);
+  for (const [, words] of ratings) {
+    await book(page, `Book ${words}`).click();
+    await expect(panel(page)).toContainText(`My rating: ${words}`);
+  }
+});
+
+test("Close shuts the book and goes back to it", async ({ page, context }) => {
+  await childWithBooks(context);
+  await openShelf(page);
+  await book(page, "River Song").click();
+  await expect(panel(page)).toBeFocused();
+  await panel(page).getByRole("button", { name: "Close" }).click();
+  await expect(panel(page)).toHaveCount(0);
+  await expect(book(page, "River Song")).toBeFocused();
 });
 
 test("an OK that cannot be sent keeps the notice and can be tried again", async ({
@@ -168,6 +251,34 @@ test("an OK that cannot be sent keeps the notice and can be tried again", async 
   await page.getByRole("button", { name: "OK" }).click();
   await expect(page.getByText(FINISH_NOTICE)).toHaveCount(0);
 });
+
+for (const now of ["signed out", "signed in as a parent"] as const) {
+  test(`OK when the browser is ${now} goes to sign-in and keeps the notice`, async ({
+    page,
+    context,
+  }) => {
+    const { childId, sessionId } = await signInChild(context);
+    const db = await e2eDb();
+    await db
+      .collection("childNotices")
+      .insertOne({ childId, kind: "finish-declined", createdAt: new Date() });
+    await openShelf(page);
+    if (now === "signed out") {
+      await db.collection("sessions").deleteOne({ _id: sessionId });
+    } else {
+      // The same cookie name, so this replaces the child's session.
+      await signInParent(context, {
+        parentRole: "main",
+        consentConfirmed: true,
+      });
+    }
+    await page.getByRole("button", { name: "OK" }).click();
+    await expect(page).toHaveURL(/\/child\/sign-in$/);
+    expect(
+      await db.collection("childNotices").findOne({ childId }),
+    ).not.toHaveProperty("seenAt");
+  });
+}
 
 test("a shelf that fails to load shows the retry screen and no books", async ({
   page,

@@ -28,10 +28,19 @@ vi.mock("@/server/notification/child-notices", async (importOriginal) => {
   return { ...real, markNoticeSeen: vi.fn(real.markNoticeSeen) };
 });
 
+vi.mock("@/server/catalog/books", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/server/catalog/books")>();
+  return { ...real, getBooksForShelf: vi.fn(real.getBooksForShelf) };
+});
+
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
 const { default: ChildShelfPage } = await import("./page");
 const { dismissChildNotice } = await import("./actions");
 const { createRemovalNoticeInTx, markNoticeSeen } =
   await import("@/server/notification/child-notices");
+const { getBooksForShelf } = await import("@/server/catalog/books");
+const { revalidatePath } = await import("next/cache");
 const { auth } = await import("@/server/identity-access/auth");
 const { sessionCookie } =
   await import("@/server/identity-access/session-cookie");
@@ -55,6 +64,15 @@ async function noticeFor(childId: string) {
   return String(notice?._id);
 }
 
+/** A few minutes from now, to see that a request counts as the child's activity. */
+function fiveMinutesOn() {
+  const later = new Date(now().getTime() + 5 * 60 * 1000);
+  setClock(() => later);
+  return later;
+}
+const activeAt = (at: Date) =>
+  getDb().collection("childSessionEnds").countDocuments({ lastActiveAt: at });
+
 const unseen = () =>
   getDb()
     .collection("childNotices")
@@ -74,6 +92,7 @@ beforeEach(async () => {
   await resetDatabase();
   jar.clear();
   mockedAuth.mockReset();
+  vi.mocked(revalidatePath).mockReset();
   resetClock();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -92,11 +111,21 @@ describe("/child/shelf", () => {
       await insertBook("active", "Mine"),
       "readingNow",
     );
+    const at = fiveMinutesOn();
     const page = await ChildShelfPage();
+    expect(await activeAt(at)).toBe(1);
     const shown = JSON.stringify(page.props);
     expect(shown).toContain("Mine");
     expect(shown).not.toContain("Theirs");
     expect(shown).not.toContain(childId);
+  });
+
+  it("2b: a failed read reaches the retry screen, not an empty shelf", async () => {
+    await signedInChild();
+    vi.mocked(getBooksForShelf).mockRejectedValueOnce(
+      new Error("invented failure"),
+    );
+    await expect(ChildShelfPage()).rejects.toThrow("invented failure");
   });
 
   it("sends a visitor with no session to the child sign-in", async () => {
@@ -120,13 +149,31 @@ describe("dismissChildNotice", () => {
   it("marks the child's own notice seen, and answers ok again without changing it", async () => {
     const { childId } = await signedInChild();
     const id = await noticeFor(childId);
+    const at = fiveMinutesOn();
     expect(await dismissChildNotice(id)).toEqual({ ok: true, data: null });
+    expect(await activeAt(at)).toBe(1);
     const first = await getDb().collection("childNotices").findOne();
     expect(first?.seenAt).toBeInstanceOf(Date);
     const later = new Date(now().getTime() + 60 * 1000);
     setClock(() => later);
     expect(await dismissChildNotice(id)).toEqual({ ok: true, data: null });
     expect(await getDb().collection("childNotices").findOne()).toEqual(first);
+  });
+
+  it("refreshes the shelf after saving", async () => {
+    const { childId } = await signedInChild();
+    await dismissChildNotice(await noticeFor(childId));
+    expect(revalidatePath).toHaveBeenCalledWith("/child/shelf");
+  });
+
+  it("keeps a saved OK when the refresh fails", async () => {
+    const { childId } = await signedInChild();
+    const id = await noticeFor(childId);
+    vi.mocked(revalidatePath).mockImplementationOnce(() => {
+      throw new Error("invented refresh failure");
+    });
+    expect(await dismissChildNotice(id)).toEqual({ ok: true, data: null });
+    expect(await unseen()).toBe(0);
   });
 
   it("answers another child's notice the same way, and leaves it unseen", async () => {
@@ -160,6 +207,7 @@ describe("dismissChildNotice", () => {
     ["text", "not-an-id"],
     ["a query", { $ne: null }],
     ["nothing", undefined],
+    ["an ID with a character too many", "a".repeat(25)],
   ])("refuses %s as a notice ID", async (_label, input) => {
     const { childId } = await signedInChild();
     await noticeFor(childId);

@@ -272,7 +272,7 @@ export async function removeBookFromBatch(
       );
     } catch (err) {
       const errorId = logUnexpectedError("removeBookFromBatch", err);
-      return removalAfterLostWrite(_id, childId, bookId, errorId);
+      return await removalAfterLostWrite(_id, childId, bookId, errorId);
     }
     if (result.matchedCount === 1) return ok(null);
 
@@ -346,7 +346,7 @@ export async function confirmBatch(
       );
     } catch (err) {
       const errorId = logUnexpectedError("confirmBatch", err);
-      return confirmationAfterLostWrite(_id, childId, at, errorId);
+      return await confirmationAfterLostWrite(_id, childId, at, errorId);
     }
     if (released) {
       return ok({ state: released.status === "empty" ? "empty" : "released" });

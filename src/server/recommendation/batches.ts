@@ -292,7 +292,9 @@ export async function removeBookFromBatch(
 /**
  * The removal's answer when its write failed (5a). The book removed is `ok`, whoever
  * removed it, as for a double tap. A batch no longer pending is `BATCH_ALREADY_RELEASED`.
- * The book still in the batch is `SAVE_FAILED`: the write did not apply.
+ * The book still in the batch is `OUTCOME_UNKNOWN`: the read-back can run before a write
+ * still in flight applies, so the old state does not prove nothing changed (second
+ * review of #135).
  */
 async function removalAfterLostWrite(
   _id: ObjectId,
@@ -313,9 +315,7 @@ async function removalAfterLostWrite(
   if (batchState(batch, now()) !== "pending") {
     return refuse("BATCH_ALREADY_RELEASED");
   }
-  if (batch.bookIds.includes(bookId)) {
-    return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
-  }
+  if (batch.bookIds.includes(bookId)) return unconfirmed(errorId);
   return refuse("BOOK_NOT_IN_BATCH");
 }
 
@@ -368,7 +368,8 @@ export async function confirmBatch(
  * attempt's `releasedAt` is this confirmation, applied with its response lost: `ok`. Any
  * other release (the other parent, or the deadline, whose `releasedAt` is
  * `handoffDeadline`, never `at`) is `BATCH_ALREADY_RELEASED`. A batch still pending is
- * `SAVE_FAILED`: the write did not apply, and nothing was sent to the child.
+ * `OUTCOME_UNKNOWN`: the read-back can run before a write still in flight applies, so
+ * the old state does not prove nothing was sent (second review of #135).
  */
 async function confirmationAfterLostWrite(
   _id: ObjectId,
@@ -389,7 +390,7 @@ async function confirmationAfterLostWrite(
   if (batchState(batch, now()) !== "pending") {
     return refuse("BATCH_ALREADY_RELEASED");
   }
-  return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
+  return unconfirmed(errorId);
 }
 
 /**

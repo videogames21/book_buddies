@@ -6,7 +6,7 @@ import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb } from "@/server/lib/db";
+import { getDb, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { InterestKey } from "./interests";
 
@@ -123,4 +123,17 @@ export async function isOnboardingComplete(
     .collection(READING_PROFILES)
     .findOne({ childId, onboardingComplete: true }, { projection: { _id: 1 } });
   return profile !== null;
+}
+
+/** Uses a stored onboarding profile as a ranking signal, if the child has one. */
+export async function getQuizOnboardingSignals(
+  childId: string,
+  tx?: Tx,
+): Promise<OnboardingProfileInput | null> {
+  return getDb()
+    .collection<ReadingProfileDocument>(READING_PROFILES)
+    .findOne<OnboardingProfileInput>(
+      { childId, onboardingComplete: true },
+      { projection: { _id: 0, interests: 1, favoriteBookIds: 1 }, session: tx },
+    );
 }

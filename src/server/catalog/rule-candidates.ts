@@ -1,6 +1,6 @@
 import "server-only";
 import { getDb, type Tx } from "@/server/lib/db";
-import { GENRES, LENGTHS, MOODS } from "@/shared/catalog/tags";
+import { GENRES, LENGTHS, MOODS, SUBJECTS } from "@/shared/catalog/tags";
 import type { QuizAnswers } from "@/shared/recommendation/quiz";
 import { booksCollection, type BookDocument } from "./books-collection";
 
@@ -13,6 +13,31 @@ export type RuleCandidate = {
   ageMax: number;
   comparableLevels: { lexile?: number; arAtos?: number };
 };
+
+type InterestBook = Pick<BookDocument, "_id" | "genres" | "subjects">;
+
+function interestTags(book: InterestBook): string[] {
+  const subjects = book.subjects ?? [];
+  return [
+    ...GENRES.filter((genre) => book.genres.includes(genre)),
+    ...SUBJECTS.filter((subject) => subjects.includes(subject)),
+  ];
+}
+
+/** One active-only feature read for the child's favorites, shelf and ratings. */
+export async function listRuleHistoryTags(
+  bookIds: readonly string[],
+  tx?: Tx,
+): Promise<Map<string, string[]>> {
+  if (bookIds.length === 0) return new Map();
+  const books = await booksCollection(getDb())
+    .find<InterestBook>(
+      { _id: { $in: [...new Set(bookIds)] }, status: "active" },
+      { projection: { genres: 1, subjects: 1 }, session: tx },
+    )
+    .toArray();
+  return new Map(books.map((book) => [book._id, interestTags(book)]));
+}
 
 type CandidateDocument = Pick<
   BookDocument,
@@ -81,8 +106,10 @@ export async function listRuleCandidates(
     return [
       {
         id: book._id,
-        genres: book.genres,
-        subjects: book.subjects ?? [],
+        genres: GENRES.filter((genre) => book.genres.includes(genre)),
+        subjects: SUBJECTS.filter((subject) =>
+          book.subjects?.includes(subject),
+        ),
         length,
         ageMin: book.ageMin,
         ageMax: book.ageMax,

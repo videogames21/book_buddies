@@ -12,3 +12,28 @@ export const quizSubmissionSchema = quizAnswersSchema.extend({
 });
 
 export type QuizAnswers = z.infer<typeof quizAnswersSchema>;
+
+export type QuizSubmission = z.infer<typeof quizSubmissionSchema>;
+
+export const QUIZ_LABELS = {
+  mood: {
+    "funny/silly": "Funny",
+    exciting: "Exciting",
+    heartwarming: "Heartwarming",
+    "spooky-but-safe": "A little spooky",
+    fascinating: "Fascinating",
+    calm: "Calm",
+    inspiring: "Inspiring",
+    any: "Any mood",
+  },
+  length: {
+    "quick read": "A quick read",
+    "longer story": "A longer story",
+    any: "Any length",
+  },
+} satisfies {
+  [Question in keyof QuizAnswers]: Record<QuizAnswers[Question], string>;
+};
+
+export const QUIZ_RECEIVED =
+  "Your recommendations were sent for parent review.";

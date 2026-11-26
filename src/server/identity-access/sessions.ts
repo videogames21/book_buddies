@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 import { cookies } from "next/headers";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
-import { getDb, type Tx } from "@/server/lib/db";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { auth } from "./auth";
 import {
   continueChildSession,
@@ -64,11 +64,16 @@ export async function endCurrentSession(): Promise<void> {
   const jar = await cookies();
   const sessionToken = jar.get(name)?.value;
   if (sessionToken) {
-    const ended = await getDb()
-      .collection(SESSIONS)
-      .findOneAndDelete({ sessionToken }, { projection: { _id: 1 } });
-    // A child's session has an end record, which goes with it.
-    if (ended) await deleteChildSessionEnd(ended._id);
+    await withTransaction(async (tx) => {
+      const ended = await getDb()
+        .collection(SESSIONS)
+        .findOneAndDelete(
+          { sessionToken },
+          { projection: { _id: 1 }, session: tx },
+        );
+      // A child's session has an end record, which goes with it or not at all.
+      if (ended) await deleteChildSessionEnd(ended._id, tx);
+    });
   }
   jar.delete(name);
 }

@@ -110,6 +110,27 @@ test("the home screen leads to the shelf and back, and signs out", async ({
   await expect(page).toHaveURL(SIGN_IN);
 });
 
+test("the longest nickname wraps on a narrow screen", async ({
+  page,
+  context,
+}) => {
+  const { childId } = await signInChild(context);
+  // 20 wide characters, the most a parent can enter, with nowhere to break.
+  const nickname = "W".repeat(20);
+  await (
+    await e2eDb()
+  )
+    .collection<{ _id: string; nickname: string }>("children")
+    .updateOne({ _id: childId }, { $set: { nickname } });
+  // 320 CSS pixels: a small phone, or a 1280-pixel window zoomed to 400%.
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto("/child");
+  await expect(page.getByRole("heading", { name: nickname })).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+});
+
 test("the shelf is not fetched before the child asks for it", async ({
   page,
   context,

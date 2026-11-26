@@ -1,5 +1,5 @@
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { Collection, ObjectId } from "mongodb";
+import { Collection, ObjectId, type Document, type WithId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   insertParent,
@@ -483,6 +483,43 @@ describe("ending a session: one transaction", () => {
     expect(await sessions().countDocuments()).toBe(1);
     expect(await ends().countDocuments()).toBe(1);
   });
+
+  it.each([
+    ["a page request or an action", true],
+    ["a keep-alive", false],
+  ])(
+    "accepts %s that finds the session refreshed while ending it",
+    async (_label, countsAsActivity) => {
+      await startChildSession();
+      // One second after the idle time ran out.
+      advance(30 * 60 + 1);
+      const findOneAndUpdate = Reflect.get(
+        Collection.prototype,
+        "findOneAndUpdate",
+      ) as (
+        this: Collection,
+        ...args: unknown[]
+      ) => Promise<WithId<Document> | null>;
+      vi.spyOn(Collection.prototype, "findOneAndUpdate").mockImplementationOnce(
+        async function (this: Collection, ...args: unknown[]) {
+          const found = await findOneAndUpdate.apply(this, args);
+          // A request made just inside the idle time writes after this check.
+          const before = evening("15:29:59");
+          await ends().updateOne(
+            {},
+            { $set: { lastSeenAt: before, lastActiveAt: before } },
+          );
+          return found;
+        },
+      );
+      expect(await codeOf(requireChild({ countsAsActivity }))).toBe("ok");
+      expect(await sessions().countDocuments()).toBe(1);
+      expect(await record()).toMatchObject({
+        lastSeenAt: evening("15:30:01"),
+        lastActiveAt: evening(countsAsActivity ? "15:30:01" : "15:29:59"),
+      });
+    },
+  );
 
   it("deletes the session and its record together or not at all", async () => {
     await startChildSession();

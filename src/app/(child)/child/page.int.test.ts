@@ -1,3 +1,4 @@
+import { Collection } from "mongodb";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertSignedInChild } from "../../../../tests/fixtures/child-session";
@@ -114,6 +115,28 @@ describe("signOutChild (design/shlf.md, Tests, Sign-out)", () => {
     expect(await getDb().collection("childSessionEnds").countDocuments()).toBe(
       1,
     );
+  });
+
+  it("ends nothing when the end record cannot be deleted, and can be tried again", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { session } = await signedInChild();
+    vi.spyOn(Collection.prototype, "deleteOne").mockRejectedValueOnce(
+      new Error("invented failure"),
+    );
+    const ends = () => getDb().collection("childSessionEnds").countDocuments();
+
+    expect(await signOutChild()).toMatchObject({
+      error: { code: "SIGN_OUT_FAILED" },
+    });
+    expect(await sessionTokens()).toEqual([session.sessionToken]);
+    expect(await ends()).toBe(1);
+    expect(jar.size).toBe(1);
+
+    expect(await signOutChild()).toEqual({ ok: true, data: null });
+    expect(await sessionTokens()).toEqual([]);
+    expect(await ends()).toBe(0);
+    expect(jar.size).toBe(0);
+    vi.restoreAllMocks();
   });
 
   it("refuses with no session, and refuses a parent, ending nothing", async () => {

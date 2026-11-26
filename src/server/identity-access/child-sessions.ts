@@ -90,20 +90,23 @@ export async function continueChildSession(
   const at = now();
   const running = runningAt(at);
   // $max, so a request that arrives out of order cannot move a time backwards.
-  const kept = await records().findOneAndUpdate(
-    { sessionId, ...running },
-    {
-      $max: countsAsActivity
-        ? { lastSeenAt: at, lastActiveAt: at }
-        : { lastSeenAt: at },
-    },
-    { projection: { _id: 1 } },
-  );
-  if (kept) return true;
-  await endUnlessRunning(sessionId, running);
-  return false;
+  const markIfRunning = () =>
+    records().findOneAndUpdate(
+      { sessionId, ...running },
+      {
+        $max: countsAsActivity
+          ? { lastSeenAt: at, lastActiveAt: at }
+          : { lastSeenAt: at },
+      },
+      { projection: { _id: 1 } },
+    );
+  if (await markIfRunning()) return true;
+  if (await endUnlessRunning(sessionId, running)) return false;
+  // Another request refreshed it after the first try, so this one is accepted too.
+  return (await markIfRunning()) !== null;
 }
 
+/** Returns `false`, deleting nothing, when the session turns out to be running. */
 async function endUnlessRunning(
   sessionId: ObjectId,
   running: Filter<ChildSessionEndDocument>,
@@ -161,9 +164,13 @@ export async function purgeEndedChildSessions(): Promise<number> {
   return purged + deletedCount;
 }
 
-/** For a session ended some other way, such as sign-out. */
+/**
+ * For a session ended some other way, such as sign-out. Pass the transaction that
+ * deletes the session.
+ */
 export async function deleteChildSessionEnd(
   sessionId: ObjectId,
+  tx: Tx,
 ): Promise<void> {
-  await records().deleteOne({ sessionId });
+  await records().deleteOne({ sessionId }, { session: tx });
 }

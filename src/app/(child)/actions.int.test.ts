@@ -139,6 +139,50 @@ describe("keepChildSessionAlive", () => {
     });
   });
 
+  it("accepts activity that finds the session refreshed while ending it", async () => {
+    await signedInChild();
+    // One second before the idle time runs out.
+    currentTime = new Date("2026-11-20T15:29:59Z");
+    const findOneAndUpdate = Reflect.get(
+      Collection.prototype,
+      "findOneAndUpdate",
+    ) as (
+      this: Collection,
+      ...args: unknown[]
+    ) => Promise<WithId<Document> | null>;
+    vi.spyOn(Collection.prototype, "findOneAndUpdate")
+      // The session check passes, then the idle time runs out.
+      .mockImplementationOnce(async function (
+        this: Collection,
+        ...args: unknown[]
+      ) {
+        const found = await findOneAndUpdate.apply(this, args);
+        currentTime = new Date("2026-11-20T15:30:01Z");
+        return found;
+      })
+      // Another request, made in time, writes after the activity's first try.
+      .mockImplementationOnce(async function (
+        this: Collection,
+        ...args: unknown[]
+      ) {
+        const found = await findOneAndUpdate.apply(this, args);
+        await getDb()
+          .collection("childSessionEnds")
+          .updateOne(
+            {},
+            { $set: { lastActiveAt: new Date("2026-11-20T15:29:59Z") } },
+          );
+        return found;
+      });
+    expect(await keepChildSessionAlive({ active: true })).toEqual({
+      ok: true,
+      data: null,
+    });
+    expect(await records()).toMatchObject([
+      { lastActiveAt: new Date("2026-11-20T15:30:01Z") },
+    ]);
+  });
+
   it("answers an unexpected failure with a code and an error ID, and no detail", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockedAuth.mockRejectedValue(new Error("invented database detail"));

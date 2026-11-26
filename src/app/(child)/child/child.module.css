@@ -12,6 +12,9 @@
 .nickname {
   font-size: clamp(2rem, 8vw, 3rem);
   margin: 0;
+  /* A nickname is up to 20 characters with no space to break at. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .primary,
 .secondary {

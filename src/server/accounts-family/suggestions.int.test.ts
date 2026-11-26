@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { Collection, MongoServerError, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { insertBatch } from "../../../tests/fixtures/batches";
 import { insertBook } from "../../../tests/fixtures/catalog";
 import { insertChild } from "../../../tests/fixtures/children";
 import { insertConsentRecord } from "../../../tests/fixtures/family";
@@ -48,10 +49,27 @@ const {
 const { getDb, getMongoClient, withTransaction } =
   await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
+const { insertChildIdentity } =
+  await import("@/server/child-identity/child-identity");
 
 // Invented data only.
 const AT = new Date("2026-11-25T15:00:00Z");
 const NOTE = "You loved the last one about dragons";
+
+/**
+ * A child with its Child Identity Store record, as `createChildAccount` makes it: 4a's
+ * released-batch read needs the age (design/rec.md).
+ */
+async function insertChildWithAge(
+  familyId: string,
+  overrides: { nickname?: string } = {},
+) {
+  const childId = await insertChild(familyId, overrides);
+  await withTransaction((tx) =>
+    insertChildIdentity(tx, { childId, age: 7, grade: "2" }),
+  );
+  return childId;
+}
 
 async function consentedFamily() {
   const main = await insertParent({ parentRole: "main" });
@@ -60,7 +78,9 @@ async function consentedFamily() {
     parentRole: "sub",
     familyId: new ObjectId(main.familyId),
   });
-  const childId = await insertChild(main.familyId, { nickname: "Otterpop" });
+  const childId = await insertChildWithAge(main.familyId, {
+    nickname: "Otterpop",
+  });
   return {
     main: { ...main, parentRole: "main" as const },
     sub: { ...sub, parentRole: "sub" as const },
@@ -180,7 +200,7 @@ describe("createSuggestion (UC-PAR-suggest-book)", () => {
 
   it("1b: a book excluded for the child is BOOK_EXCLUDED, and a sibling can still get it", async () => {
     const { main, childId, familyId } = await consentedFamily();
-    const sibling = await insertChild(familyId, { nickname: "Pebble" });
+    const sibling = await insertChildWithAge(familyId, { nickname: "Pebble" });
     const bookId = await insertBook("active");
     await col("childBookExclusions").insertOne({
       childId,
@@ -248,6 +268,101 @@ describe("createSuggestion (UC-PAR-suggest-book)", () => {
     expect(await col("shelfEntries").find({ childId }).toArray()).toEqual([
       entry,
     ]);
+  });
+
+  it("4a, released batch: ALREADY_RECOMMENDED with no write, also when on the shelf; suggest anyway saves it and leaves the batch", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    const onBoth = await insertBook("active", "Tide Pool");
+    await insertShelfEntry(childId, onBoth, "wantToRead");
+    const batchId = await insertBatch({
+      childId,
+      bookIds: [bookId, onBoth],
+      status: "released",
+      releasedAt: new Date("2026-11-25T12:00:00Z"),
+    });
+    const batch = await col("recommendationBatches").findOne({
+      _id: new ObjectId(batchId),
+    });
+
+    for (const id of [bookId, onBoth]) {
+      expect(
+        await createSuggestion(main, {
+          childId,
+          bookId: id,
+          suggestAnyway: false,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "ALREADY_RECOMMENDED" } });
+      expect(await getSuggestionConflict(main.familyId, childId, id)).toBe(
+        "recommended",
+      );
+    }
+    expect(await count("parentSuggestions")).toBe(0);
+
+    const anyway = await createSuggestion(main, {
+      childId,
+      bookId,
+      note: NOTE,
+      suggestAnyway: true,
+    });
+    expect(anyway.ok).toBe(true);
+    expect(await stored()).toEqual([
+      { childId, bookId, note: NOTE, suggestedAt: AT },
+    ]);
+    expect(
+      await col("recommendationBatches").findOne({
+        _id: new ObjectId(batchId),
+      }),
+    ).toEqual(batch);
+  });
+
+  it("4a, released batch: a book only in a pending batch, or left out of a released batch by its read, gives no warning", async () => {
+    const { main, childId } = await consentedFamily();
+    const pendingOnly = await insertBook("active", "Pending Only");
+    // The window has not closed at AT, so this batch is still pending.
+    await insertBatch({
+      childId,
+      bookIds: [pendingOnly],
+      createdAt: new Date("2026-11-25T14:00:00Z"),
+      handoffDeadline: new Date("2026-11-26T14:00:00Z"),
+    });
+    const excluded = await insertBook("active", "Excluded");
+    await col("childBookExclusions").insertOne({
+      childId,
+      bookId: excluded,
+      reportId: new ObjectId(),
+      createdAt: AT,
+    });
+    const blocked = await insertBook("blocked", "Blocked");
+    const draft = await insertBook("draft", "Draft");
+    // The child is 7.
+    const outOfBand = await insertBook("active", "Too Old", {
+      ageMin: 9,
+      ageMax: 11,
+    });
+    await insertBatch({
+      childId,
+      bookIds: [excluded, blocked, draft, outOfBand],
+      status: "released",
+      releasedAt: new Date("2026-11-25T12:00:00Z"),
+    });
+
+    for (const id of [pendingOnly, excluded, blocked, draft, outOfBand]) {
+      expect(await getSuggestionConflict(main.familyId, childId, id)).toBe(
+        null,
+      );
+    }
+    // The books createSuggestion does not refuse first (1b, PRE-3) are saved.
+    for (const id of [pendingOnly, outOfBand]) {
+      expect(
+        await createSuggestion(main, {
+          childId,
+          bookId: id,
+          suggestAnyway: false,
+        }),
+      ).toEqual({ ok: true, data: null });
+    }
+    expect(await count("parentSuggestions")).toBe(2);
   });
 
   it("4a, already suggested: ALREADY_SUGGESTED first, even when on the shelf; suggest anyway updates the one document", async () => {

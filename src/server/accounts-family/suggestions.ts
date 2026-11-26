@@ -14,6 +14,7 @@ import { now } from "@/server/lib/clock";
 import { areParentSuggestionsEnabled } from "@/server/lib/config";
 import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
+import { listReleasedBatchesForChild } from "@/server/recommendation/batches";
 import { isOnShelf } from "@/server/shelf/shelf-entries";
 import { isExcluded, listExcludedBookIds } from "./book-reports";
 import { getChildForFamily, lockChildForWrite } from "./child-accounts";
@@ -229,9 +230,12 @@ export async function getSuggestionConflict(
   );
   if (pending) return "suggested";
 
-  // SEAM (UC-REC-parent-review, not built): `recommended` when `bookId` is in the
-  // `bookIds` of any batch `listReleasedBatchesForChild(childId, tx)` returns. Add the
-  // call here when Recommendation builds it; the test row "4a, released batch" waits on it.
+  // Recommendation owns what "released to the child" means, and its read already leaves
+  // out excluded, blocked, draft and out-of-band books (design/par.md, Key decisions).
+  const released = await listReleasedBatchesForChild(childId, tx);
+  if (released.some((batch) => batch.bookIds.includes(bookId))) {
+    return "recommended";
+  }
 
   if (await isOnShelf(childId, bookId, tx)) return "onShelf";
   return null;

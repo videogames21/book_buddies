@@ -85,7 +85,7 @@ export async function signInParent(
  */
 export async function signInChild(
   context: BrowserContext,
-): Promise<{ sessionId: ObjectId }> {
+): Promise<{ childId: string; sessionId: ObjectId }> {
   const db = await e2eDb();
   const childId = randomUUID();
   const userId = new ObjectId();
@@ -127,7 +127,7 @@ export async function signInChild(
       sameSite: "Lax",
     },
   ]);
-  return { sessionId };
+  return { childId, sessionId };
 }
 
 /** Signs in a hand-made account of the given role (an admin or a child), with no family. */

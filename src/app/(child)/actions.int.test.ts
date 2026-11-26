@@ -1,3 +1,4 @@
+import { Collection, type Document, type WithId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertSignedInChild } from "../../../tests/fixtures/child-session";
 import { insertParent } from "../../../tests/fixtures/users";
@@ -114,7 +115,44 @@ describe("keepChildSessionAlive", () => {
     });
   });
 
-  it("writes the times to no usage record and no log", async () => {
+  it("says signed out when the session ends between the check and the activity", async () => {
+    await signedInChild();
+    // Read by name, because it is only ever called with the collection as `this`.
+    const findOneAndUpdate = Reflect.get(
+      Collection.prototype,
+      "findOneAndUpdate",
+    ) as (
+      this: Collection,
+      ...args: unknown[]
+    ) => Promise<WithId<Document> | null>;
+    // The first call is the session check's. Another tab signs out right after it.
+    vi.spyOn(Collection.prototype, "findOneAndUpdate").mockImplementationOnce(
+      async function (this: Collection, ...args: unknown[]) {
+        const found = await findOneAndUpdate.apply(this, args);
+        await getDb().collection("childSessionEnds").deleteMany({});
+        return found;
+      },
+    );
+    expect(await keepChildSessionAlive({ active: true })).toMatchObject({
+      ok: false,
+      error: { code: "NOT_SIGNED_IN" },
+    });
+  });
+
+  it("answers an unexpected failure with a code and an error ID, and no detail", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedAuth.mockRejectedValue(new Error("invented database detail"));
+    expect(await keepChildSessionAlive({ active: true })).toEqual({
+      ok: false,
+      error: {
+        code: "KEEP_ALIVE_FAILED",
+        message: "That didn’t work.",
+        errorId: expect.any(String) as string,
+      },
+    });
+  });
+
+  it("logs nothing", async () => {
     await signedInChild();
     const logged = [
       vi.spyOn(console, "log"),
@@ -123,7 +161,6 @@ describe("keepChildSessionAlive", () => {
     ];
     currentTime = LATER;
     await keepChildSessionAlive({ active: true });
-    expect(await getDb().collection("childSignIns").countDocuments()).toBe(0);
     for (const log of logged) expect(log).not.toHaveBeenCalled();
   });
 });

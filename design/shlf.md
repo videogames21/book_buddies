@@ -148,7 +148,6 @@ classDiagram
 - `src/server/accounts-family/child-accounts.ts` (reused): `getChildDisplay(childId)` returns `{ nickname, avatar }` and nothing else, so it is safe for a child session to call (8.2.11).
 - `src/server/identity-access/sessions.ts` (reused, one new function): `requireChild()` returns `{ userId, childId, sessionId }` from the `users` document with role `child` and the session document the request's own cookie names (`sessionId` stays on the server), or `NOT_SIGNED_IN` / `NOT_A_CHILD`. Every accepted call counts as activity unless the caller passes `countsAsActivity: false`, which the keep-alive uses. A child session is `NOT_SIGNED_IN` once the child has been inactive for `CHILD_IDLE_MINUTES` (`lastActiveAt`), and once `endsAt` has passed and the visit has ended, meaning `lastSeenAt` is older than the grace (Key decisions). A child session with no `childSessionEnds` record is refused and deleted. It does not redirect or throw. A parent session gets `NOT_A_CHILD`; a child session already gets `NOT_A_PARENT` from `requireParent()`. `endCurrentSession()`, which sign-out uses, also deletes the session's record.
 - `src/server/identity-access/child-sessions.ts` (new, server-only): owns `childSessionEnds` and states the end rules once: it writes the record, checks and refreshes it on each read, and deletes an ended session with its record in one transaction.
-- `src/server/identity-access/next-midnight.ts` (new, server-only): the first 00:00 after a moment in the configured zone, with `Intl` and no date library; where the clocks skip midnight, the new day's first instant.
 
 ### Child sign-in and sign-out (supporting flows, no use case, `OI-46`)
 
@@ -162,7 +161,7 @@ classDiagram
     class childSignInActions {
         <<new, server actions>>
         +signInChild(fields) ActionResult
-        +signOutChild() redirect
+        +signOutChild() ActionResult
     }
     class signInThrottle {
         <<reused: sign-in-throttle.ts from the #98 design>>
@@ -340,7 +339,7 @@ sequenceDiagram
         ACT-->>UI: ACCOUNT_UNAVAILABLE
     end
     ACT->>DB: Begin transaction
-    ACT->>IA: createDatabaseSession(userId, next midnight, tx); recordChildSignIn(tx, childId)
+    ACT->>IA: createDatabaseSession(userId, tx, next midnight); recordChildSignIn(tx, childId)
     ACT->>DB: Commit
     ACT->>IA: Delete the session the browser's old cookie named, then set the new session cookie and issueDeviceToken(childId)
     ACT-->>UI: ok
@@ -410,7 +409,8 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 |---|---|---|---|---|
 | Page `/child/sign-in` | Anyone | None | The username and password form | A signed-in child: redirect to `/child` |
 | Server action `signInChild` | Anyone | Username, password | `ok`; the session cookie is set; the page redirects to `/child` | `USERNAME_REQUIRED`, `PASSWORD_REQUIRED`; `INVALID_CREDENTIALS` (the same for an unknown username and a wrong password); `TOO_MANY_ATTEMPTS` (a short wait, no number of seconds shown, never a lock); `ACCOUNT_UNAVAILABLE` (ask a grown-up; only after a correct password) |
-| Server action `signOutChild` | A signed-in child | None | `ok`; the caller's session document is deleted and the cookie cleared; redirect to `/child/sign-in` | No session: redirect to `/child/sign-in` |
+| Server action `signOutChild` | A signed-in child | None | `ok`; the caller's session document is deleted and the cookie cleared; the page then goes to `/child/sign-in` | `NOT_SIGNED_IN`: no session or an ended one, and the page goes to `/child/sign-in` too. `NOT_A_CHILD`: a parent or admin session, which is not ended. `SIGN_OUT_FAILED`: an unexpected failure, and the child can try again |
+| Server action `keepChildSessionAlive` | A signed-in child; every open child page but sign-in | `{ active }` (zod: a boolean and nothing else) | `{ ok: true }`; the caller's session is marked as seen, and as used when `active` | `NOT_SIGNED_IN` (no session or an ended one) and `NOT_A_CHILD` (a parent or admin session): the page goes to `/child/sign-in`. `INVALID_INPUT`: no activity is counted. `KEEP_ALIVE_FAILED`: an unexpected failure. After those two, or no answer, the page stays and reports the activity with the next one |
 
 
 ## Key decisions
@@ -557,10 +557,10 @@ New configuration (8.2.6), read once by the config module:
 
 | Setting | Value |
 |---|---|
-| `CHILD_KEEPALIVE_SECONDS` | 30, how often an open child page sends its keep-alive and its activity flag (a proposal; confirm) |
-| `CHILD_LEAVE_GRACE_SECONDS` | 600, how long after the last keep-alive or request a child's visit counts as still open past midnight (developer, 2026-11-20) |
-| `CHILD_IDLE_MINUTES` | 30, how long a child can do nothing before being signed out, before or after midnight (developer, 2026-11-20) |
-| `CHILD_SESSION_TIME_ZONE` | a time zone name, with no default; "midnight" is the first 00:00 after sign-in in this zone (`OI-48`). Child sign-in fails without it; the rest of the application starts without it, so a missing value cannot take down the parent pages |
+| `CHILD_KEEPALIVE_SECONDS` | 30, how often an open child page sends its keep-alive and its activity flag (a proposal; confirm). A whole number from 5 to 300 |
+| `CHILD_LEAVE_GRACE_SECONDS` | 600, how long after the last keep-alive or request a child's visit counts as still open past midnight (developer, 2026-11-20). A whole number from 60 to 3600 |
+| `CHILD_IDLE_MINUTES` | 30, how long a child can do nothing before being signed out, before or after midnight (developer, 2026-11-20). A whole number from 1 to 240 |
+| `CHILD_SESSION_TIME_ZONE` | required, a time zone name; "midnight" is the first 00:00 after sign-in in this zone (`OI-48`) |
 | Free wrong attempts | 3, per trusted-device key and per account's shared key |
 | First wait after the free attempts | 30 seconds, doubling after each further wrong attempt, capped at 2 minutes (developer, 2026-11-22, for now; #98's parent cap is 15 minutes) |
 | Decay | 1 wrong attempt forgiven every 30 minutes, paused while a wait is running |
@@ -710,10 +710,10 @@ Built as `UC-SHLF-parent-view-shelf` and checked against this design. Deliberate
 - **A new file**, `src/server/shelf/shelf-collections.ts`, names the three collections.
 - **Browser tests instead of component tests** for the "no request on selection" and "links out" rows, because the repository has no component-testing library and adding one needs the team's approval.
 
-**Built so far for child sign-in (first pull request):** the child session rules, `requireChild()`, the child home, sign-out, the keep-alive, the cleanup of ended sessions and the series name in the Catalog read. Differences from the design are written into the sections above. Two things are temporary:
+**Built so far for child sign-in (first pull request):** the child session rules, `requireChild()`, the child home, sign-out, the keep-alive, the cleanup of ended sessions and the series name in the Catalog read. Differences from the design are written into the sections above and listed under Design changes in part 1. Two things are temporary:
 
 - `/child/sign-in` and `/child/shelf` are placeholder pages that read nothing about a child, so no child can sign in yet.
-- Sign-in, its throttle and device cookie, and the child's shelf and notices follow, after the open pull requests that create the files they share (#124, #125, #130).
+- Sign-in (with its `childSignIns` record, the next-midnight calculation and `CHILD_SESSION_TIME_ZONE`), its throttle and device cookie, and the child's shelf and notices follow, after the open pull requests that create the files they share (#124, #125, #130).
 
 **Added for `UC-SHLF-kid-view-shelf` and child sign-in:**
 
@@ -721,6 +721,24 @@ Built as `UC-SHLF-parent-view-shelf` and checked against this design. Deliberate
 - §5.2 Catalog: `getBooksForShelf` also returns the author and series name, for the child's book details.
 - §5.2 Notification: the child's reads, `peekUnseenChildNotices` and `markNoticeSeen`.
 - §5.2 Identity & Access: names the child sign-in record and the child's sign-in attempts. Revision history: a v0.16 row.
+
+### Design changes in part 1
+
+What the first pull request for child sign-in changed in this design, and why.
+
+- **A privacy notice link on every child page**, including the home screen, which had nothing beyond its listed items. `BR-coppa-notice` requires the link on the home screen and wherever information is collected from a child, and every child page but sign-in sends the activity flag. The layout that holds it is dynamic.
+- **`requireChild()` counts each accepted call as activity unless passed `countsAsActivity: false`**, which the keep-alive passes. Without it, an open page's keep-alives would count as activity and the idle time would never run out.
+- **`requireChild()` also returns `sessionId`**, which stays on the server, so the keep-alive can record activity on that session after it has validated the body (8.2.3).
+- **A child session with no `childSessionEnds` record is refused and deleted.** Its end rules cannot be checked, and it must not be trusted on `expires` alone.
+- **`endCurrentSession()` deletes the session's record**, so sign-out leaves no activity time behind.
+- **The keep-alive also sends the page to sign-in on `NOT_A_CHILD`.** The browser is now signed in as someone else, and the open page would keep showing the child's nickname. It sends nothing from the sign-in page.
+- **The idle time ends once 30 minutes have passed**, not only after more than 30, which is what the Tests table's inactivity row says.
+- **`createDatabaseSession(userId, tx?, endsAt?)`** keeps `tx` second, where the existing parent callers pass it, so they are unchanged.
+- **Two new files.** `child-sessions.ts` owns `childSessionEnds` and states the end rules once for `requireChild()`, the keep-alive and the cleanup. `child/error.tsx` is the retry screen 8.2.1 asks for on each route segment, including the home screen.
+- **Limits on `CHILD_KEEPALIVE_SECONDS`, `CHILD_LEAVE_GRACE_SECONDS` and `CHILD_IDLE_MINUTES`**, so a mistyped value such as 0 stops the application at startup instead of breaking the session rules. The limits themselves are a proposal; confirm.
+- **API contract:** a row for `keepChildSessionAlive`, and the error codes of `signOutChild`, which returns the shared result shape and leaves the redirect to the page.
+
+One part of the Tests table is not covered: that the keep-alive stops when the page is closed. A closed page cannot send, so such a test cannot fail. The browser test checks instead that it stops when the app moves to the sign-in page.
 
 
 ## Open questions & risks

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { keepChildSessionAlive } from "./actions";
 import { CHILD_SIGN_IN_PATH } from "./child/paths";
@@ -13,7 +13,6 @@ const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll"] as const;
  * Nothing is sent from the sign-in page.
  */
 export function KeepAlive({ seconds }: { seconds: number }) {
-  const router = useRouter();
   const signingIn = usePathname() === CHILD_SIGN_IN_PATH;
 
   useEffect(() => {
@@ -37,7 +36,8 @@ export function KeepAlive({ seconds }: { seconds: number }) {
         // Over, or the browser is now signed in as someone else.
         const { code } = result.error;
         if (code === "NOT_SIGNED_IN" || code === "NOT_A_CHILD") {
-          router.replace(CHILD_SIGN_IN_PATH);
+          // A full load drops the router's cache, so Back cannot show a child page.
+          window.location.replace(CHILD_SIGN_IN_PATH);
           return;
         }
       } catch {
@@ -56,7 +56,7 @@ export function KeepAlive({ seconds }: { seconds: number }) {
         window.removeEventListener(event, touched, options);
       }
     };
-  }, [signingIn, seconds, router]);
+  }, [signingIn, seconds]);
 
   return null;
 }

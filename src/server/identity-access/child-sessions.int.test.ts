@@ -1,5 +1,5 @@
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { ObjectId } from "mongodb";
+import { Collection, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   insertParent,
@@ -11,6 +11,20 @@ import { resetDatabase } from "../../../tests/integration/db";
 // "A child is also signed out after 30 minutes of inactivity"), under a fixed clock.
 
 vi.mock("./auth", () => ({ auth: vi.fn() }));
+/** Settings a test changes from their defaults; emptied after each one. */
+const settings = vi.hoisted(
+  (): {
+    CHILD_IDLE_MINUTES?: number;
+    CHILD_LEAVE_GRACE_SECONDS?: number;
+  } => ({}),
+);
+vi.mock("@/server/lib/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/lib/config")>();
+  return {
+    ...actual,
+    getConfig: () => ({ ...actual.getConfig(), ...settings }),
+  };
+});
 const jar = new Map<string, string>();
 vi.mock("next/headers", () => ({
   cookies: () =>
@@ -32,7 +46,8 @@ const {
   requireParent,
   setSessionCookie,
 } = await import("./sessions");
-const { nextMidnight } = await import("./next-midnight");
+const { ensureChildSessionIndexes, purgeEndedChildSessions } =
+  await import("./child-sessions");
 const { getDb, getMongoClient, withTransaction } =
   await import("@/server/lib/db");
 const { setClock, resetClock } = await import("@/server/lib/clock");
@@ -40,7 +55,6 @@ const mockedAuth = vi.mocked(
   auth as unknown as () => Promise<{ user: { id: string } } | null>,
 );
 
-const ZONE = "America/Chicago";
 /** A time on the evening of 20 November 2026 in Chicago, or the small hours after it. */
 const evening = (time: string) => new Date(`2026-11-20T${time}-06:00`);
 const nightAfter = (time: string) => new Date(`2026-11-21T${time}-06:00`);
@@ -70,16 +84,18 @@ async function insertChildUser(childId = "invented-child") {
   return _id.toHexString();
 }
 
-/** Signs a child in as the sign-in action will: one transaction, then the cookie. */
+/**
+ * Signs a child in as the sign-in action will: one transaction, then the cookie, with
+ * the coming midnight as the end.
+ */
 async function startChildSession(childId?: string) {
   const userId = await insertChildUser(childId);
-  const endsAt = nextMidnight(currentTime, ZONE);
   const session = await withTransaction((tx) =>
-    createDatabaseSession(userId, tx, endsAt),
+    createDatabaseSession(userId, tx, MIDNIGHT),
   );
   await setSessionCookie(session);
   mockedAuth.mockResolvedValue({ user: { id: userId } });
-  return { userId, session, endsAt };
+  return { userId, session };
 }
 
 const record = async () => {
@@ -111,6 +127,9 @@ beforeEach(async () => {
 });
 afterEach(() => {
   resetClock();
+  vi.restoreAllMocks();
+  delete settings.CHILD_IDLE_MINUTES;
+  delete settings.CHILD_LEAVE_GRACE_SECONDS;
 });
 
 describe("requireChild: who is let in", () => {
@@ -145,6 +164,25 @@ describe("requireChild: who is let in", () => {
     }
   });
 
+  it.each([
+    [
+      "a user with a child ID but another role",
+      { role: "parent", childId: "invented-child" },
+    ],
+    ["a child account with no child ID", { role: "child" }],
+  ])("refuses %s, whatever session it holds", async (_label, fields) => {
+    const { userId } = await startChildSession();
+    await getDb()
+      .collection("users")
+      .replaceOne({ _id: new ObjectId(userId) }, fields);
+    expect(await codeOf(requireChild())).toBe("NOT_A_CHILD");
+  });
+
+  it("treats a user ID that is not an ID as signed out", async () => {
+    mockedAuth.mockResolvedValue({ user: { id: "not-an-object-id" } });
+    expect(await codeOf(requireChild())).toBe("NOT_SIGNED_IN");
+  });
+
   it("refuses a child session that has no end record, and deletes it", async () => {
     await startChildSession();
     await ends().deleteMany({});
@@ -167,7 +205,7 @@ describe("requireChild: who is let in", () => {
 });
 
 describe("Sign-in, expiry: the next midnight", () => {
-  it("stores the next midnight as endsAt and keeps the usual lifetime as expires", async () => {
+  it("stores endsAt apart and keeps the usual lifetime as expires", async () => {
     const { session } = await startChildSession();
     expect(await record()).toMatchObject({
       endsAt: MIDNIGHT,
@@ -176,12 +214,6 @@ describe("Sign-in, expiry: the next midnight", () => {
     });
     expect(session.expires).toEqual(new Date("2026-12-20T21:00:00Z"));
     expect((await sessions().findOne())?.expires).toEqual(session.expires);
-  });
-
-  it("ends a session made at 23:59 a minute later", async () => {
-    at(evening("23:59:00"));
-    await startChildSession();
-    expect((await record()).endsAt).toEqual(MIDNIGHT);
   });
 
   it("refuses it after midnight and the grace, although the session document is still there", async () => {
@@ -273,6 +305,26 @@ describe("Sign-in, midnight, left", () => {
     at(evening("15:20:00"));
     expect(await codeOf(requireChild())).toBe("ok");
   });
+
+  it("counts midnight itself as past the end", async () => {
+    at(evening("23:40:00"));
+    await startChildSession();
+    at(MIDNIGHT);
+    expect(await codeOf(requireChild())).toBe("NOT_SIGNED_IN");
+  });
+
+  it.each([
+    ["00:01:00", "ok"],
+    ["00:01:01", "NOT_SIGNED_IN"],
+  ])("uses the configured grace: back at %s", async (time, expected) => {
+    settings.CHILD_LEAVE_GRACE_SECONDS = 120;
+    at(evening("23:50:00"));
+    await startChildSession();
+    at(evening("23:59:00"));
+    await keepAlive();
+    at(nightAfter(time));
+    expect(await codeOf(requireChild())).toBe(expected);
+  });
 });
 
 describe("Sign-in, inactivity", () => {
@@ -294,6 +346,15 @@ describe("Sign-in, inactivity", () => {
       expect(await sessions().countDocuments()).toBe(0);
     },
   );
+
+  it("uses the configured idle time", async () => {
+    settings.CHILD_IDLE_MINUTES = 10;
+    await startChildSession();
+    advance(10 * 60 - 1);
+    expect(await codeOf(keepAlive())).toBe("ok");
+    advance(1);
+    expect(await codeOf(keepAlive())).toBe("NOT_SIGNED_IN");
+  });
 
   it("refuses an idle session on a page request too", async () => {
     await startChildSession();
@@ -388,6 +449,84 @@ describe("Sign-in, activity times deleted", () => {
     );
     expect(results).toEqual(Array(5).fill("NOT_SIGNED_IN"));
     expect(await sessions().countDocuments()).toBe(0);
+  });
+});
+
+describe("ending a session: one transaction", () => {
+  // The driver's own method, wrapped to act just before or after one delete.
+  // Read by name, because it is only ever called with the collection as `this`.
+  const deleteOne = Reflect.get(
+    Collection.prototype,
+    "deleteOne",
+  ) as Collection["deleteOne"];
+  type DeleteArgs = Parameters<typeof deleteOne>;
+
+  it("keeps a session that another request refreshed while it was being ended", async () => {
+    await startChildSession();
+    advance(31 * 60);
+    let refreshed = false;
+    vi.spyOn(Collection.prototype, "deleteOne").mockImplementation(
+      async function (this: Collection, ...args: DeleteArgs) {
+        if (!refreshed && this.collectionName === "childSessionEnds") {
+          refreshed = true;
+          // The other request's write lands after the check, before the delete.
+          await ends().updateOne(
+            {},
+            { $set: { lastSeenAt: currentTime, lastActiveAt: currentTime } },
+          );
+        }
+        return deleteOne.apply(this, args);
+      },
+    );
+    expect(await purgeEndedChildSessions()).toBe(0);
+    expect(refreshed).toBe(true);
+    expect(await sessions().countDocuments()).toBe(1);
+    expect(await ends().countDocuments()).toBe(1);
+  });
+
+  it("deletes the session and its record together or not at all", async () => {
+    await startChildSession();
+    advance(31 * 60);
+    vi.spyOn(Collection.prototype, "deleteOne").mockImplementation(
+      async function (this: Collection, ...args: DeleteArgs) {
+        const result = await deleteOne.apply(this, args);
+        if (this.collectionName === "sessions") {
+          throw new Error("invented failure");
+        }
+        return result;
+      },
+    );
+    await expect(requireChild()).rejects.toThrow("invented failure");
+    expect(await sessions().countDocuments()).toBe(1);
+    expect(await ends().countDocuments()).toBe(1);
+  });
+});
+
+describe("childSessionEnds", () => {
+  const newRecord = () => ({
+    sessionId: new ObjectId(),
+    endsAt: MIDNIGHT,
+    lastSeenAt: MIDNIGHT,
+    lastActiveAt: MIDNIGHT,
+  });
+
+  it("keeps one record per session, and setup can run twice", async () => {
+    await ensureChildSessionIndexes(getDb());
+    const first = newRecord();
+    await ends().insertOne({ ...first });
+    await expect(ends().insertOne({ ...first })).rejects.toThrow("E11000");
+  });
+
+  it("refuses a name, a username or a child ID", async () => {
+    for (const extra of [
+      { nickname: "Starfish" },
+      { username: "moon_reader_01" },
+      { childId: "invented-child" },
+    ]) {
+      await expect(
+        ends().insertOne({ ...newRecord(), ...extra }),
+      ).rejects.toThrow("Document failed validation");
+    }
   });
 });
 

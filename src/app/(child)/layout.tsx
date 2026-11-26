@@ -5,8 +5,9 @@ import { KeepAlive } from "./keep-alive";
 
 // Every child page. The privacy notice is linked from the child's home screen and from
 // every place information is collected from a child (BR-coppa-notice, 16 CFR 312.4(d)).
-// Each page and action checks the session itself; a layout is never the check (§8.1).
-// Dynamic, so a build needs no configuration.
+// A layout is never the session check (§8.1): a page or action that reads or changes a
+// child's data checks the session itself. The two placeholder pages do neither, so they
+// check nothing. Dynamic, so a build needs no configuration.
 export const dynamic = "force-dynamic";
 
 export default function ChildLayout({ children }: { children: ReactNode }) {

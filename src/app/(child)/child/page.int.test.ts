@@ -19,10 +19,6 @@ vi.mock("next/headers", () => ({
       delete: (name: string) => jar.delete(name),
     }),
 }));
-vi.mock("next/navigation", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("next/navigation")>()),
-  useRouter: () => ({ replace: vi.fn() }),
-}));
 
 const { default: ChildHomePage } = await import("./page");
 const { signOutChild } = await import("./sign-in/actions");
@@ -30,6 +26,8 @@ const { auth } = await import("@/server/identity-access/auth");
 const { sessionCookie } =
   await import("@/server/identity-access/session-cookie");
 const { getDb } = await import("@/server/lib/db");
+const { getChildDisplay } =
+  await import("@/server/accounts-family/child-accounts");
 const mockedAuth = vi.mocked(
   auth as unknown as () => Promise<{ user: { id: string } } | null>,
 );
@@ -51,6 +49,8 @@ async function digestOf(render: () => Promise<unknown>): Promise<string> {
   return "rendered";
 }
 
+const children = () => getDb().collection<{ _id: string }>("children");
+
 const sessionTokens = async () =>
   (await getDb().collection("sessions").find().toArray()).map(
     (session) => session.sessionToken as string,
@@ -65,12 +65,28 @@ beforeEach(async () => {
 describe("/child home", () => {
   it("shows the child's nickname and avatar, My Shelf and Sign out, and nothing else", async () => {
     await insertSignedInChild("Otter");
-    await signedInChild("Starfish");
+    const { childId } = await signedInChild("Starfish");
+    // Not the fixture's usual avatar, so the page has to read this child's.
+    await children().updateOne({ _id: childId }, { $set: { avatar: "7" } });
     const html = renderToStaticMarkup(await ChildHomePage());
     const text = html.split(/<[^>]*>/).filter(Boolean);
     expect(text).toEqual(["Starfish", "My Shelf", "Sign out"]);
     expect(html).toContain('href="/child/shelf"');
-    expect(html).toContain("1-1.png");
+    expect(html).toContain("7.png");
+  });
+
+  it("reads the nickname and avatar of the child and nothing else", async () => {
+    const { childId } = await signedInChild("Starfish");
+    expect(await getChildDisplay(childId)).toEqual({
+      nickname: "Starfish",
+      avatar: "1-1",
+    });
+  });
+
+  it("gives a 404 when the child's record is gone", async () => {
+    await signedInChild();
+    await children().deleteMany({});
+    expect(await digestOf(() => ChildHomePage())).toContain("404");
   });
 
   it("sends a visitor with no session to the child sign-in", async () => {
@@ -112,5 +128,19 @@ describe("signOutChild (design/shlf.md, Tests, Sign-out)", () => {
       error: { code: "NOT_A_CHILD" },
     });
     expect(await sessionTokens()).toHaveLength(1);
+  });
+
+  it("answers an unexpected failure with a code and an error ID, and no detail", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedAuth.mockRejectedValue(new Error("invented database detail"));
+    expect(await signOutChild()).toEqual({
+      ok: false,
+      error: {
+        code: "SIGN_OUT_FAILED",
+        message: "That didn’t work. Try again or ask a grown-up.",
+        errorId: expect.any(String) as string,
+      },
+    });
+    vi.restoreAllMocks();
   });
 });

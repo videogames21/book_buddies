@@ -2,7 +2,8 @@
 import styles from "./child.module.css";
 
 // The calm retry screen for every child page (§8.2.1). No detail of the error.
-export default function ChildError({ reset }: { reset: () => void }) {
+// retry() asks the server again; reset() would only re-render what already failed.
+export default function ChildError({ retry }: { retry: () => void }) {
   return (
     <main className={styles.page}>
       <h1>Oops!</h1>
@@ -11,7 +12,7 @@ export default function ChildError({ reset }: { reset: () => void }) {
         type="button"
         className={styles.primary}
         onClick={() => {
-          reset();
+          retry();
         }}
       >
         Try again

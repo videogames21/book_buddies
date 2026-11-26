@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import styles from "./child.module.css";
 import { CHILD_SIGN_IN_PATH } from "./paths";
 import { signOutChild } from "./sign-in/actions";
 
 export function SignOutButton() {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -17,7 +15,8 @@ export function SignOutButton() {
     try {
       const result = await signOutChild();
       if (result.ok || result.error.code === "NOT_SIGNED_IN") {
-        router.replace(CHILD_SIGN_IN_PATH);
+        // A full load drops the router's cache, so Back cannot show a child page.
+        window.location.replace(CHILD_SIGN_IN_PATH);
         return;
       }
       setFailed(true);

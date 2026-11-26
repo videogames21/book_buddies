@@ -427,6 +427,39 @@ describe("reportBook (UC-PAR-report-book)", () => {
     await expectNothingWritten(childId, bookId);
   });
 
+  it("outcome unknown: an UnknownTransactionCommitResult error is OUTCOME_UNKNOWN, not SAVE_FAILED", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await bookOnShelf(childId);
+    // The driver adds this label to a commit it retried until its time limit. The test
+    // raises it from inside the transaction, which the driver passes through unchanged,
+    // to check the mapping without waiting out that limit.
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "childNotices") {
+        const err = new MongoServerError({ message: "commit outcome unknown" });
+        err.addErrorLabel("UnknownTransactionCommitResult");
+        return Promise.reject(err);
+      }
+      return original.apply(this, args);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
+  });
+
   it("child check: a deleted child is CHILD_NOT_FOUND, nothing is written, and the read uses the transaction", async () => {
     const { main, childId } = await consentedFamily();
     const bookId = await bookOnShelf(childId);

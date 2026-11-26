@@ -96,7 +96,8 @@ new password. Every session of that parent is signed out.
 **Admin catalog.** Sign in as the admin on the same sign-in page to open
 `/admin/catalog`. This shared sign-in page is temporary (`OI-61`).
 
-The parent dashboard, recommendations and shelves are not built yet.
+The parent dashboard and recommendations are not built yet. A child's **My Shelf**
+opens, but nothing in the app adds a book to a shelf yet.
 
 #### Stop and restart
 

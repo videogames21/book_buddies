@@ -322,6 +322,19 @@ it("makes signInAttempts unique per account key and indexes its expiry", async (
   };
   await attempts.insertOne({ ...row });
   await expect(attempts.insertOne({ ...row })).rejects.toThrow(/duplicate key/);
+  // The in-flight count (checkPasswordAttempt) is optional and never negative.
+  await attempts.insertOne({
+    ...row,
+    accountKey: "pending@example.test",
+    pending: 2,
+  });
+  await expect(
+    attempts.insertOne({
+      ...row,
+      accountKey: "negative@example.test",
+      pending: -1,
+    }),
+  ).rejects.toThrow();
   await attempts.deleteMany({});
 });
 

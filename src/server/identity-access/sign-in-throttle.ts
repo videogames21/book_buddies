@@ -4,10 +4,11 @@ import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
 
-// Sign-in throttling per account key, the lowercased email (SEC-signin-throttling,
-// design/par-field-values.md). A growing delay and never a lockout. The key is an email,
-// so it is never logged (§8.2.7). A count restarts 24 hours after its last wait ends, and
-// the daily cleanup deletes rows past that time (KD-time-rules-on-read).
+// Sign-in throttling per account key (SEC-signin-throttling): a parent's lowercased email
+// (design/par-field-values.md) or a child's key (design/shlf.md). A growing delay and
+// never a lockout. A key holds an email or a username, so it is never logged (§8.2.7). A
+// policy says how long a count lasts, and the daily cleanup deletes rows past that time
+// (KD-time-rules-on-read).
 //
 // Every password entry point goes through checkPasswordAttempt, which claims the attempt,
 // runs the check and records its outcome, so no caller sequences those steps itself
@@ -19,12 +20,69 @@ import { getDb, type Tx } from "@/server/lib/db";
 // on the generation it claimed, so a check that outlives its row changes nothing.
 
 const SIGN_IN_ATTEMPTS = "signInAttempts";
-const FAILURES_BEFORE_DELAY = 5;
 const FIRST_DELAY_SECONDS = 30;
-const MAX_DELAY_SECONDS = 15 * 60;
-// 30 seconds doubled this many times passes the cap, so the exponent can stop here.
+// 30 seconds doubled this many times passes every cap, so the exponent can stop here.
 const MAX_DOUBLINGS = 5;
 const RETENTION_HOURS = 24;
+
+export type ThrottlePolicy = {
+  /** The failure count at which the next attempt must first wait. */
+  failuresBeforeDelay: number;
+  maxDelaySeconds: number;
+  /**
+   * Forgives one failure for each of these minutes after the last wait ends. Without it,
+   * the whole count restarts 24 hours after the last wait ends.
+   */
+  forgiveEveryMinutes?: number;
+};
+
+export const PARENT_THROTTLE: ThrottlePolicy = {
+  failuresBeforeDelay: 5,
+  maxDelaySeconds: 15 * 60,
+};
+
+/** design/shlf.md, Data model: shorter, so a child is never kept out for long. */
+export const CHILD_THROTTLE: ThrottlePolicy = {
+  failuresBeforeDelay: 3,
+  maxDelaySeconds: 2 * 60,
+  forgiveEveryMinutes: 30,
+};
+
+/** When a row stops counting for anything, measured from the end of its last wait. */
+function expiryStage({ forgiveEveryMinutes }: ThrottlePolicy) {
+  return {
+    $set: {
+      expiresAt: {
+        $dateAdd: {
+          startDate: "$allowedAt",
+          ...(forgiveEveryMinutes
+            ? {
+                unit: "minute",
+                amount: { $multiply: ["$failures", forgiveEveryMinutes] },
+              }
+            : { unit: "hour", amount: RETENTION_HOURS }),
+        },
+      },
+    },
+  };
+}
+
+/** The failures still counted at `at`, before this attempt. */
+function countedAt(at: Date, { forgiveEveryMinutes }: ThrottlePolicy) {
+  if (!forgiveEveryMinutes) return "$failures";
+  // A claim only matches once the wait is over, so no time during a wait counts.
+  const forgiven = {
+    $toInt: {
+      $floor: {
+        $divide: [
+          { $subtract: [at, "$allowedAt"] },
+          forgiveEveryMinutes * 60 * 1000,
+        ],
+      },
+    },
+  };
+  return { $max: [0, { $subtract: ["$failures", forgiven] }] };
+}
 
 type SignInAttempt = {
   accountKey: string;
@@ -81,8 +139,9 @@ export async function ensureSignInAttemptIndexes(db: Db): Promise<void> {
 export async function checkPasswordAttempt(
   accountKey: string,
   verify: () => Promise<boolean>,
+  policy: ThrottlePolicy = PARENT_THROTTLE,
 ): Promise<PasswordAttempt> {
-  const claim = await claimSignInAttempt(accountKey);
+  const claim = await claimSignInAttempt(accountKey, policy);
   if (!claim.allowed) {
     return { outcome: "wait", waitSeconds: claim.waitSeconds };
   }
@@ -90,7 +149,7 @@ export async function checkPasswordAttempt(
   try {
     matched = await verify();
   } finally {
-    await settleAttempt(accountKey, claim.generation, matched);
+    await settleAttempt(accountKey, claim.generation, matched, policy);
   }
   return matched ? { outcome: "matched" } : { outcome: "refused" };
 }
@@ -102,6 +161,7 @@ export async function checkPasswordAttempt(
  */
 export async function claimSignInAttempt(
   accountKey: string,
+  policy: ThrottlePolicy = PARENT_THROTTLE,
 ): Promise<AttemptClaim> {
   const at = now();
   // Used only if this claim creates the row or starts its count again.
@@ -129,7 +189,7 @@ export async function claimSignInAttempt(
             $cond: [
               { $gte: [at, "$expiresAt"] },
               1,
-              { $add: ["$failures", 1] },
+              { $add: [countedAt(at, policy), 1] },
             ],
           },
           pending: {
@@ -157,14 +217,14 @@ export async function claimSignInAttempt(
         $set: {
           allowedAt: {
             $cond: [
-              { $gte: ["$failures", FAILURES_BEFORE_DELAY] },
+              { $gte: ["$failures", policy.failuresBeforeDelay] },
               {
                 $dateAdd: {
                   startDate: at,
                   unit: "second",
                   amount: {
                     $min: [
-                      MAX_DELAY_SECONDS,
+                      policy.maxDelaySeconds,
                       {
                         $multiply: [
                           FIRST_DELAY_SECONDS,
@@ -176,7 +236,7 @@ export async function claimSignInAttempt(
                                   {
                                     $subtract: [
                                       "$failures",
-                                      FAILURES_BEFORE_DELAY,
+                                      policy.failuresBeforeDelay,
                                     ],
                                   },
                                   MAX_DOUBLINGS,
@@ -195,17 +255,7 @@ export async function claimSignInAttempt(
           },
         },
       },
-      {
-        $set: {
-          expiresAt: {
-            $dateAdd: {
-              startDate: "$allowedAt",
-              unit: "hour",
-              amount: RETENTION_HOURS,
-            },
-          },
-        },
-      },
+      expiryStage(policy),
     ],
     { projection: { generation: 1 }, returnDocument: "after" },
   );
@@ -234,6 +284,7 @@ async function settleAttempt(
   accountKey: string,
   generation: ObjectId,
   matched: boolean,
+  policy: ThrottlePolicy,
 ): Promise<void> {
   const attempts = getDb().collection<SignInAttempt>(SIGN_IN_ATTEMPTS);
   if (!matched) {
@@ -257,13 +308,15 @@ async function settleAttempt(
       $set: {
         allowedAt: {
           $cond: [
-            { $lt: ["$failures", FAILURES_BEFORE_DELAY] },
+            { $lt: ["$failures", policy.failuresBeforeDelay] },
             at,
             "$allowedAt",
           ],
         },
       },
     },
+    // A shorter count after a forgiving policy's success ends sooner.
+    ...(policy.forgiveEveryMinutes ? [expiryStage(policy)] : []),
   ]);
   await attempts.deleteOne({
     accountKey,

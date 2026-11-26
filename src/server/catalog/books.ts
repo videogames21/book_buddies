@@ -6,7 +6,7 @@ import type { AdminSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, type Tx, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { NewBook } from "@/shared/catalog/new-book-schema";
 import {
@@ -145,6 +145,64 @@ export async function getBooksForShelf(ids: string[]): Promise<ShelfBook[]> {
     title: book.title,
     author: book.author,
     ...(book.seriesName && { seriesName: book.seriesName }),
+  }));
+}
+
+export type ReviewBook = {
+  id: string;
+  title: string;
+  author: string;
+  genres: string[];
+  subjects: string[];
+  moods: string[];
+  length: string;
+};
+
+/**
+ * The title, author and tags of each active book in `ids`, for a batch under parent
+ * review (UC-REC-parent-review, design/rec.md). One query; draft, blocked and missing books are
+ * absent, in no particular order. With `age` (the child-facing read only) a book must
+ * also have an age band that contains that age, inclusive, as the quiz's candidate read
+ * requires; the parent's review passes no age and sees every active book.
+ */
+export async function getBooksForReview(
+  ids: readonly string[],
+  options: { age?: number; tx?: Tx } = {},
+): Promise<ReviewBook[]> {
+  if (ids.length === 0) return [];
+  const { age, tx } = options;
+  const books = await getDb()
+    .collection<BookDocument>(BOOKS)
+    .find(
+      {
+        _id: { $in: [...ids] },
+        status: "active",
+        ...(age !== undefined && {
+          ageMin: { $lte: age },
+          ageMax: { $gte: age },
+        }),
+      },
+      {
+        projection: {
+          title: 1,
+          author: 1,
+          genres: 1,
+          subjects: 1,
+          moods: 1,
+          length: 1,
+        },
+        session: tx,
+      },
+    )
+    .toArray();
+  return books.map((book) => ({
+    id: book._id,
+    title: book.title,
+    author: book.author,
+    genres: book.genres,
+    subjects: book.subjects ?? [],
+    moods: book.moods,
+    length: book.length,
   }));
 }
 

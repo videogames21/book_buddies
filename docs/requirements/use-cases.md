@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.24
+**Version:** 0.25
 
 ---
 
@@ -45,6 +45,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-24]_ | 0.22    | `UC-PAR-suggest-book`, from its design (`design/par.md`): the trigger names the parent's list of active catalog books, since no use case gives a parent a book detail page or search; PRE-4 requires confirmed consent; the note is at most 250 characters (new extension 3b) and is not checked against the word list (`OI-68`); extension 4a's warning comes before the Parent confirms, and "suggest anyway" on a pending suggestion replaces its note; extension 5a and the Open Issues cite `OI-67`. Renumbered from v0.19 on merging `main`; open #118 claims v0.21 | _Cabdifataax Maxamuud_, _Claude_ |
 | _[2026-11-25]_ | 0.23    | From the review of #120 (`UC-PAR-suggest-book`): step 1 says "Suggest", since the child is chosen in 1a; 4a no longer says what the check covers until other use cases are built (that is in `design/par.md`); `UC-PAR-review-child-data` step 5 lists parent suggestions and their notes, and `UC-PAR-delete-child-data` POST-1 deletes them, matching the `BR-kid-data-stored` row; 5a says a report or a block of the book also removes the suggestion | _Cabdifataax Maxamuud_, _Claude_ |
 | _[2026-11-25]_ | 0.24    | `UC-SHLF-parent-remove-book`, from its design (`design/shlf.md`): the open issues cite `OI-71` (notice wording) and `OI-72` (recommended again), and a new one notes that "Removed by" is shown to no parent; from the review of #121, 5a now separates a failed save (the Parent is told nothing was saved) from one the system cannot confirm (the removal may have been saved, so the Parent checks the shelf before retrying), and new extension 5d refuses the removal, changing nothing, when the family's consent is not confirmed or has been revoked | _McKenzie Mitchell-Richardson_, _Claude_ |
+| _[2026-11-25]_ | 0.25    | `UC-REC-kid-review`, from its design (`design/rec.md`): step 2 shows each book's title and author, with a cover once covers exist (`OI-65`); 4a covers "Yes" and "Maybe later" for a book already on the shelf, which is neither added again nor moved, and the reaction is still recorded; 7a separates a save that saved nothing from one the system cannot confirm (check the shelf or try again; a retry finds the book already answered); the open issues cite `OI-73` (whether the parent sees decline reasons outside review and export) and `OI-2` (a declined book can be recommended again). | _McKenzie Mitchell-Richardson_, _Claude_ |
 
 ---
 
@@ -1146,7 +1147,7 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Main Success Scenario:**
 
 1. The child opens their recommendation list.
-2. The system displays each recommended book with its cover and title.
+2. The system displays each recommended book with its title and author (a cover is shown once covers exist, `OI-65`).
 3. The child chooses a reaction for a book: "Yes," "Maybe later," or "Not for me."
 4. If the reaction is "Yes," the system places the book on the shelf in "Reading Now."
 5. If the reaction is "Maybe later," the system places the book on the shelf in "Maybe Later."
@@ -1157,9 +1158,9 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Extensions:**
 
 - 3a. The child leaves the list without reacting to a book. The book stays in the recommendation list for the next visit.
-- 4a. The book is already on the child's shelf. The system does not add a duplicate and tells the child it is already on their shelf.
+- 4a. The reaction is "Yes" or "Maybe later" and the book is already on the child's shelf. The system does not add a duplicate or move the book, tells the child it is already on their shelf, records the reaction, and continues at step 7.
 - 6a. The child skips the optional reason. The decline is recorded with no reason.
-- 7a. Saving the shelf change or the reaction fails. The system shows an error and keeps the book in the list; the reaction is not recorded.
+- 7a. Saving the shelf change or the reaction fails. When the system knows nothing was saved, it shows an error and keeps the book in the list; the reaction is not recorded. When the system cannot confirm whether the save completed, it tells the child calmly that their answer may have been saved and to check their shelf or try again. If the answer was saved, a retry finds the book already answered, and the book leaves the list with no error.
 
 **Priority:** High — the child's accept/decline is the step that moves a recommendation onto the shelf.\
 **Frequency of Use:** Several times per active child per week, following each recommendation request.\
@@ -1176,8 +1177,8 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Related Use Cases:** `UC-REC-parent-review` (upstream); `UC-REC-recommend-quiz-rules` / `UC-REC-recommend-quiz-ai` (originating flows, mutually exclusive); `UC-SHLF-kid-view-shelf` (where accepted books appear)\
 **Assumptions:** The reaction options and shelf categories follow the 2026-09-25 flowchart; `FR-REC-react` in the SRS lists accept/defer/decline, which maps onto the same three choices.\
 **Open Issues:**
-- Whether a declined book, or its reason, is ever shown to the parent is not specified. The decline reason's purpose and visibility need confirming.
-- Whether a declined book can be recommended again later is not specified.
+- Whether a declined book, or its reason, is ever shown to the parent outside the parent's review and export of the child's data (`UC-PAR-review-child-data`) is `OI-73`.
+- A declined book can be recommended again in a later batch: the rules ranking proposal lowers it rather than excluding it (`OI-2`, `design/rec-field-values.md`).
 - The shelf category for an accepted book is "Reading Now" per the flowchart; `FR-SHLF-categories` in the SRS lists the four categories.
 
 ---

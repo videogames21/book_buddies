@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { Collection, MongoServerError, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertBook } from "../../../tests/fixtures/catalog";
@@ -34,9 +36,17 @@ vi.mock("@/server/catalog/books", async (importOriginal) => {
   };
 });
 
-const { createSuggestion, getSuggestionConflict, listSuggestionsForChild } =
-  await import("./suggestions");
-const { getDb, getMongoClient } = await import("@/server/lib/db");
+const {
+  createSuggestion,
+  deleteChildRecords,
+  deleteSuggestionsForBookInTx,
+  getSuggestionConflict,
+  listSuggestionsForChild,
+  listSuggestionsForExport,
+  removeSuggestionInTx,
+} = await import("./suggestions");
+const { getDb, getMongoClient, withTransaction } =
+  await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
 
 // Invented data only.
@@ -778,5 +788,201 @@ describe("listSuggestionsForChild (UC-PAR-suggest-book step 5)", () => {
     gate.enabled = false;
 
     expect(await listSuggestionsForChild(asChild(childId))).toEqual([]);
+  });
+});
+
+describe("suggestion contracts (UC-PAR-suggest-book)", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+    setClock(() => AT);
+    afterBookCheck.run = null;
+    gate.enabled = true;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetClock();
+  });
+
+  /** A fixture block in one transaction, as UC-ADM-block-content's will be (design/adm.md). */
+  const blockBook = (bookId: string) =>
+    withTransaction(async (tx) => {
+      await col("books").updateOne(
+        { _id: bookId as never },
+        { $set: { status: "blocked" }, $inc: { writeVersion: 1 } },
+        { session: tx },
+      );
+      await deleteSuggestionsForBookInTx(tx, bookId);
+    });
+
+  /** A fixture child deletion, until UC-PAR-delete-kid-account (#125) merges. */
+  const deleteChild = (childId: string) =>
+    withTransaction(async (tx) => {
+      await col("children").deleteOne(
+        { _id: childId as never },
+        { session: tx },
+      );
+      await deleteChildRecords(tx, childId);
+    });
+
+  it("suggest again after a reaction: removeSuggestionInTx deletes it, and a new suggestion has no warning", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await createSuggestion(main, { childId, bookId, suggestAnyway: false });
+
+    expect(
+      await withTransaction((tx) => removeSuggestionInTx(tx, childId, bookId)),
+    ).toBe(true);
+    expect(
+      await withTransaction((tx) => removeSuggestionInTx(tx, childId, bookId)),
+    ).toBe(false);
+    expect(
+      await createSuggestion(main, { childId, bookId, suggestAnyway: false }),
+    ).toEqual({ ok: true, data: null });
+  });
+
+  it("block deletes suggestions: every child's suggestion of that book and no other; an abort deletes none", async () => {
+    const one = await consentedFamily();
+    const two = await consentedFamily();
+    const bookId = await insertBook("active");
+    const otherBook = await insertBook("active");
+    await insertSuggestion(one.childId, bookId);
+    await insertSuggestion(two.childId, bookId);
+    await insertSuggestion(one.childId, otherBook);
+
+    await expect(
+      withTransaction(async (tx) => {
+        await deleteSuggestionsForBookInTx(tx, bookId);
+        throw new Error("abort the fixture transaction");
+      }),
+    ).rejects.toThrow();
+    expect(await count("parentSuggestions")).toBe(3);
+
+    await withTransaction((tx) => deleteSuggestionsForBookInTx(tx, bookId));
+    expect((await stored()).map((doc) => String(doc.bookId))).toEqual([
+      otherBook,
+    ]);
+  });
+
+  it("block race, suggest then block: the block's transaction deletes the committed suggestion", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await createSuggestion(main, { childId, bookId, suggestAnyway: false });
+
+    await blockBook(bookId);
+
+    expect(await count("parentSuggestions", { bookId })).toBe(0);
+  });
+
+  it("block race, concurrent: every interleaving ends with no suggestion of the blocked book", async () => {
+    for (let run = 0; run < 5; run += 1) {
+      const { main, childId } = await consentedFamily();
+      const bookId = await insertBook("active");
+
+      const [suggested] = await Promise.all([
+        createSuggestion(main, { childId, bookId, suggestAnyway: false }),
+        blockBook(bookId),
+      ]);
+
+      expect(await count("parentSuggestions", { bookId })).toBe(0);
+      if (!suggested.ok) expect(suggested.error.code).toBe("INVALID_BOOK");
+    }
+  });
+
+  it("racing child deletion: a suggestion that commits first is deleted with the child, and one after is CHILD_NOT_FOUND", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await createSuggestion(main, { childId, bookId, suggestAnyway: false });
+
+    await deleteChild(childId);
+    expect(await count("parentSuggestions", { childId })).toBe(0);
+
+    expect(
+      await createSuggestion(main, { childId, bookId, suggestAnyway: false }),
+    ).toMatchObject({ ok: false, error: { code: "CHILD_NOT_FOUND" } });
+    expect(await count("parentSuggestions", { childId })).toBe(0);
+  });
+
+  it("racing child deletion, concurrent: whichever commits, no suggestion for the child remains", async () => {
+    for (let run = 0; run < 5; run += 1) {
+      const { main, childId } = await consentedFamily();
+      const bookId = await insertBook("active");
+
+      const [suggested] = await Promise.all([
+        createSuggestion(main, { childId, bookId, suggestAnyway: false }),
+        deleteChild(childId),
+      ]);
+
+      expect(await count("parentSuggestions", { childId })).toBe(0);
+      if (!suggested.ok) expect(suggested.error.code).toBe("CHILD_NOT_FOUND");
+    }
+  });
+
+  it("deleteChildRecords deletes only that child's suggestions", async () => {
+    const { childId, familyId } = await consentedFamily();
+    const sibling = await insertChild(familyId);
+    const bookId = await insertBook("active");
+    await insertSuggestion(childId, bookId);
+    await insertSuggestion(sibling, bookId);
+
+    await withTransaction((tx) => deleteChildRecords(tx, childId));
+
+    expect((await stored()).map((doc) => String(doc.childId))).toEqual([
+      sibling,
+    ]);
+  });
+
+  it("review and export: every suggestion of the child, a draft book's included; another family gets none", async () => {
+    const mine = await consentedFamily();
+    const theirs = await consentedFamily();
+    const draftLater = await insertBook("active", "Back To Draft");
+    await createSuggestion(mine.main, {
+      childId: mine.childId,
+      bookId: draftLater,
+      note: NOTE,
+      suggestAnyway: false,
+    });
+    await col("books").updateOne(
+      { _id: draftLater as never },
+      { $set: { status: "draft" } },
+    );
+
+    expect(
+      await withTransaction((tx) =>
+        listSuggestionsForExport(mine.familyId, mine.childId, tx),
+      ),
+    ).toEqual([{ bookId: draftLater, note: NOTE, suggestedAt: AT }]);
+    expect(
+      await withTransaction((tx) =>
+        listSuggestionsForExport(theirs.familyId, mine.childId, tx),
+      ),
+    ).toEqual([]);
+  });
+
+  it("admin boundary: no admin or Catalog code imports suggestions.ts", () => {
+    const srcRoot = join(process.cwd(), "src");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else if (
+          /\.tsx?$/.test(entry.name) &&
+          !/\.test\.tsx?$/.test(entry.name)
+        )
+          files.push(path);
+      }
+    };
+    walk(srcRoot);
+    const importPattern =
+      /from "(\.\/suggestions|@\/server\/accounts-family\/suggestions)"/;
+    const importers = files
+      .filter((file) => importPattern.test(readFileSync(file, "utf8")))
+      .map((file) => relative(srcRoot, file).split(sep).join("/"));
+
+    // reportBook is the one caller today; the PR 2 pages and action join it.
+    expect(importers).toContain("server/accounts-family/book-reports.ts");
+    for (const importer of importers) {
+      expect(importer).not.toMatch(/(^|\/)(\(admin\)|admin|catalog)\//);
+    }
   });
 });

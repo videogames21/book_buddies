@@ -13,6 +13,7 @@ import type { ReportReason } from "@/shared/accounts-family/book-report";
 import { BOOK_REPORTS, CHILD_BOOK_EXCLUSIONS } from "./book-report-schema";
 import { getChildForFamily, lockChildForWrite } from "./child-accounts";
 import { lockConsentForWrite } from "./families";
+import { removeSuggestionInTx } from "./suggestions";
 
 // Accounts & Family's Book Reports and Per-Child Exclusions (UC-PAR-report-book;
 // design/par.md). Nothing here deletes an exclusion or changes a report's status (POST-7):
@@ -139,6 +140,9 @@ export async function reportBook(
         },
         { session: tx },
       );
+      // UC-PAR-suggest-book: a reported book's pending suggestion goes with the report.
+      // It does not count toward PRE-3 below.
+      await removeSuggestionInTx(tx, childId, bookId);
 
       const removedEntryId = await removeShelfEntryInTx(tx, childId, bookId);
       // 7d: UC-REC-parent-review adds removeFromPendingBatchInTx here, and its answer

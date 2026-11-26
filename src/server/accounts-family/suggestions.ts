@@ -290,3 +290,81 @@ export async function listSuggestionsForChild(
     ];
   });
 }
+
+// ---- Contracts (design/par.md, Components & classes) --------------------------------
+// Named here so that only this file touches `parentSuggestions` (§8.2.4). Each runs in
+// its caller's transaction.
+
+/**
+ * Deletes the child's suggestion of one book and returns whether one existed. Called by
+ * `reportBook` after its exclusion insert, and by `UC-REC-kid-review` on every reaction.
+ */
+export async function removeSuggestionInTx(
+  tx: Tx,
+  childId: string,
+  bookId: string,
+): Promise<boolean> {
+  const result = await suggestions().deleteOne(
+    { childId, bookId },
+    { session: tx },
+  );
+  return result.deletedCount === 1;
+}
+
+/**
+ * Deletes every child's suggestion of one book, for `UC-ADM-block-content`'s block
+ * transaction. No caller until that use case is built (design/adm.md names it).
+ */
+export async function deleteSuggestionsForBookInTx(
+  tx: Tx,
+  bookId: string,
+): Promise<void> {
+  await suggestions().deleteMany({ bookId }, { session: tx });
+}
+
+/**
+ * This file's part of the §8.2.8 deletion contract: all of one child's suggestions.
+ * `UC-PAR-delete-kid-account` (#125, not merged) adds it to `child-deletion.ts`'s list,
+ * and `UC-PAR-delete-child-data` and the inactivity purge call it too.
+ */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await suggestions().deleteMany({ childId }, { session: tx });
+}
+
+export type SuggestionForExport = {
+  bookId: string;
+  note?: string;
+  suggestedAt: Date;
+};
+
+/**
+ * The reader for `UC-PAR-review-child-data`, inside the caller's snapshot transaction:
+ * every suggestion of the child, including ones the child can no longer see. A child
+ * outside the family gets none. No caller until that use case is built.
+ */
+export async function listSuggestionsForExport(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+): Promise<SuggestionForExport[]> {
+  const child = await getChildForFamily(familyId, childId, tx);
+  if (!child) return [];
+  const docs = await suggestions()
+    .find(
+      { childId },
+      {
+        projection: { _id: 0, bookId: 1, note: 1, suggestedAt: 1 },
+        sort: { suggestedAt: -1 },
+        session: tx,
+      },
+    )
+    .toArray();
+  return docs.map((doc) => ({
+    bookId: doc.bookId,
+    ...(doc.note ? { note: doc.note } : {}),
+    suggestedAt: doc.suggestedAt,
+  }));
+}

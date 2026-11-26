@@ -34,7 +34,7 @@ vi.mock("@/server/catalog/books", async (importOriginal) => {
   };
 });
 
-const { createSuggestion, getSuggestionConflict } =
+const { createSuggestion, getSuggestionConflict, listSuggestionsForChild } =
   await import("./suggestions");
 const { getDb, getMongoClient } = await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
@@ -664,5 +664,119 @@ describe("createSuggestion (UC-PAR-suggest-book)", () => {
     for (const secret of [NOTE, "Otterpop", childId, otherBook]) {
       expect(logged).not.toContain(secret);
     }
+  });
+});
+
+describe("listSuggestionsForChild (UC-PAR-suggest-book step 5)", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+    setClock(() => AT);
+    afterBookCheck.run = null;
+    gate.enabled = true;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetClock();
+  });
+
+  const asChild = (childId: string) => ({
+    userId: new ObjectId().toHexString(),
+    childId,
+    sessionId: new ObjectId(),
+  });
+
+  it("step 5: book ID, title, author, the note and fromGrownUp, newest first, and no other field", async () => {
+    const { main, childId, familyId } = await consentedFamily();
+    const sibling = await insertChild(familyId, { nickname: "Pebble" });
+    const older = await insertBook("active", "Older Book");
+    const newer = await insertBook("active", "Newer Book");
+    await createSuggestion(main, {
+      childId,
+      bookId: older,
+      note: NOTE,
+      suggestAnyway: false,
+    });
+    setClock(() => new Date("2026-11-25T16:00:00Z"));
+    await createSuggestion(main, {
+      childId,
+      bookId: newer,
+      suggestAnyway: false,
+    });
+    await createSuggestion(main, {
+      childId: sibling,
+      bookId: older,
+      note: "for the sibling",
+      suggestAnyway: false,
+    });
+
+    expect(await listSuggestionsForChild(asChild(childId))).toEqual([
+      {
+        bookId: newer,
+        title: "Newer Book",
+        author: "A. Writer",
+        fromGrownUp: true,
+      },
+      {
+        bookId: older,
+        title: "Older Book",
+        author: "A. Writer",
+        note: NOTE,
+        fromGrownUp: true,
+      },
+    ]);
+  });
+
+  it("step 5, later report or block: an excluded or blocked book is no longer returned", async () => {
+    const { main, childId } = await consentedFamily();
+    const reported = await insertBook("active", "Reported");
+    const blocked = await insertBook("active", "Blocked");
+    const kept = await insertBook("active", "Kept");
+    for (const bookId of [reported, blocked, kept]) {
+      await createSuggestion(main, { childId, bookId, suggestAnyway: false });
+    }
+    await col("childBookExclusions").insertOne({
+      childId,
+      bookId: reported,
+      reportId: new ObjectId(),
+      createdAt: AT,
+    });
+    await col("books").updateOne(
+      { _id: blocked as never },
+      { $set: { status: "blocked" } },
+    );
+
+    const list = await listSuggestionsForChild(asChild(childId));
+    expect(list.map((item) => item.bookId)).toEqual([kept]);
+  });
+
+  it("step 5, draft, and draft race suggest then draft: the suggestion stays stored but is not returned", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await createSuggestion(main, { childId, bookId, suggestAnyway: false });
+    await col("books").updateOne(
+      { _id: bookId as never },
+      { $set: { status: "draft" } },
+    );
+
+    expect(await listSuggestionsForChild(asChild(childId))).toEqual([]);
+    expect(await count("parentSuggestions", { childId })).toBe(1);
+  });
+
+  it("5a: with the clock a year on and the child still active, the suggestion is still returned", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await createSuggestion(main, { childId, bookId, suggestAnyway: false });
+    setClock(() => new Date("2027-11-25T15:00:00Z"));
+
+    expect(await listSuggestionsForChild(asChild(childId))).toHaveLength(1);
+  });
+
+  it("release gate: with the gate off a stored suggestion is not returned", async () => {
+    const { childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await insertSuggestion(childId, bookId, { note: NOTE });
+    gate.enabled = false;
+
+    expect(await listSuggestionsForChild(asChild(childId))).toEqual([]);
   });
 });

@@ -115,6 +115,17 @@ export async function requireParent(): Promise<
   return ok({ userId, familyId: user.familyId.toHexString(), parentRole });
 }
 
+/**
+ * The result of `requireChild()` (design/shlf.md), declared here ahead of it so
+ * `listSuggestionsForChild` can take a child session and never a bare ID. It matches
+ * the type in open pull request #134; whichever of the two merges second reconciles it.
+ */
+export type ChildSession = {
+  userId: string;
+  childId: string;
+  sessionId: ObjectId;
+};
+
 export type AdminSession = { userId: string; role: "admin" };
 
 export type AdminSessionErrorCode = "NOT_SIGNED_IN" | "NOT_AN_ADMIN";

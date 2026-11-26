@@ -2,16 +2,20 @@ import "server-only";
 import { MongoServerError, ObjectId } from "mongodb";
 import {
   findActiveBookIds,
+  getBooksForShelf,
   lockActiveBookForWrite,
 } from "@/server/catalog/books";
-import type { ParentSession } from "@/server/identity-access/sessions";
+import type {
+  ChildSession,
+  ParentSession,
+} from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { areParentSuggestionsEnabled } from "@/server/lib/config";
 import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { isOnShelf } from "@/server/shelf/shelf-entries";
-import { isExcluded } from "./book-reports";
+import { isExcluded, listExcludedBookIds } from "./book-reports";
 import { getChildForFamily, lockChildForWrite } from "./child-accounts";
 import { lockConsentForWrite } from "./families";
 import { PARENT_SUGGESTIONS } from "./suggestion-schema";
@@ -231,4 +235,58 @@ export async function getSuggestionConflict(
 
   if (await isOnShelf(childId, bookId, tx)) return "onShelf";
   return null;
+}
+
+/** One item of the child's list (step 5): book data, the note, and the generic label only. */
+export type SuggestionForChild = {
+  bookId: string;
+  title: string;
+  author: string;
+  note?: string;
+  fromGrownUp: true;
+};
+
+/**
+ * Step 5, for `UC-REC-kid-review`'s page only. Reads only the session's child, newest
+ * first, and drops books excluded for the child (`KD-book-exclusion`) and books no
+ * longer active (blocked or back to draft). It returns no parent, date or count
+ * (§8.2.11). With the release gate off the child sees nothing. Throws on a failed read.
+ */
+export async function listSuggestionsForChild(
+  childSession: ChildSession,
+): Promise<SuggestionForChild[]> {
+  if (!areParentSuggestionsEnabled()) return [];
+  const { childId } = childSession;
+  const pending = await suggestions()
+    .find(
+      { childId },
+      { projection: { _id: 0, bookId: 1, note: 1 }, sort: { suggestedAt: -1 } },
+    )
+    .toArray();
+  if (pending.length === 0) return [];
+
+  const excluded = new Set(await listExcludedBookIds(childId));
+  const candidateIds = pending
+    .map((suggestion) => suggestion.bookId)
+    .filter((bookId) => !excluded.has(bookId));
+  const active = new Set(await findActiveBookIds(candidateIds));
+  const books = new Map(
+    (await getBooksForShelf([...active])).map((book) => [book.id, book]),
+  );
+
+  return pending.flatMap((suggestion) => {
+    const book = active.has(suggestion.bookId)
+      ? books.get(suggestion.bookId)
+      : undefined;
+    if (!book) return [];
+    return [
+      {
+        bookId: book.id,
+        title: book.title,
+        author: book.author,
+        ...(suggestion.note ? { note: suggestion.note } : {}),
+        fromGrownUp: true as const,
+      },
+    ];
+  });
 }

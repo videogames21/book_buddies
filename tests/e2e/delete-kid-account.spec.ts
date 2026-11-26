@@ -100,6 +100,26 @@ test("2a: leaving the page without confirming deletes nothing", async ({
   expect(await childCount(childId)).toBe(1);
 });
 
+test("a failed call shows a retryable error and re-enables the button", async ({
+  page,
+  context,
+}) => {
+  const { childId, path } = await setUp(context);
+  await page.goto(path);
+  // The server action is a POST to the page; make that request fail as network loss.
+  await page.route(`**${path}`, (route) =>
+    route.request().method() === "POST" ? route.abort() : route.continue(),
+  );
+  await page.getByLabel("Your password").fill(PASSWORD);
+  await page.getByLabel("Type Starfish to confirm").fill("Starfish");
+  const button = page.getByRole("button", { name: /Delete this child/ });
+  await button.click();
+
+  await expect(page.getByText(/couldn't reach BookBuddies/)).toBeVisible();
+  await expect(button).toBeEnabled();
+  expect(await childCount(childId)).toBe(1);
+});
+
 test("1a: a Sub Parent sees the explanation and no form", async ({
   page,
   context,

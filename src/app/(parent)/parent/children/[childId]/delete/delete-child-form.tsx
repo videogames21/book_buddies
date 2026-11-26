@@ -33,20 +33,29 @@ export function DeleteChildForm({
     const form = new FormData(event.currentTarget);
     setPending(true);
     setError(null);
-    const result = await deleteChildAccount({
-      childId,
-      password: form.get("password"),
-      nickname: form.get("nickname"),
-    });
-    setPending(false);
-    if (result.ok) {
-      setDeleted(true);
-    } else {
+    try {
+      const result = await deleteChildAccount({
+        childId,
+        password: form.get("password"),
+        nickname: form.get("nickname"),
+      });
+      if (result.ok) {
+        setDeleted(true);
+      } else {
+        setError(
+          result.error.errorId
+            ? `${result.error.message} (Error ID: ${result.error.errorId})`
+            : result.error.message,
+        );
+      }
+    } catch {
+      // The call itself failed (network, restart), so the server may or may not have
+      // finished. Say that, and let the parent check and try again.
       setError(
-        result.error.errorId
-          ? `${result.error.message} (Error ID: ${result.error.errorId})`
-          : result.error.message,
+        "We couldn't reach BookBuddies, so we don't know whether the account was deleted. Reload the page to check before trying again.",
       );
+    } finally {
+      setPending(false);
     }
   }
 

@@ -35,7 +35,7 @@ async function recordOf(email: string) {
     .findOne({ familyId: user.familyId as ObjectId });
 }
 
-test("main: sign up from sign-in, confirm from the email, land on the child form (steps 1-8)", async ({
+test("main (steps 1-8) and proving slice: confirm parent consent, add a child and save the reading profile", async ({
   page,
 }) => {
   const email = newEmail();
@@ -68,7 +68,41 @@ test("main: sign up from sign-in, confirm from the email, land on the child form
 
   await page.getByRole("button", { name: "Confirm" }).click();
   await expect(page).toHaveURL(/\/parent\/children\/new$/);
-  expect((await recordOf(email))?.confirmedAt).toBeInstanceOf(Date);
+  const consent = await recordOf(email);
+  expect(consent?.confirmedAt).toBeInstanceOf(Date);
+
+  await page
+    .getByLabel("Nickname (what your child is shown as)")
+    .fill("Starfish");
+  await page.getByLabel("Age").fill("8");
+  await page.getByRole("combobox", { name: /^Grade/ }).selectOption("3");
+  await page
+    .getByLabel("Username (your child signs in with this)")
+    .fill("Slice_Reader");
+  await page.getByAltText("Avatar 2", { exact: true }).click();
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByTestId("child-username")).toHaveText("slice_reader");
+  await expect(page.getByTestId("child-password")).toBeVisible();
+
+  const db = await e2eDb();
+  const child = await db.collection("children").findOne({
+    familyId: consent?.familyId,
+    nickname: "Starfish",
+  });
+  expect(child).not.toBeNull();
+  const path = `/parent/children/${String(child?._id)}`;
+  await page.getByRole("button", { name: /continue/i }).click();
+  await expect(page).toHaveURL(new RegExp(`${path}/reading-profile$`));
+  await page.getByLabel("Fantasy and magic").check();
+  await page.getByLabel(/I have read this notice/).check();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page).toHaveURL(new RegExp(`${path}/onboarding-complete$`));
+
+  expect(
+    await db.collection("readingProfiles").findOne({
+      childId: child?._id,
+    }),
+  ).toMatchObject({ interests: ["fantasy"], onboardingComplete: true });
 });
 
 test("3a: leaving the form without submitting writes nothing", async ({

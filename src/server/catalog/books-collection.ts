@@ -11,6 +11,8 @@ export type BookDocument = {
   _id: string;
   title: string;
   author: string;
+  /** Absent when the book is in no series; set by the catalog import (design/adm.md). */
+  seriesName?: string;
   matchKey: string;
   year: number;
   isbn?: string;

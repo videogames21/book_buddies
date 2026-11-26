@@ -31,6 +31,26 @@ const configSchema = z.object({
   // UC-PAR-suggest-book release gate (README, "Review and release dependencies").
   // Off unless set to "1"; only the demo and e2e servers, which hold invented data, set it.
   PARENT_SUGGESTIONS_ENABLED: blankAsUnset(z.enum(["0", "1"]).default("0")),
+  // UC-REC-parent-review 2a: how long a batch waits for the parent before it is released
+  // unchanged. 24 hours, provisional (OI-69). The quiz's insert adds it to `createdAt`
+  // once and stores the result as the batch's `handoffDeadline`.
+  BATCH_REVIEW_WINDOW_HOURS: blankAsUnset(
+    z.coerce.number().int().min(1).max(168).default(24),
+  ),
+  // Child sessions (design/shlf.md, Data model). How often an open child page sends
+  // its keep-alive.
+  CHILD_KEEPALIVE_SECONDS: blankAsUnset(
+    z.coerce.number().int().min(5).max(300).default(30),
+  ),
+  // How long after the last keep-alive or request a visit still counts as open once
+  // midnight has passed.
+  CHILD_LEAVE_GRACE_SECONDS: blankAsUnset(
+    z.coerce.number().int().min(60).max(3600).default(600),
+  ),
+  // How long a child can do nothing before being signed out (SEC-auth).
+  CHILD_IDLE_MINUTES: blankAsUnset(
+    z.coerce.number().int().min(1).max(240).default(30),
+  ),
 });
 
 export type Config = z.infer<typeof configSchema>;

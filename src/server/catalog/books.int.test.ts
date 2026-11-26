@@ -13,6 +13,7 @@ import { resetDatabase } from "../../../tests/integration/db";
 import {
   addBook,
   findActiveBookIds,
+  getBooksForReview,
   listBooksForAdmin,
   listCustomTags,
   listPickerBooks,
@@ -430,5 +431,52 @@ describe("Logging", () => {
     spies.forEach((spy) => {
       spy.mockRestore();
     });
+  });
+});
+
+describe("getBooksForReview (UC-REC-parent-review)", () => {
+  it("returns the title, author and tags of the active books only, and no private field", async () => {
+    const active = await insertBook("active", "Kept", {
+      subjects: ["animals"],
+      readingLevel: "650L",
+      customTags: ["secret"],
+    });
+    const draft = await insertBook("draft", "Draft");
+    const blocked = await insertBook("blocked", "Blocked");
+
+    const found = await getBooksForReview([active, draft, blocked, "missing"]);
+
+    expect(found).toEqual([
+      {
+        id: active,
+        title: "Kept",
+        author: "A. Writer",
+        genres: ["fantasy"],
+        subjects: ["animals"],
+        moods: ["calm"],
+        length: "quick read",
+      },
+    ]);
+    expect(JSON.stringify(found)).not.toMatch(/secret|650L/);
+    expect(await getBooksForReview([])).toEqual([]);
+  });
+
+  it("with an age, keeps only books whose band contains it, inclusive; without one, every active book", async () => {
+    const sixToEight = await insertBook("active", "Six to eight");
+    const nineToEleven = await insertBook("active", "Nine to eleven", {
+      ageMin: 9,
+      ageMax: 11,
+    });
+    const ids = [sixToEight, nineToEleven];
+    const titles = async (age?: number) =>
+      (await getBooksForReview(ids, age === undefined ? {} : { age }))
+        .map((book) => book.title)
+        .sort();
+
+    expect(await titles()).toEqual(["Nine to eleven", "Six to eight"]);
+    expect(await titles(6)).toEqual(["Six to eight"]);
+    expect(await titles(8)).toEqual(["Six to eight"]);
+    expect(await titles(9)).toEqual(["Nine to eleven"]);
+    expect(await titles(12)).toEqual([]);
   });
 });

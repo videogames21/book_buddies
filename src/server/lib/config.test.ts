@@ -73,11 +73,17 @@ it("treats blank settings that have defaults as unset", async () => {
   vi.stubEnv("MONGODB_DB", "");
   vi.stubEnv("CONSENT_CONFIRMATION_DAYS", "");
   vi.stubEnv("CONSENT_METHOD", "");
+  vi.stubEnv("CHILD_KEEPALIVE_SECONDS", "");
+  vi.stubEnv("CHILD_LEAVE_GRACE_SECONDS", "");
+  vi.stubEnv("CHILD_IDLE_MINUTES", "");
   const { getConfig } = await import("./config");
   expect(getConfig()).toMatchObject({
     MONGODB_DB: "bookbuddies",
     CONSENT_CONFIRMATION_DAYS: 14,
     CONSENT_METHOD: "email-plus",
+    CHILD_KEEPALIVE_SECONDS: 30,
+    CHILD_LEAVE_GRACE_SECONDS: 600,
+    CHILD_IDLE_MINUTES: 30,
   });
 });
 
@@ -121,4 +127,63 @@ it("keeps parent suggestions off unless the release gate flag is exactly 1 (UC-P
   expect(() => refused.areParentSuggestionsEnabled()).toThrow(
     "Invalid environment: PARENT_SUGGESTIONS_ENABLED",
   );
+});
+
+it("defaults the batch review window to 24 hours and accepts 1 to 168 (OI-69)", async () => {
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  const defaulted = await import("./config");
+  expect(defaulted.getConfig().BATCH_REVIEW_WINDOW_HOURS).toBe(24);
+
+  for (const [value, expected] of [
+    ["1", 1],
+    ["168", 168],
+  ] as const) {
+    vi.resetModules();
+    vi.stubEnv("BATCH_REVIEW_WINDOW_HOURS", value);
+    const accepted = await import("./config");
+    expect(accepted.getConfig().BATCH_REVIEW_WINDOW_HOURS).toBe(expected);
+  }
+
+  for (const value of ["0", "169", "1.5"]) {
+    vi.resetModules();
+    vi.stubEnv("BATCH_REVIEW_WINDOW_HOURS", value);
+    const refused = await import("./config");
+    expect(() => refused.getConfig()).toThrow(
+      "Invalid environment: BATCH_REVIEW_WINDOW_HOURS",
+    );
+  }
+});
+
+it.each([
+  ["CHILD_KEEPALIVE_SECONDS", 5, 300],
+  ["CHILD_LEAVE_GRACE_SECONDS", 60, 3600],
+  ["CHILD_IDLE_MINUTES", 1, 240],
+] as const)("accepts %s from %i to %i only", async (name, lowest, highest) => {
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  const read = async (value: number) => {
+    vi.resetModules();
+    vi.stubEnv(name, String(value));
+    const { getConfig } = await import("./config");
+    return () => getConfig()[name];
+  };
+  for (const value of [lowest, highest]) {
+    expect((await read(value))()).toBe(value);
+  }
+  for (const value of [lowest - 1, highest + 1]) {
+    expect(await read(value)).toThrow(`Invalid environment: ${name}`);
+  }
+});
+
+it("defaults the child session times", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  const config = await import("./config");
+  expect(config.getConfig()).toMatchObject({
+    CHILD_KEEPALIVE_SECONDS: 30,
+    CHILD_LEAVE_GRACE_SECONDS: 600,
+    CHILD_IDLE_MINUTES: 30,
+  });
 });

@@ -3,7 +3,7 @@ import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { findAdminByEmail, findParentByEmail } from "./parent-accounts";
 import { verifyPassword } from "./passwords";
 import { createDatabaseSession, type NewSession } from "./sessions";
-import { claimSignInAttempt, clearSignInAttempts } from "./sign-in-throttle";
+import { checkPasswordAttempt } from "./sign-in-throttle";
 
 // A Main Parent's or an admin's sign-in (OI-44, design/par.md, Supporting flows). It knows nothing
 // about onboarding: the gate on /parent decides where the parent goes next.
@@ -29,28 +29,33 @@ export async function signInMainParent(
   email: string,
   password: string,
 ): Promise<ActionResult<NewSession, SignInCode>> {
-  const claim = await claimSignInAttempt(email);
-  if (!claim.allowed) {
-    return fail("TOO_MANY_ATTEMPTS", waitMessage(claim.waitSeconds));
+  // Set by the check; an object, because a closure's assignment is not narrowed.
+  const signedIn: { userId?: string } = {};
+  const attempt = await checkPasswordAttempt(email, async () => {
+    const parent = await findParentByEmail(email);
+    // TEMPORARY (OI-61): off unless the demo or e2e server sets the flag, so the rig
+    // cannot reach a live environment.
+    const admin =
+      parent || process.env.ALLOW_ADMIN_PARENT_SIGNIN !== "1"
+        ? null
+        : await findAdminByEmail(email);
+    const account = parent ?? admin;
+    const matches = await verifyPassword(
+      password,
+      account?.passwordHash ?? DECOY_HASH,
+    );
+    // Sub Parent sign-in comes with UC-PAR-create-sub-parent-account.
+    if (!account || (parent && parent.parentRole !== "main") || !matches) {
+      return false;
+    }
+    signedIn.userId = account.userId;
+    return true;
+  });
+  if (attempt.outcome === "wait") {
+    return fail("TOO_MANY_ATTEMPTS", waitMessage(attempt.waitSeconds));
   }
-
-  const parent = await findParentByEmail(email);
-  // TEMPORARY (OI-61): off unless the demo or e2e server sets the flag, so the rig
-  // cannot reach a live environment.
-  const admin =
-    parent || process.env.ALLOW_ADMIN_PARENT_SIGNIN !== "1"
-      ? null
-      : await findAdminByEmail(email);
-  const account = parent ?? admin;
-  const matches = await verifyPassword(
-    password,
-    account?.passwordHash ?? DECOY_HASH,
-  );
-  // Sub Parent sign-in comes with UC-PAR-create-sub-parent-account.
-  if (!account || (parent && parent.parentRole !== "main") || !matches) {
+  if (attempt.outcome === "refused" || !signedIn.userId) {
     return fail("INVALID_CREDENTIALS", "That email or password is incorrect.");
   }
-
-  await clearSignInAttempts(email);
-  return ok(await createDatabaseSession(account.userId));
+  return ok(await createDatabaseSession(signedIn.userId));
 }

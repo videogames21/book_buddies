@@ -261,3 +261,16 @@ export async function listChildrenForFamily(familyId: string) {
     .sort({ createdAt: 1, _id: 1 })
     .toArray();
 }
+
+/**
+ * The nickname and avatar of one child and nothing else, so a child's own session may
+ * read it (§8.2.11). Callers pass the child ID from that session.
+ */
+export async function getChildDisplay(childId: string) {
+  return getDb()
+    .collection<{ _id: string; nickname: string; avatar: AvatarKey }>(CHILDREN)
+    .findOne(
+      { _id: childId },
+      { projection: { _id: 0, nickname: 1, avatar: 1 } },
+    );
+}

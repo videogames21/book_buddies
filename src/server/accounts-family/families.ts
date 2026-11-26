@@ -106,6 +106,30 @@ export async function purgeExpiredUnconfirmed(): Promise<number> {
   return removed;
 }
 
+/**
+ * UC-PAR-report-book: increments `consentWriteVersion` on the family's Consent Record only
+ * while consent is confirmed and not revoked. A revocation writes the same document, so a
+ * report and a revocation conflict and MongoDB retries one of them; a snapshot read alone
+ * would not conflict. Returns whether consent matched.
+ */
+export async function lockConsentForWrite(
+  tx: Tx,
+  familyId: string,
+): Promise<boolean> {
+  const result = await getDb()
+    .collection(CONSENT_RECORDS)
+    .updateOne(
+      {
+        familyId: new ObjectId(familyId),
+        confirmedAt: { $type: "date" },
+        revokedAt: { $exists: false },
+      },
+      { $inc: { consentWriteVersion: 1 } },
+      { session: tx },
+    );
+  return result.matchedCount === 1;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type NewParent = {

@@ -52,6 +52,8 @@ export async function ensureConsentRecordIndexes(db: Db): Promise<void> {
           },
         },
       },
+      // lockConsentForWrite's counter for book reports; absent means 0 (UC-PAR-report-book).
+      consentWriteVersion: { bsonType: ["int", "long"] },
     },
   });
   await db

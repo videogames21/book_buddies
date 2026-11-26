@@ -165,6 +165,48 @@ describe("GET /api/cron/cleanup", () => {
     ).toBe(1);
   });
 
+  it("ends child sessions that are over, and removes records whose session is gone", async () => {
+    const past = new Date(NOW.getTime() - 1000);
+    const longAgo = new Date(NOW.getTime() - 60 * 60 * 1000);
+    const nextYear = new Date("2027-06-01T00:00:00Z");
+    const childSession = async (endsAt: Date) => {
+      const userId = new ObjectId().toHexString();
+      const session = await createDatabaseSession(userId, undefined, endsAt);
+      return session.sessionToken;
+    };
+    const ends = getDb().collection("childSessionEnds");
+    const setTimes = async (sessionToken: string, times: object) => {
+      const found = await getDb()
+        .collection("sessions")
+        .findOneAndUpdate({ sessionToken }, { $set: { expires: nextYear } });
+      await ends.updateOne({ sessionId: found?._id }, { $set: times });
+    };
+    const running = await childSession(new Date(NOW.getTime() + 1000));
+    const stillOpen = await childSession(past);
+    // Past midnight with the visit over, although `expires` was slid forward.
+    await setTimes(await childSession(past), { lastSeenAt: longAgo });
+    // Idle before midnight.
+    await setTimes(await childSession(nextYear), { lastActiveAt: longAgo });
+    const parent = await insertParent({ parentRole: "main" });
+    const parents = await createDatabaseSession(parent.userId);
+    await ends.insertOne({
+      sessionId: new ObjectId(),
+      endsAt: nextYear,
+      lastSeenAt: NOW,
+      lastActiveAt: NOW,
+    });
+
+    expect(await (await call(`Bearer ${SECRET}`)).json()).toEqual({
+      ok: true,
+      data: { purged: 3 },
+    });
+    const left = await getDb().collection("sessions").find().toArray();
+    expect(left.map((s) => s.sessionToken as string).sort()).toEqual(
+      [running, stillOpen, parents.sessionToken].sort(),
+    );
+    expect(await ends.countDocuments()).toBe(2);
+  });
+
   it("runs the other purges when one fails, then reports the failure", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     await insertAttempts();

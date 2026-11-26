@@ -48,16 +48,20 @@ type BatchDocument = {
 
 const batches = () => getDb().collection<BatchDocument>(RECOMMENDATION_BATCHES);
 
+export type QuizBatchLookup = { requestId: string; includePending: boolean };
+
 /** An existing request or an unexpired pending batch gets the same acknowledgment. */
 export async function hasQuizBatch(
   childId: string,
   tx?: Tx,
-  requestId?: string,
+  lookup?: QuizBatchLookup,
 ): Promise<boolean> {
   const pending = pendingFilter(now());
-  const filter = requestId
-    ? { childId, $or: [{ requestId }, pending] }
-    : { childId, ...pending };
+  const filter = !lookup
+    ? { childId, ...pending }
+    : lookup.includePending
+      ? { childId, $or: [{ requestId: lookup.requestId }, pending] }
+      : { childId, requestId: lookup.requestId };
   const batch = await batches().findOne(filter, {
     projection: { _id: 1 },
     session: tx,

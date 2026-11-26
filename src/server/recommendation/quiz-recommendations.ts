@@ -27,8 +27,8 @@ const ratingWeights = {
 } as const;
 
 /**
- * The read and ranking step of a submission. The eventual batch writer checks the
- * child session and takes the child and consent locks before calling this with its
+ * The read and ranking step of a submission. The server action checks the
+ * child session and the batch writer takes the child and consent locks before calling this with its
  * transaction. Owner read errors propagate so a failed read can never save a batch.
  */
 export async function rankQuizBooks(

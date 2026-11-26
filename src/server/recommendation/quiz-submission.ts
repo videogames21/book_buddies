@@ -19,6 +19,7 @@ import type { QuizSubmission } from "@/shared/recommendation/quiz";
 import {
   hasQuizBatch,
   insertQuizBatch,
+  type QuizBatchLookup,
   releaseExpiredBatchInTx,
 } from "./batches";
 import { rankQuizBooks } from "./quiz-recommendations";
@@ -62,15 +63,14 @@ export function isRulesQuizAvailable(): boolean {
 
 export async function readRulesQuiz(
   childId: string,
-  requestId?: string,
+  lookup?: QuizBatchLookup,
 ): Promise<ActionResult<"open" | "received", QuizCode>> {
   try {
     const familyId = await getFamilyIdForChild(childId);
     if (!familyId) return refuse("CHILD_NOT_FOUND");
     if (!(await isConsentConfirmed(familyId)))
       return refuse("CONSENT_NOT_CONFIRMED");
-    if (await hasQuizBatch(childId, undefined, requestId))
-      return ok("received");
+    if (await hasQuizBatch(childId, undefined, lookup)) return ok("received");
     if (!isRulesQuizAvailable()) return refuse("RULES_UNAVAILABLE");
     if (!(await getRuleQuizProfile(childId)))
       return refuse("PROFILE_INCOMPLETE");
@@ -93,8 +93,12 @@ export async function submitRulesQuiz(
   submission: QuizSubmission,
   catalogGuard: QuizCatalogGuard | undefined = getQuizCatalogGuard(),
 ): Promise<ActionResult<null, QuizCode>> {
+  const lookup: QuizBatchLookup = {
+    requestId: submission.requestId,
+    includePending: true,
+  };
   if (!catalogGuard || getRecommenderMode() !== "rules") {
-    const status = await readRulesQuiz(childId, submission.requestId);
+    const status = await readRulesQuiz(childId, lookup);
     if (!status.ok) return status;
     return status.data === "received" ? ok(null) : refuse("RULES_UNAVAILABLE");
   }
@@ -109,8 +113,7 @@ export async function submitRulesQuiz(
       if (!familyId) return refuse("CHILD_NOT_FOUND");
       if (!(await lockConsentForWrite(tx, familyId)))
         return refuse("CONSENT_NOT_CONFIRMED");
-      if (await hasQuizBatch(childId, tx, submission.requestId))
-        return ok(null);
+      if (await hasQuizBatch(childId, tx, lookup)) return ok(null);
 
       const ranking = await rankQuizBooks(childId, submission, tx);
       if (ranking.outcome === "profileIncomplete")
@@ -138,13 +141,19 @@ export async function submitRulesQuiz(
   } catch (err) {
     if (err instanceof CatalogChanged) return refuse("SAVE_FAILED");
     if (err instanceof MongoServerError && err.code === 11000) {
-      const pattern: unknown = err.keyPattern;
-      if (
-        typeof pattern === "object" &&
-        pattern !== null &&
-        "childId" in pattern
-      ) {
-        const status = await readRulesQuiz(childId, submission.requestId);
+      const keys = Object.keys(
+        (err.keyPattern ?? {}) as Record<string, unknown>,
+      );
+      const pendingIndex = keys.length === 1 && keys.includes("childId");
+      const requestIndex =
+        keys.length === 2 &&
+        keys.includes("childId") &&
+        keys.includes("requestId");
+      if (pendingIndex || requestIndex) {
+        const status = await readRulesQuiz(
+          childId,
+          requestIndex ? { ...lookup, includePending: false } : undefined,
+        );
         if (status.ok && status.data === "received") return ok(null);
         if (!status.ok && status.error.code === "CONSENT_NOT_CONFIRMED")
           return status;

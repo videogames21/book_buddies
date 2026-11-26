@@ -6,10 +6,18 @@ import { insertBook } from "../../../tests/fixtures/catalog";
 import { insertChild } from "../../../tests/fixtures/children";
 import { insertConsentedMainParent } from "../../../tests/fixtures/family";
 import { resetDatabase } from "../../../tests/integration/db";
+import * as bookReports from "@/server/accounts-family/book-reports";
+import * as families from "@/server/accounts-family/families";
+import * as parentNotes from "@/server/accounts-family/parent-notes";
+import * as catalog from "@/server/catalog/rule-candidates";
+import * as childIdentity from "@/server/child-identity/child-identity";
 import { insertChildIdentity } from "@/server/child-identity/child-identity";
 import { setClock, resetClock } from "@/server/lib/clock";
 import { getConfig } from "@/server/lib/config";
 import { getDb, withTransaction } from "@/server/lib/db";
+import * as shelf from "@/server/shelf/recommendation-signals";
+import * as batchWrites from "./batches";
+import * as readingProfiles from "./reading-profiles";
 import {
   listPendingBatchesForFamily,
   listReleasedBatchesForChild,
@@ -41,7 +49,7 @@ async function seedChild() {
   await withTransaction((tx) =>
     insertChildIdentity(tx, { childId, age: 8, grade: "3" }),
   );
-  return { childId, familyId: parent.familyId };
+  return { childId, familyId: parent.familyId, userId: parent.userId };
 }
 
 it("keeps the normal quiz entry unavailable without the Catalog guard and saves nothing", async () => {
@@ -195,4 +203,158 @@ it("acknowledges the same request without a second insert when the first respons
   await expect(
     batches().countDocuments({ childId, requestId: input.requestId }),
   ).resolves.toBe(1);
+});
+
+it.each([
+  {
+    source: "child profile",
+    refuse: () =>
+      vi
+        .spyOn(childIdentity, "getRuleQuizProfile")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "consent",
+    refuse: () =>
+      vi
+        .spyOn(families, "lockConsentForWrite")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "exclusions",
+    refuse: () =>
+      vi
+        .spyOn(bookReports, "listExcludedBookIds")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "Catalog candidates",
+    refuse: () =>
+      vi
+        .spyOn(catalog, "listRuleCandidates")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "onboarding profile",
+    refuse: () =>
+      vi
+        .spyOn(readingProfiles, "getQuizOnboardingWeights")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "parent note",
+    refuse: () =>
+      vi
+        .spyOn(parentNotes, "listLatestNoteInterestKeys")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "shelf history",
+    refuse: () =>
+      vi
+        .spyOn(shelf, "listRecentShelfSignalBookIds")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "ratings",
+    refuse: () =>
+      vi
+        .spyOn(shelf, "listRecentRatingSignals")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "Catalog history",
+    refuse: () =>
+      vi
+        .spyOn(catalog, "listRuleHistoryTags")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+])(
+  "refuses a failed $source read and lets the same request retry",
+  async ({ refuse: refuseRead }) => {
+    const { childId } = await seedChild();
+    await insertBook("active");
+    const form = answer();
+    const guard = vi.fn(() => Promise.resolve(true));
+    const logged = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    refuseRead();
+
+    const result = await submitRulesQuiz(childId, form, guard);
+    expect(result).toMatchObject({ ok: false, error: { code: "LOAD_FAILED" } });
+    expect(guard).not.toHaveBeenCalled();
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(childId);
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(form.requestId);
+    await expect(batches().countDocuments()).resolves.toBe(0);
+    await expect(submitRulesQuiz(childId, form, guard)).resolves.toEqual({
+      ok: true,
+      data: null,
+    });
+    await expect(
+      batches().countDocuments({ childId, requestId: form.requestId }),
+    ).resolves.toBe(1);
+  },
+);
+
+it("rolls the expired batch release back when the replacement insert fails", async () => {
+  const { childId } = await seedChild();
+  const bookId = await insertBook("active");
+  const expired = await insertBatch({
+    childId,
+    bookIds: [bookId],
+    handoffDeadline: clock,
+  });
+  const form = answer();
+  vi.spyOn(batchWrites, "insertQuizBatch").mockRejectedValueOnce(
+    new Error("fixture insert failure"),
+  );
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+  const guard = () => Promise.resolve(true);
+  await expect(submitRulesQuiz(childId, form, guard)).resolves.toMatchObject({
+    ok: false,
+    error: { code: "SAVE_FAILED" },
+  });
+  await expect(
+    batches().findOne({ _id: new ObjectId(expired) }),
+  ).resolves.toMatchObject({ status: "pending" });
+  await expect(
+    batches().countDocuments({ childId, requestId: form.requestId }),
+  ).resolves.toBe(0);
+  await expect(submitRulesQuiz(childId, form, guard)).resolves.toEqual({
+    ok: true,
+    data: null,
+  });
+  await expect(
+    batches().findOne({ _id: new ObjectId(expired) }),
+  ).resolves.toMatchObject({ status: "released" });
+});
+
+it("lets a report racing an in-flight quiz remove the book from the committed batch", async () => {
+  const { childId, familyId, userId } = await seedChild();
+  const reported = await insertBook("active", "Old pick");
+  const retained = await insertBook("active", "Other pick");
+  const reachedGuard = Promise.withResolvers<boolean>();
+  const canSave = Promise.withResolvers<boolean>();
+  const quiz = submitRulesQuiz(childId, answer(), async () => {
+    reachedGuard.resolve(true);
+    await canSave.promise;
+    return true;
+  });
+  await Promise.race([reachedGuard.promise, quiz]);
+  const report = bookReports.reportBook(
+    { userId, familyId, parentRole: "main" },
+    {
+      childId,
+      bookId: reported,
+      reason: "other",
+    },
+  );
+  canSave.resolve(true);
+  await expect(quiz).resolves.toEqual({ ok: true, data: null });
+  await expect(report).resolves.toMatchObject({ ok: true });
+  await expect(
+    batches().findOne({ childId, status: "pending" }),
+  ).resolves.toMatchObject({ bookIds: [retained] });
 });

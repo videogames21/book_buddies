@@ -59,6 +59,12 @@ const configSchema = z.object({
   ),
   // The zone "midnight" is read in (OI-48). Needed by child sign-in only.
   CHILD_SESSION_TIME_ZONE: optionalString(z.string().refine(isTimeZone)),
+  // Signs the trusted-device cookie. Needed by child sign-in only.
+  CHILD_DEVICE_SECRET: optionalString(z.string().min(32)),
+  // How many children one browser's trusted-device cookie holds at once.
+  CHILD_DEVICE_MAX_CHILDREN: blankAsUnset(
+    z.coerce.number().int().min(1).max(10).default(4),
+  ),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -123,4 +129,11 @@ export function getChildSessionTimeZone(): string {
   const zone = getConfig().CHILD_SESSION_TIME_ZONE;
   if (!zone) throw new Error("CHILD_SESSION_TIME_ZONE must be configured");
   return zone;
+}
+
+/** No default, so child sign-in fails closed when it is unset (§8.2.6). */
+export function getChildDeviceSecret(): string {
+  const secret = getConfig().CHILD_DEVICE_SECRET;
+  if (!secret) throw new Error("CHILD_DEVICE_SECRET must be configured");
+  return secret;
 }

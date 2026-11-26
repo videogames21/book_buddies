@@ -1,6 +1,6 @@
 # REC field values
 
-**Area:** `UC-REC-kid-onboarding`, `UC-REC-recommend-quiz-rules` · **Design:** [rec.md](rec.md)
+**Area:** `UC-REC-kid-onboarding`, `UC-REC-recommend-quiz-rules`, `UC-REC-parent-review` · **Design:** [rec.md](rec.md)
 
 Values the design could not invent (`DI-field-tables`). The team fills each table in; nothing below is decided. `/implement` builds `src/server/recommendation/interests.ts` and the book cap from these tables and from nothing else. When a table is filled, update the use case's data table to match.
 
@@ -35,7 +35,7 @@ These values are proposed for `UC-REC-recommend-quiz-rules`. The team and client
 | What kind of story sounds good? | Funny (`funny/silly`), Exciting (`exciting`), Heartwarming (`heartwarming`), A little spooky (`spooky-but-safe`), Fascinating (`fascinating`), Calm (`calm`), Inspiring (`inspiring`), Any mood (`any`). |
 | How long a book do you want? | A quick read (`quick read`), A longer story (`longer story`), Any length (`any`). |
 
-The proposed maximum is six, held as one internal `OI-2` constant rather than a new environment variable. The quiz never shows that number to the child. One pending batch per child is enforced by a partial unique index; later requests acknowledge it rather than adding to the parent's queue. It stores `handoffDeadline = createdAt + downstream duration` once using the shared clock and remains only until parent review resolves it or that deadline, whose bounded duration is stated in the privacy notice, whichever comes first; child-data/account deletion and the existing inactivity purge also remove it. Parent review owns the duration and expiration path; REC adds no separate timer and the real entry remains unavailable until the bounded contract exists.
+The proposed maximum is six, held as one internal `OI-2` constant rather than a new environment variable. The quiz never shows that number to the child. One pending batch per child is enforced by a partial unique index; later requests acknowledge it rather than adding to the parent's queue. It stores `handoffDeadline = createdAt + BATCH_REVIEW_WINDOW_HOURS` (below) once using the shared clock and stays pending only until the parent confirms it or that deadline, whose bounded duration is stated in the privacy notice, whichever comes first; at the deadline it is released to the child, and its stored status leaves `pending` at the child's next quiz save or the next daily cleanup run (`rec.md`, `UC-REC-parent-review` 2a). Child-data/account deletion and the existing inactivity purge also remove it. REC adds no separate timer, and the real entry remains unavailable until the parent-review build exists.
 
 `RECOMMENDER_MODE` is read through the validated server environment in `src/server/lib/config.ts`. Unset defaults to `rules` for V1. Startup parsing preserves unknown strings, and the server-only getter accepts exactly `rules`; `ai`, `off` and unknown values return `RULES_UNAVAILABLE`. The child never selects a mode.
 
@@ -64,3 +64,12 @@ For each candidate, de-duplicate its normalized genre/subject keys. Sum every li
 Worked example: a candidate has distinct keys `animals` and `cats`. Onboarding and the latest note give `animals` a total of 3; a favorite and a **Yes** reaction give `cats` a total of 3. Their mean is 3. One qualifying quick-read adjustment and one comparable-level point add 2, with no exact-book decline, for an interest score of 5. Boundary vectors are 99/100/101 Lexile points, 0.9/1.0/1.1 AR levels, half-point midpoints and exact ties.
 
 A missing record or not-yet-designed source contributes zero; an error from an existing owner is `LOAD_FAILED`, never neutral. Use the source's retained records and apply its existing retention rules. Quiz answers do not change the saved reading profile or the derived interest profile.
+
+## Batch review (`UC-REC-parent-review` 2a)
+
+Decided by the developer, 2026-11-23, **provisional** until the client answers `OI-69`.
+
+| Rule | Value |
+|---|---|
+| Review window, from the batch's creation to its release unchanged (`BATCH_REVIEW_WINDOW_HOURS`, stored on the batch as `handoffDeadline`) | 24 hours; the setting accepts 1 to 168 |
+| Does opening the batch stop the clock? | No; the deadline applies whether or not the parent opened it |

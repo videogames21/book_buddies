@@ -9,6 +9,7 @@ import {
   insertRating,
   insertShelfEntry,
 } from "../../../tests/fixtures/shelf";
+import { insertSuggestion } from "../../../tests/fixtures/suggestions";
 import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
 
@@ -295,6 +296,58 @@ describe("reportBook (UC-PAR-report-book)", () => {
     expect(await count("bookReports")).toBe(1);
     expect(await count("childBookExclusions")).toBe(1);
     expect(await count("auditLog")).toBe(2);
+  });
+
+  it("UC-PAR-suggest-book: a report deletes the child's pending suggestion of the book and leaves a sibling's", async () => {
+    const { main, childId, familyId } = await consentedFamily();
+    const sibling = await insertChild(familyId);
+    const bookId = await bookOnShelf(childId);
+    await insertSuggestion(childId, bookId, { note: "from a grown-up" });
+    await insertSuggestion(sibling, bookId);
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result.ok).toBe(true);
+    expect(await count("parentSuggestions", { childId })).toBe(0);
+    expect(await count("parentSuggestions", { childId: sibling })).toBe(1);
+  });
+
+  it("UC-PAR-suggest-book: a failure later in the report leaves the suggestion in place", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await bookOnShelf(childId);
+    await insertSuggestion(childId, bookId);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "childNotices") {
+        return Promise.reject(new Error("notice store down"));
+      }
+      return original.apply(this, args);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "SAVE_FAILED" } });
+    expect(await count("parentSuggestions", { childId, bookId })).toBe(1);
+  });
+
+  it("UC-PAR-suggest-book: a book that is only suggested is still NOT_ON_SHELF_OR_BATCH and nothing is deleted", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await insertSuggestion(childId, bookId);
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "NOT_ON_SHELF_OR_BATCH" },
+    });
+    expect(await count("parentSuggestions", { childId, bookId })).toBe(1);
+    await expectNothingWritten(childId, bookId);
   });
 
   it("7c: two simultaneous reports leave exactly one report and one exclusion", async () => {

@@ -8,14 +8,18 @@ import { SHELF_ENTRIES, type ShelfEntryDocument } from "./shelf-collections";
 // Ratings and finish confirmations are separate collections and are never touched here
 // (design/shlf.md, "Ratings and finish confirmations are stored apart from the shelf entry").
 
-/** Whether the book is on the child's shelf. Callers check the child's family first. */
+/**
+ * Whether the book is on the child's shelf, in any category. Callers check the child's
+ * family first. With `tx` the read joins that transaction's snapshot (UC-PAR-suggest-book 4a).
+ */
 export async function isOnShelf(
   childId: string,
   bookId: string,
+  tx?: Tx,
 ): Promise<boolean> {
   const entry = await getDb()
     .collection<ShelfEntryDocument>(SHELF_ENTRIES)
-    .findOne({ childId, bookId }, { projection: { _id: 1 } });
+    .findOne({ childId, bookId }, { projection: { _id: 1 }, session: tx });
   return entry !== null;
 }
 

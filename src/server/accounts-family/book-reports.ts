@@ -14,6 +14,7 @@ import type { ReportReason } from "@/shared/accounts-family/book-report";
 import { BOOK_REPORTS, CHILD_BOOK_EXCLUSIONS } from "./book-report-schema";
 import { getChildForFamily, lockChildForWrite } from "./child-accounts";
 import { lockConsentForWrite } from "./families";
+import { removeSuggestionInTx } from "./suggestions";
 
 // Accounts & Family's Book Reports and Per-Child Exclusions (UC-PAR-report-book;
 // design/par.md). Nothing here deletes an exclusion or changes a report's status (POST-7):
@@ -142,6 +143,9 @@ export async function reportBook(
         },
         { session: tx },
       );
+      // UC-PAR-suggest-book: a reported book's pending suggestion goes with the report.
+      // It does not count toward PRE-3 below.
+      await removeSuggestionInTx(tx, childId, bookId);
 
       const removedEntryId = await removeShelfEntryInTx(tx, childId, bookId);
       const removedFromBatch = await removeFromPendingBatchInTx(
@@ -190,14 +194,18 @@ export async function reportBook(
   }
 }
 
-/** PRE-4 for the report page. Callers check the child's family first. */
+/**
+ * PRE-4 for the report page. Callers check the child's family first. With `tx` the read
+ * joins that transaction's snapshot (UC-PAR-suggest-book 1b).
+ */
 export async function isExcluded(
   childId: string,
   bookId: string,
+  tx?: Tx,
 ): Promise<boolean> {
   const exclusion = await getDb()
     .collection<ExclusionDocument>(CHILD_BOOK_EXCLUSIONS)
-    .findOne({ childId, bookId }, { projection: { _id: 1 } });
+    .findOne({ childId, bookId }, { projection: { _id: 1 }, session: tx });
   return exclusion !== null;
 }
 

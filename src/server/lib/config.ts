@@ -37,6 +37,9 @@ const configSchema = z.object({
   ),
   // The only accepted method for V1 (OI-21, client answers 2026-10-28, Q13).
   CONSENT_METHOD: blankAsUnset(z.enum(["email-plus"]).default("email-plus")),
+  // UC-PAR-suggest-book release gate (README, "Review and release dependencies").
+  // Off unless set to "1"; only the demo and e2e servers, which hold invented data, set it.
+  PARENT_SUGGESTIONS_ENABLED: blankAsUnset(z.enum(["0", "1"]).default("0")),
   // Unknown modes parse normally and are refused when a child uses the quiz (OI-2).
   RECOMMENDER_MODE: blankAsUnset(z.string().default("rules")),
   // UC-REC-parent-review 2a: how long a batch waits for the parent before it is released
@@ -118,6 +121,16 @@ export function getSmtpUrl(): string | null {
   const url = getConfig().SMTP_URL;
   if (url) return url;
   return isProduction() ? null : "smtp://localhost:1025";
+}
+
+/**
+ * Whether parent suggestions may be used in this deployment. False for every
+ * family, pilot testers included, until the README's release gate for
+ * `UC-PAR-suggest-book` is lifted (`OI-70` and the inactivity purge). Never set
+ * the variable in a deployment that holds real families' data.
+ */
+export function areParentSuggestionsEnabled(): boolean {
+  return getConfig().PARENT_SUGGESTIONS_ENABLED === "1";
 }
 
 export function getMailFrom(): string {

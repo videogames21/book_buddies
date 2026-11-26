@@ -189,6 +189,45 @@ export async function ensureAccountsFamilyIndexes(db: Db): Promise<void> {
     .createIndex({ familyId: 1 }, { name: "familyId" });
 }
 
+/**
+ * UC-PAR-delete-kid-account step 5: deletes the child account where both its ID and the
+ * family match, inside the deletion's transaction. Returns whether one was deleted, so
+ * a double submit or another family's child finds nothing.
+ */
+export async function deleteChildForFamily(
+  tx: Tx,
+  familyId: string,
+  childId: string,
+): Promise<boolean> {
+  const { deletedCount } = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .deleteOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      { session: tx },
+    );
+  return deletedCount === 1;
+}
+
+/**
+ * UC-PAR-delete-kid-account 5b: whether the child account still exists, read at
+ * majority read concern, so a read after a failover cannot see a deletion that a
+ * majority has not acknowledged (review of #125). Callers authenticate first.
+ */
+export async function childAccountExists(
+  familyId: string,
+  childId: string,
+): Promise<boolean> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN, {
+      readConcern: { level: "majority" },
+    })
+    .findOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      { projection: { _id: 1 } },
+    );
+  return child !== null;
+}
+
 /** Whether the family has at least one child. Callers authenticate first. */
 export async function familyHasChild(familyId: string): Promise<boolean> {
   const child = await getDb()

@@ -23,6 +23,16 @@ export async function insertParentNote(
   return _id;
 }
 
+/** UC-PAR-delete-kid-account: the child's parent notes, flagged or not (5a). */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection("parentNotes")
+    .deleteMany({ childId }, { session: tx });
+}
+
 export async function ensureParentNoteIndexes(db: Db): Promise<void> {
   await ensureCollection(db, "parentNotes", {
     bsonType: "object",

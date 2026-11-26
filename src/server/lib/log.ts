@@ -20,6 +20,7 @@ export function logUnexpectedError(where: string, err: unknown): string {
 
 type SecurityEvent =
   | "sign-in-refused"
+  | "reauth-refused"
   | "cleanup-refused"
   | "cleanup-run"
   | "recommendation-request-failed";

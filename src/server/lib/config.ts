@@ -28,6 +28,12 @@ const configSchema = z.object({
   ),
   // The only accepted method for V1 (OI-21, client answers 2026-10-28, Q13).
   CONSENT_METHOD: blankAsUnset(z.enum(["email-plus"]).default("email-plus")),
+  // UC-REC-parent-review 2a: how long a batch waits for the parent before it is released
+  // unchanged. 24 hours, provisional (OI-69). The quiz's insert adds it to `createdAt`
+  // once and stores the result as the batch's `handoffDeadline`.
+  BATCH_REVIEW_WINDOW_HOURS: blankAsUnset(
+    z.coerce.number().int().min(1).max(168).default(24),
+  ),
 });
 
 export type Config = z.infer<typeof configSchema>;

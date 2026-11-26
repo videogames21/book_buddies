@@ -141,6 +141,63 @@ export async function getBooksForShelf(ids: string[]): Promise<ShelfBook[]> {
   }));
 }
 
+export type ReviewBook = {
+  id: string;
+  title: string;
+  author: string;
+  genres: string[];
+  subjects: string[];
+  moods: string[];
+  length: string;
+};
+
+/**
+ * The title, author and tags of each active book in `ids`, for a batch under parent
+ * review (UC-REC-parent-review, design/rec.md). One query; draft, blocked and missing books are
+ * absent, in no particular order. With `age` (the child-facing read only) a book must
+ * also have an age band that contains that age, inclusive, as the quiz's candidate read
+ * requires; the parent's review passes no age and sees every active book.
+ */
+export async function getBooksForReview(
+  ids: readonly string[],
+  options: { age?: number } = {},
+): Promise<ReviewBook[]> {
+  if (ids.length === 0) return [];
+  const { age } = options;
+  const books = await getDb()
+    .collection<BookDocument>(BOOKS)
+    .find(
+      {
+        _id: { $in: [...ids] },
+        status: "active",
+        ...(age !== undefined && {
+          ageMin: { $lte: age },
+          ageMax: { $gte: age },
+        }),
+      },
+      {
+        projection: {
+          title: 1,
+          author: 1,
+          genres: 1,
+          subjects: 1,
+          moods: 1,
+          length: 1,
+        },
+      },
+    )
+    .toArray();
+  return books.map((book) => ({
+    id: book._id,
+    title: book.title,
+    author: book.author,
+    genres: book.genres,
+    subjects: book.subjects ?? [],
+    moods: book.moods,
+    length: book.length,
+  }));
+}
+
 // ---- UC-ADM-add-content (design/adm.md) -------------------------------------------
 // The admin's own reads and the one write path. Every other Catalog read excludes
 // blocked books and omits `customTags` and `readingLevel` by projection.

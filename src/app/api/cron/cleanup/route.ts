@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { purgeExpiredUnconfirmed } from "@/server/accounts-family/families";
+import { purgeEndedChildSessions } from "@/server/identity-access/child-sessions";
 import { purgeExpiredResets } from "@/server/identity-access/password-resets";
 import { purgeExpiredSignInAttempts } from "@/server/identity-access/sign-in-throttle";
 import { fail, ok } from "@/server/lib/action-result";
@@ -22,14 +23,13 @@ function hasCronSecret(request: Request): boolean {
 }
 
 // Scheduled Cleanup (design/par.md). It deletes only what has already expired: unconfirmed
-// accounts past their deadline (6a), password reset records and sign-in counts. It also
-// records the release of recommendation batches past their handoffDeadline
-// (UC-REC-parent-review 2a), which reads already apply. Each task runs even if an
-// earlier one fails; any failure is reported after all have run.
+// accounts, password resets, sign-in counts and ended child sessions. It also records
+// expired recommendation handoffs. Run every task before reporting a failure.
 const PURGES = [
   purgeExpiredUnconfirmed,
   purgeExpiredResets,
   purgeExpiredSignInAttempts,
+  purgeEndedChildSessions,
 ];
 
 async function runCleanup(): Promise<{ purged: number; released: number }> {

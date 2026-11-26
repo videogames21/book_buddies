@@ -292,7 +292,7 @@ export async function removeBookFromBatch(
 /**
  * The removal's answer when its write failed (5a). The book removed is `ok`, whoever
  * removed it, as for a double tap. A batch no longer pending is `BATCH_ALREADY_RELEASED`.
- * The book still in the batch is `SAVE_FAILED`: the write did not apply.
+ * A book still in the batch leaves the outcome unknown.
  */
 async function removalAfterLostWrite(
   _id: ObjectId,
@@ -314,7 +314,7 @@ async function removalAfterLostWrite(
     return refuse("BATCH_ALREADY_RELEASED");
   }
   if (batch.bookIds.includes(bookId)) {
-    return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
+    return unconfirmed(errorId);
   }
   return refuse("BOOK_NOT_IN_BATCH");
 }
@@ -367,8 +367,7 @@ export async function confirmBatch(
  * The confirmation's answer when its write failed (5a). A stored release carrying this
  * attempt's `releasedAt` is this confirmation, applied with its response lost: `ok`. Any
  * other release (the other parent, or the deadline, whose `releasedAt` is
- * `handoffDeadline`, never `at`) is `BATCH_ALREADY_RELEASED`. A batch still pending is
- * `SAVE_FAILED`: the write did not apply, and nothing was sent to the child.
+ * `handoffDeadline`, never `at`) is `BATCH_ALREADY_RELEASED`. A batch still pending leaves the outcome unknown.
  */
 async function confirmationAfterLostWrite(
   _id: ObjectId,
@@ -389,7 +388,7 @@ async function confirmationAfterLostWrite(
   if (batchState(batch, now()) !== "pending") {
     return refuse("BATCH_ALREADY_RELEASED");
   }
-  return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
+  return unconfirmed(errorId);
 }
 
 /**

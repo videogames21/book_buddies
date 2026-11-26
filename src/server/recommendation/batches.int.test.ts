@@ -379,7 +379,7 @@ describe("2a, late parent", () => {
 });
 
 describe("5a", () => {
-  it("a failed confirmation is SAVE_FAILED with an error ID, the batch stays pending, and a retry succeeds", async () => {
+  it("a pending read-back after a confirmation error leaves the outcome unknown and a retry can succeed", async () => {
     const { main, childId } = await family();
     const { batchId } = await pendingBatchOfThree(childId);
     vi.spyOn(Collection.prototype, "findOneAndUpdate").mockRejectedValueOnce(
@@ -390,7 +390,7 @@ describe("5a", () => {
     const failed = await confirmBatch(main, { childId, batchId });
     expect(failed.ok).toBe(false);
     if (failed.ok) return;
-    expect(failed.error.code).toBe("SAVE_FAILED");
+    expect(failed.error.code).toBe("OUTCOME_UNKNOWN");
     expect(failed.error.errorId).toEqual(expect.any(String));
     expect(failed.error.message).not.toContain("secret detail");
     const batch = await stored(batchId);
@@ -403,7 +403,7 @@ describe("5a", () => {
     });
   });
 
-  it("a failed removal is SAVE_FAILED with an error ID and changes nothing", async () => {
+  it("a read-back still containing the book leaves the removal outcome unknown", async () => {
     const { main, childId } = await family();
     const { batchId, bookIds } = await pendingBatchOfThree(childId);
     vi.spyOn(Collection.prototype, "updateOne").mockRejectedValueOnce(
@@ -418,7 +418,10 @@ describe("5a", () => {
     });
     expect(failed).toMatchObject({
       ok: false,
-      error: { code: "SAVE_FAILED", errorId: expect.any(String) as unknown },
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
     });
     expect((await stored(batchId))?.bookIds).toEqual(bookIds);
   });

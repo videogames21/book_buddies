@@ -99,3 +99,34 @@ it("fails closed in production when email and the app URL are not configured", a
   expect(() => config.getAppUrl()).toThrow("APP_URL must be configured");
   expect(() => config.getMailFrom()).toThrow("MAIL_FROM must be configured");
 });
+
+it("defaults the child session times and leaves the time zone to be set (OI-48)", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("CHILD_SESSION_TIME_ZONE", "");
+  const config = await import("./config");
+  expect(config.getConfig()).toMatchObject({
+    CHILD_LEAVE_GRACE_SECONDS: 600,
+    CHILD_IDLE_MINUTES: 30,
+  });
+  expect(() => config.getChildSessionTimeZone()).toThrow(
+    "CHILD_SESSION_TIME_ZONE must be configured",
+  );
+});
+
+it("accepts a real time zone and refuses an unknown one", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("CHILD_SESSION_TIME_ZONE", "America/Chicago");
+  const accepted = await import("./config");
+  expect(accepted.getChildSessionTimeZone()).toBe("America/Chicago");
+
+  vi.resetModules();
+  vi.stubEnv("CHILD_SESSION_TIME_ZONE", "Invented/Nowhere");
+  const refused = await import("./config");
+  expect(() => refused.getConfig()).toThrow(
+    "Invalid environment: CHILD_SESSION_TIME_ZONE",
+  );
+});

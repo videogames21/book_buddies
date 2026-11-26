@@ -1,5 +1,5 @@
 import "server-only";
-import { MongoServerError, ObjectId } from "mongodb";
+import { MongoError, MongoServerError, ObjectId } from "mongodb";
 import {
   findActiveBookIds,
   getBooksForShelf,
@@ -54,9 +54,13 @@ export type CreateSuggestionErrorCode =
   | "ALREADY_SUGGESTED"
   | "ALREADY_RECOMMENDED"
   | "ALREADY_ON_SHELF"
-  | "SAVE_FAILED";
+  | "SAVE_FAILED"
+  | "OUTCOME_UNKNOWN";
 
-type RefusalCode = Exclude<CreateSuggestionErrorCode, "SAVE_FAILED">;
+type RefusalCode = Exclude<
+  CreateSuggestionErrorCode,
+  "SAVE_FAILED" | "OUTCOME_UNKNOWN"
+>;
 
 const MESSAGES: Record<CreateSuggestionErrorCode, string> = {
   SUGGESTIONS_UNAVAILABLE: "Suggesting books isn't available yet.",
@@ -71,6 +75,8 @@ const MESSAGES: Record<CreateSuggestionErrorCode, string> = {
   ALREADY_ON_SHELF: "This book is already on this child's shelf.",
   SAVE_FAILED:
     "We couldn't save the suggestion. Nothing was saved. Please try again.",
+  OUTCOME_UNKNOWN:
+    "We couldn't confirm whether the suggestion was saved. It's safe to try again: if it was saved, we'll tell you.",
 };
 
 const CONFLICT_CODES: Record<SuggestionConflict, RefusalCode> = {
@@ -97,6 +103,27 @@ function isDuplicateSuggestion(err: unknown): boolean {
   return (
     keys.length === 2 && keys.includes("childId") && keys.includes("bookId")
   );
+}
+
+/**
+ * The commit's outcome is unknown: the driver retried it until its time limit without
+ * learning whether it applied, so "nothing was saved" may be false (review of #139, as
+ * in `reportBook`). Trying again is safe: the unique index makes it `ALREADY_SUGGESTED`.
+ */
+function isOutcomeUnknown(err: unknown): boolean {
+  return (
+    // MongoError, not MongoServerError: a commit lost to a network timeout carries it too.
+    err instanceof MongoError &&
+    err.hasErrorLabel("UnknownTransactionCommitResult")
+  );
+}
+
+/** Any error that is not a refusal, logged with an error ID (design/par.md, Key decisions). */
+function failedSave(err: unknown) {
+  const errorId = logUnexpectedError("createSuggestion", err);
+  return isOutcomeUnknown(err)
+    ? fail("OUTCOME_UNKNOWN", MESSAGES.OUTCOME_UNKNOWN, errorId)
+    : fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
 }
 
 /**
@@ -129,16 +156,12 @@ export async function createSuggestion(
       try {
         await withTransaction((tx) => saveSuggestionInTx(tx, session, input));
       } catch (retryErr) {
-        // The second call's only expected ending is the update path; anything else,
-        // a refusal included, is reported as a failed save.
+        // The second call's expected ending is the update path. A refusal (the child,
+        // consent or book changed in between) is returned; any other error is a failure.
         if (retryErr instanceof SuggestionRefused) {
           return fail(retryErr.code, MESSAGES[retryErr.code]);
         }
-        return fail(
-          "SAVE_FAILED",
-          MESSAGES.SAVE_FAILED,
-          logUnexpectedError("createSuggestion", retryErr),
-        );
+        return failedSave(retryErr);
       }
     }
     return ok(null);
@@ -146,11 +169,7 @@ export async function createSuggestion(
     if (err instanceof SuggestionRefused) {
       return fail(err.code, MESSAGES[err.code]);
     }
-    return fail(
-      "SAVE_FAILED",
-      MESSAGES.SAVE_FAILED,
-      logUnexpectedError("createSuggestion", err),
-    );
+    return failedSave(err);
   }
 }
 

@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { Collection, MongoServerError, ObjectId } from "mongodb";
+import {
+  ClientSession,
+  Collection,
+  MongoNetworkTimeoutError,
+  MongoServerError,
+  ObjectId,
+} from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertBatch } from "../../../tests/fixtures/batches";
 import { insertBook } from "../../../tests/fixtures/catalog";
@@ -642,6 +648,100 @@ describe("createSuggestion (UC-PAR-suggest-book)", () => {
     });
     expect(JSON.stringify(result)).not.toContain("suggestion store down");
     expect(await count("parentSuggestions")).toBe(0);
+  });
+
+  it("outcome unknown: a commit that applied but reports UnknownTransactionCommitResult is OUTCOME_UNKNOWN, and a retry is ALREADY_SUGGESTED", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    // The driver adds this label when it retried a commit to its time limit without
+    // learning the outcome. Here the real transaction commits first, then the label
+    // arrives, which is the case where "nothing was saved" would be false.
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = ClientSession.prototype.withTransaction;
+    const spy = vi
+      .spyOn(ClientSession.prototype, "withTransaction")
+      .mockImplementationOnce(async function (
+        this: ClientSession,
+        ...args: Parameters<ClientSession["withTransaction"]>
+      ) {
+        await original.apply(this, args);
+        const err = new MongoNetworkTimeoutError("commit outcome unknown");
+        err.addErrorLabel("UnknownTransactionCommitResult");
+        throw err;
+      });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await createSuggestion(main, {
+      childId,
+      bookId,
+      note: NOTE,
+      suggestAnyway: false,
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
+    expect(JSON.stringify(result)).not.toContain("commit outcome unknown");
+    expect(await stored()).toEqual([
+      { childId, bookId, note: NOTE, suggestedAt: AT },
+    ]);
+
+    spy.mockRestore();
+    expect(
+      await createSuggestion(main, { childId, bookId, suggestAnyway: false }),
+    ).toMatchObject({ ok: false, error: { code: "ALREADY_SUGGESTED" } });
+  });
+
+  it("outcome unknown, suggest anyway: the same label on the second transaction is OUTCOME_UNKNOWN too", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    // The first insert meets a racing request's committed suggestion (duplicate key),
+    // so suggest anyway runs a second transaction; that one reports the label.
+    failFirstSuggestionInsert(
+      new MongoServerError({
+        message: "duplicate",
+        code: 11000,
+        keyPattern: { childId: 1, bookId: 1 },
+      }),
+      () => commitRacingSuggestion(childId, bookId),
+    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = ClientSession.prototype.withTransaction;
+    let calls = 0;
+    vi.spyOn(ClientSession.prototype, "withTransaction").mockImplementation(
+      async function (
+        this: ClientSession,
+        ...args: Parameters<ClientSession["withTransaction"]>
+      ) {
+        calls += 1;
+        const value: unknown = await original.apply(this, args);
+        if (calls === 2) {
+          const err = new MongoNetworkTimeoutError("commit outcome unknown");
+          err.addErrorLabel("UnknownTransactionCommitResult");
+          throw err;
+        }
+        return value;
+      },
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await createSuggestion(main, {
+      childId,
+      bookId,
+      note: NOTE,
+      suggestAnyway: true,
+    });
+
+    expect(calls).toBe(2);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "OUTCOME_UNKNOWN" },
+    });
   });
 
   it("consent: unconfirmed or revoked consent is CONSENT_NOT_CONFIRMED and nothing is stored", async () => {

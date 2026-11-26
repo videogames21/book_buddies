@@ -202,4 +202,30 @@ describe("batch page actions (UC-REC-parent-review)", () => {
     });
     expect(JSON.stringify(failed)).not.toContain("secret");
   });
+
+  it("a revalidation that fails after the write saved still returns ok, not SAVE_FAILED (review of #135)", async () => {
+    const { main, childId, batchId, bookIds } = await familyWithBatch();
+    signInAs(main.userId);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // The first revalidation of each action throws, so the second is never reached.
+    const cacheDown = () => {
+      throw new Error("invented: cache unavailable");
+    };
+    vi.mocked(revalidatePath)
+      .mockImplementationOnce(cacheDown)
+      .mockImplementationOnce(cacheDown);
+
+    expect(
+      await removeBookFromBatch({ childId, batchId, bookId: bookIds[0] }),
+    ).toEqual({ ok: true, data: null });
+    expect(await confirmBatch({ childId, batchId })).toEqual({
+      ok: true,
+      data: { state: "released" },
+    });
+    expect(await stored(batchId)).toMatchObject({
+      status: "released",
+      bookIds: [bookIds[1]],
+    });
+    expect(revalidatePath).toHaveBeenCalledTimes(2);
+  });
 });

@@ -27,9 +27,18 @@ import {
 const SAVE_FAILED_MESSAGE =
   "We couldn't save that. Nothing changed, and nothing was sent to your child. Please try again.";
 
+/**
+ * Runs only after a write has saved, so a failure here must not turn a saved removal or
+ * release into SAVE_FAILED, whose message says nothing changed (review of #135). It is
+ * logged, and the result stands; the next load reads the stored batch anyway.
+ */
 function revalidate(childId: string, batchId: string): void {
-  revalidatePath(batchReviewPath(childId, batchId));
-  revalidatePath("/parent");
+  try {
+    revalidatePath(batchReviewPath(childId, batchId));
+    revalidatePath("/parent");
+  } catch (err) {
+    logUnexpectedError("revalidateBatchPaths", err);
+  }
 }
 
 /** Step 4: remove one book, saved at once. */

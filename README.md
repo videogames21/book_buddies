@@ -188,6 +188,9 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `bookReports`               | Child UUID, book ID, reporting parent's user ID, reason (fixed list), optional comment (at most 250 characters, `OI-55`), status, report time | Accounts & Family; admin sees open reports by opaque reference only (`UC-ADM-block-content`); never returned to the child; comment never logged |
 | `childBookExclusions`       | Child UUID, book ID, report ID, creation time                                       | Accounts & Family; Recommendation and search read book IDs only (`KD-book-exclusion`); no undo |
 | `childNotices`              | Child UUID, notice kind, book ID, creation and seen times                           | Notification; shown to the child; no reason and no parent (§8.2.11) |
+| `parentSuggestions`         | Child UUID, catalog book ID, optional trimmed note (at most 250 characters), suggestion time; no parent ID | Accounts & Family only; the child sees the book, the note and the generic label "From your grown-up"; the parent through review and export; never the admin; note never logged |
+
+A parent suggestion is kept until the child reacts to it, the book is reported for that child or blocked, or the child's data is deleted or purged for inactivity (`UC-PAR-suggest-book`; no expiry until `OI-67` is answered).
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.
 

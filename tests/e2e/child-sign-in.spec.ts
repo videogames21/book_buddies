@@ -349,10 +349,12 @@ test("Sign out after the session has ended goes to sign-in, and Back stays signe
   await expect(page.getByText(SIGN_OUT_FAILED)).toHaveCount(0);
 
   await page.goBack();
-  await expect(page).toHaveURL(/\/child\/shelf$/);
-  await page.goBack();
   await expect(page).toHaveURL(SIGN_IN);
   await expect(page.getByText("Starfish")).toHaveCount(0);
+
+  await page.goto("/child/shelf");
+  await expect(page).toHaveURL(SIGN_IN);
+  await expect(page.getByRole("heading", { name: "My Shelf" })).toHaveCount(0);
 });
 
 test("a Sign out that is refused stays on the page and says so", async ({

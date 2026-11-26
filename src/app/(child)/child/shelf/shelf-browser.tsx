@@ -54,7 +54,7 @@ export function ShelfBrowser({ view }: { view: ChildShelfView }) {
           <section className={shelf.notice} key={notice.id}>
             <p>
               {notice.kind === "finish-declined"
-                ? "Your grown-up says you haven’t finished this book yet."
+                ? "Whoops! Looks like you didn't finish your book. It went back to where it was."
                 : notice.title
                   ? `${notice.title} was taken off your shelf.`
                   : "A book was taken off your shelf."}
@@ -85,7 +85,9 @@ export function ShelfBrowser({ view }: { view: ChildShelfView }) {
                       type="button"
                       className={awaiting ? shelf.awaiting : styles.secondary}
                       aria-expanded={expanded}
-                      onClick={() => setSelected(expanded ? null : book.id)}
+                      onClick={() => {
+                        setSelected(expanded ? null : book.id);
+                      }}
                     >
                       {book.title}
                       {book.confirmed && (

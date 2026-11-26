@@ -37,3 +37,13 @@ export async function recordChildSignIn(
     .collection<ChildSignInDocument>(CHILD_SIGN_INS)
     .insertOne({ childId, at: now() }, { session: tx });
 }
+
+/** Account deletion removes these records in the same transaction as the child. */
+export async function deleteChildSignInRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection<ChildSignInDocument>(CHILD_SIGN_INS)
+    .deleteMany({ childId }, { session: tx });
+}

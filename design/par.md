@@ -419,6 +419,7 @@ _Changed at `/implement` (2026-11-24, #66):_
 - _The schema adds `PASSWORD_REQUIRED`, `NICKNAME_REQUIRED` and `INVALID_INPUT` (a malformed child ID or an over-long field). `TOO_MANY_ATTEMPTS` carries the wait in its message, worded by sign-in's `waitMessage`, because §8.2.1 has no data slot on an error. A refused re-check is logged as the `reauth-refused` security event (§8.2.7), the event the child-data review also names._
 - _Two indexes are added for the deletion's lookups: `users.childId` (unique where set) and `noteFlags.childId`._
 - _5b when MongoDB cannot say whether the commit happened (`UnknownTransactionCommitResult`, after the driver's own retries): `deleteChild` reads the child account to tell. Gone is success, present is `DELETE_FAILED`, and a failed read is `DELETE_UNCONFIRMED`, which asks the parent to reload and check rather than claim nothing was deleted. The form says the same when the call itself fails (review of #125, 2026-11-25)._
+- _Changed in review of #125 (2026-11-25): that confirming read uses majority read concern (`childAccountExists`), so it cannot report a deletion a majority has not acknowledged. `getParentCredential(userId, familyId)` also requires the Main Parent role and the session's family, so a role or family change after the session check refuses the re-check. Still to do: the re-check moves to `checkPasswordAttempt` when #130 merges._
 
 ## Sequence
 

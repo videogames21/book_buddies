@@ -10,7 +10,7 @@ import { logUnexpectedError } from "@/server/lib/log";
 import { deleteChildRecords as deleteReadingProfile } from "@/server/recommendation/reading-profiles";
 import { deleteChildRecords as deleteNoteFlags } from "@/server/safety-flagging/note-flags";
 import { deleteChildRecords as deleteShelfRecords } from "@/server/shelf/shelf-collections";
-import { deleteChildForFamily, getChildForFamily } from "./child-accounts";
+import { childAccountExists, deleteChildForFamily } from "./child-accounts";
 import { markChildRemoved } from "./families";
 import { deleteChildRecords as deleteParentNotes } from "./parent-notes";
 
@@ -18,7 +18,10 @@ import { deleteChildRecords as deleteParentNotes } from "./parent-notes";
 // record any component holds for the child (architecture §8.2.8, FR-DATA-removal). Each
 // component deletes only its own collections (§8.2.4). This list is the only place they
 // are all called: a component that starts storing records keyed by the child ID adds
-// its deleteChildRecords here, and the completeness test fails until it does.
+// its deleteChildRecords here, and the completeness test fails until it does. Its
+// writes for the child must also call lockChildForWrite first (child-accounts.ts), or
+// a write racing this deletion can leave a record behind; child sign-in's sessions are
+// the next such write (review of #125).
 const DELETE_CHILD_RECORDS: readonly ((
   tx: Tx,
   childId: string,
@@ -91,7 +94,8 @@ export async function deleteChild(
 /**
  * 5b, when MongoDB cannot say whether the commit happened (the driver has already
  * retried it). The transaction is all or nothing, so the child account tells which:
- * gone means the deletion committed, present means nothing was deleted. If even that
+ * gone means the deletion committed, present means nothing was deleted. The read is at
+ * majority read concern, so it does not trust a node that may roll back. If even that
  * read fails, the result says the outcome is unknown rather than claim a rollback.
  */
 async function confirmOutcome(
@@ -100,7 +104,7 @@ async function confirmOutcome(
   errorId: string,
 ): Promise<ActionResult<null, DeleteChildCode>> {
   try {
-    if (!(await getChildForFamily(familyId, childId))) return ok(null);
+    if (!(await childAccountExists(familyId, childId))) return ok(null);
     return fail("DELETE_FAILED", DELETE_FAILED_MESSAGE, errorId);
   } catch (readErr) {
     logUnexpectedError("deleteChild.confirmOutcome", readErr);

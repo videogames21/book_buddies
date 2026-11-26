@@ -69,9 +69,13 @@ export async function deleteChildAccount(
     const child = await getChildForFamily(parent.familyId, childId);
     if (!child) return fail("CHILD_NOT_FOUND", "We couldn't find that child.");
 
-    const credential = await getParentCredential(parent.userId);
+    const credential = await getParentCredential(
+      parent.userId,
+      parent.familyId,
+    );
     if (!credential) {
-      // Fail closed: an account with no password cannot confirm a deletion.
+      // Fail closed: an account with no password, or that is no longer this family's
+      // Main Parent, cannot confirm a deletion.
       logSecurityEvent("reauth-refused", "WRONG_PASSWORD");
       return fail("WRONG_PASSWORD", WRONG_PASSWORD_MESSAGE);
     }

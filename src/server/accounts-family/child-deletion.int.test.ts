@@ -565,11 +565,28 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       Promise.reject(unknownCommitResult()),
     );
     vi.spyOn(console, "error").mockImplementation(() => {});
+    // The confirming read is at majority read concern (review of #125).
+    const childReadConcerns: (string | undefined)[] = [];
+    const originalFindOne = Reflect.get(
+      Collection.prototype,
+      "findOne",
+    ) as Collection["findOne"];
+    vi.spyOn(Collection.prototype, "findOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["findOne"]>
+    ) {
+      if (this.collectionName === "children") {
+        childReadConcerns.push(this.readConcern?.level);
+      }
+      return originalFindOne.apply(this, args);
+    } as Collection["findOne"]);
 
     expect(await deleteChild(session, child.childId)).toMatchObject({
       ok: false,
       error: { code: "DELETE_FAILED", errorId: expect.any(String) as unknown },
     });
+    expect(childReadConcerns).toEqual(["majority"]);
+    vi.mocked(Collection.prototype.findOne).mockRestore();
     expect(await dumpDatabase()).toEqual(before);
   });
 

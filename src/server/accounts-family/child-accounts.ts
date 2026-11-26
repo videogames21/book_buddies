@@ -230,6 +230,26 @@ export async function deleteChildForFamily(
   return deletedCount === 1;
 }
 
+/**
+ * UC-PAR-delete-kid-account 5b: whether the child account still exists, read at
+ * majority read concern, so a read after a failover cannot see a deletion that a
+ * majority has not acknowledged (review of #125). Callers authenticate first.
+ */
+export async function childAccountExists(
+  familyId: string,
+  childId: string,
+): Promise<boolean> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN, {
+      readConcern: { level: "majority" },
+    })
+    .findOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      { projection: { _id: 1 } },
+    );
+  return child !== null;
+}
+
 /** Whether the family has at least one child. Callers authenticate first. */
 export async function familyHasChild(familyId: string): Promise<boolean> {
   const child = await getDb()

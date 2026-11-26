@@ -4,10 +4,10 @@
 **Team:** Team 05
 **Area:** `UC-REC`
 
-> **Realizes:** `UC-REC-kid-onboarding`, `FR-ONB-profile` (the interests and favorite books half), `FEAT-onboarding-profile`, `UC-REC-recommend-quiz-rules`, `FR-REC-rules`, `FR-REC-every-request`, `FEAT-recommendation-quiz`, `UC-REC-parent-review`
-> **Depends on:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`, `BR-coppa-minimization`, `BR-admin-limited-view`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-retention`, `FR-DATA-notice`, `FR-DATA-review`, `DI-integrity`, `DI-catalog-status`, `DI-field-tables`, `SEC-role-authorization`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-book-exclusion`, `KD-catalog-import-offline`, `BR-parent-report-book`, `BR-parent-ultimate-say`, `BR-parent-note`, `DI-report-exclusion`, `SAF-child-content`, `PER-recommendation-latency`; for `UC-REC-parent-review`: `BR-parent-rec-not-forced`, `KD-time-rules-on-read`, `CI-in-app-alerts`, `ROB-no-data-loss`, `OI-25`, `OI-32`, the batch that `UC-REC-recommend-quiz-rules` stores (Rules quiz data, below), and the batch contract and batch entry point of `UC-PAR-report-book` in [`design/par.md`](par.md)
+> **Realizes:** `UC-REC-kid-onboarding`, `FR-ONB-profile` (the interests and favorite books half), `FEAT-onboarding-profile`, `UC-REC-recommend-quiz-rules`, `FR-REC-rules`, `FR-REC-every-request`, `FEAT-recommendation-quiz`, `UC-REC-parent-review`, `UC-REC-kid-review`, `FR-REC-react`, `FR-REC-parent-suggest` (the child's half)
+> **Depends on:** `BR-parent-creates-kid-account`, `BR-kid-data-stored`, `BR-reading-level-proxy`, `BR-no-reading-level-assessment`, `BR-child-structured-responses`, `BR-coppa-minimization`, `BR-admin-limited-view`, `BR-coppa-notice`, `BR-coppa-parent-rights`, `BR-coppa-retention`, `FR-DATA-notice`, `FR-DATA-review`, `DI-integrity`, `DI-catalog-status`, `DI-field-tables`, `SEC-role-authorization`, `KD-pii-segregation`, `KD-auth-sessions`, `KD-book-exclusion`, `KD-catalog-import-offline`, `BR-parent-report-book`, `BR-parent-ultimate-say`, `BR-parent-note`, `DI-report-exclusion`, `SAF-child-content`, `PER-recommendation-latency`; for `UC-REC-parent-review`: `BR-parent-rec-not-forced`, `KD-time-rules-on-read`, `CI-in-app-alerts`, `ROB-no-data-loss`, `OI-25`, `OI-32`, the batch that `UC-REC-recommend-quiz-rules` stores (Rules quiz data, below), and the batch contract and batch entry point of `UC-PAR-report-book` in [`design/par.md`](par.md); for `UC-REC-kid-review`: `BR-parent-rec-not-forced`, `BR-kid-no-metrics`, `BR-child-structured-responses`, `BR-kid-data-stored`, `BR-coppa-parental-consent`, `FR-SHLF-categories`, `FR-CHILD-structured`, `UI-kid-no-metrics`, `DI-acquire`, `KD-book-exclusion`, `OI-2`, `OI-58`, `OI-65`, `OI-66`, `OI-67`, `OI-73`, `requireChild()` and child sign-in in [`design/shlf.md`](shlf.md), `listReleasedBatchesForChild` (below), and `listSuggestionsForChild`, `removeSuggestionInTx` and the "appears once, as the suggestion" decision of `UC-PAR-suggest-book` in [`design/par.md`](par.md)
 > **See:** [use cases, REC area](../docs/requirements/use-cases.md#uc-rec-kid-onboarding-capture-a-childs-reading-interests-and-favorite-books), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [architecture-of-record](architectural-design.md), [PAR design](par.md), [field values to agree](rec-field-values.md)
-> **Designed against:** `d8beec6` for onboarding, `8aadd95` for the rules quiz, and `10eebbc` for `UC-REC-parent-review` (after #115 merged; no batch code exists yet).
+> **Designed against:** `d8beec6` for onboarding, `8aadd95` for the rules quiz, and `10eebbc` for `UC-REC-parent-review` (after #115 merged; no batch code exists yet), and `273a5b1` for `UC-REC-kid-review` (after #124; no child route, `requireChild()`, batch or suggestion code exists yet; Shelf has `shelf-entries.ts` and Accounts & Family has both locks and `isExcluded`).
 
 ---
 
@@ -20,6 +20,8 @@ The profile is held by Recommendation under the opaque child ID. It is not ident
 `UC-REC-recommend-quiz-rules` adds the child’s recommendation request. Catalog filters the active and age-appropriate books against the quiz and the child's permanent exclusions. Recommendation ranks the results using that child's profile and history, then stores an ordered batch for [parent review](../docs/requirements/use-cases.md#uc-rec-parent-review-parent-reviews-a-childs-recommendation-batch). The child sees that the request was sent. The books become available through the downstream release flow.
 
 `UC-REC-parent-review` sits between the batch that `UC-REC-recommend-quiz-rules` stores as `pending` and the child's reactions in `UC-REC-kid-review`. Everything it needs is the **Recommendation Batch** document itself, owned by Recommendation, so it adds no collection. The parent is told a batch is ready (step 1) by a list of pending batches on the parent home page, which Recommendation reads from the batches; no separate notice is stored. The parent opens one batch, sees each book's title and tags through the Catalog (steps 2–3), and may remove books one at a time, each removal saved at once (step 4). Confirming (step 5) is one conditional update that marks the batch `released`, or `empty` when no book is left (4a), and that update **is** the release (step 6): `UC-REC-kid-review` reads released batches, so there is no separate hand-off to fail or retry (6a). A batch the parent never confirms is released unchanged when the deadline the quiz stored on it, `handoffDeadline`, passes (2a). Every read applies that rule from that instant (`KD-time-rules-on-read`), and the stored state follows without anyone opening a page: the child's next quiz save records the release in its own transaction, and otherwise the daily Scheduled Cleanup run does. Either way the batch leaves `pending`, so the child's one pending slot (#115's partial unique index) is free for the next request. Either parent role may review (architecture §8.1, `OI-25`). A parent may report a book from the batch instead of only removing it; the report is `UC-PAR-report-book`'s, and this design supplies the batch function and the entry path that [`par.md`](par.md) left to it. Parent-suggested books do not pass through this review (`BR-parent-rec-not-forced`, the use case's Assumptions).
+
+`UC-REC-kid-review` is where the child turns recommendations into shelf entries. The child opens `/child/recommendations` from the child home. The page shows one **recommendation list** merged from two owners: the child's pending parent suggestions (Accounts & Family, `listSuggestionsForChild`) first, newest first, then the books of released batches (`listReleasedBatchesForChild`) that the child has not reacted to, newest batch first and in each batch's ranked order. A book in both appears once, as the suggestion ([`par.md`](par.md), `UC-PAR-suggest-book` key decisions). Each book shows its title and author (no cover, `OI-65`); a suggestion also shows its note and "From your grown-up" (§8.2.11 exception). The child taps "Yes", "Maybe later" or "Not for me"; "Not for me" then offers the five decline reasons and "Skip". Each reaction is one server action and one transaction: it records the reaction, adds the shelf entry for "Yes" or "Maybe later" unless the book is already on the shelf (4a), and deletes the book's pending suggestion. Nothing is written to the batch: a batch book leaves the list because a reaction now names that batch. The reactions are the "reaction reader" the rules quiz already counts on (Rules quiz components). Nothing on the page counts anything (`BR-kid-no-metrics`, §8.2.11).
 
 ## Components & classes
 
@@ -123,6 +125,47 @@ classDiagram
     batches --> bookReports
     batches --> batchState
     bookReports --> batches
+    class RecommendationsPage {
+        <<new, UC-REC-kid-review>>
+        /child/recommendations
+    }
+    class RecommendationList {
+        <<new, client component>>
+        three reactions, reason step
+    }
+    class reactionActions {
+        <<new>>
+        +reactToRecommendation(input) ActionResult
+    }
+    class reactions {
+        <<new, Recommendation>>
+        +getRecommendationListForChild(childSession) ListItem[]
+        +recordReaction(childSession, input)
+        +listReactionsForSignals(childId, tx)
+        +listReactionsForExport(familyId, childId, tx)
+        +deleteChildRecords(tx, childId)
+    }
+    class suggestions {
+        <<Accounts and Family, design/par.md>>
+        +listSuggestionsForChild(childSession)
+        +removeSuggestionInTx(tx, childId, bookId) boolean
+    }
+    class shelfEntries {
+        <<Shelf, reused, one new write>>
+        +addShelfEntryInTx(tx, childId, bookId, category)
+    }
+    RecommendationsPage --> sessions
+    RecommendationsPage --> reactions
+    RecommendationsPage --> RecommendationList
+    RecommendationList --> reactionActions
+    reactionActions --> sessions
+    reactionActions --> reactions
+    reactions --> batches
+    reactions --> suggestions
+    reactions --> shelfEntries
+    reactions --> bookReports
+    reactions --> childAccounts
+    reactions --> catalogBooks
 ```
 
 - `src/app/(parent)/parent/children/[childId]/reading-profile/page.tsx` (**reused route, replaces the placeholder**): the form for steps 1 to 4. It calls `requireParent()`, then `getChildForFamily`; a child outside the session's family, or unknown, is not found with no hint which. If onboarding is already complete it shows the parent an error and no form (1a, PRE-3). The error has a link back to the parent's home page; that page is not built yet, so the target is one constant that points there once the route exists, and until then the error shows without a link. It shows the child's nickname and avatar only, the interest options, the catalog picker and a privacy notice block (`FR-DATA-notice`, `BR-coppa-notice`). **Placeholder, to be replaced by the client:** the block is a short plain paragraph saying what is collected (interests and favorite books), that it is used only to recommend books, and that the parent can review and delete it, shown in full above the Save button, with an unticked checkbox, "I have read this notice and agree to share this information about my child". Save stays disabled until the parent ticks it themselves; it is never pre-ticked or ticked by default. The tick is held in the form only and is not stored, because `BR-coppa-parental-consent` is already recorded in PAR, so whether to store it is for the client. The client, with a lawyer, supplies the real notice text; the block is one small component so swapping in the text changes nothing else. As built (the developer's decision, 2026-11-18), the block also carries a link to the privacy notice from `getPrivacyNoticeUrl()` in `src/server/lib/config.ts`, the same location `UC-PAR-create-kid-account` links to (`COPPA-online-notice`). It opens in a new tab, so the parent's selections stay on the form and closing the tab brings them back; the development placeholder page says so. Like the PAR form, the page fails closed in production when `PRIVACY_NOTICE_URL` is unset, and falls back to `/privacy-notice` in development and tests. There is no skip control: the use case has no skip extension, and saving with nothing selected is step 3 with zero choices. The save button is disabled while pending, and every selection stays in the form after a failed save (5a).
@@ -168,6 +211,26 @@ Added for `UC-REC-parent-review` (all new unless marked reused or contract):
 - Batch entry point for `UC-PAR-report-book`: `.../recommendations/[batchId]/[bookId]/report/page.tsx`, the path [`par.md`](par.md) left to this use case. It checks in the same order as `par.md`'s shelf entry point: `requireParent()` (no session: redirect to `/sign-in`; not a parent: `notFound()`), `getChildForFamily(familyId, childId)` (another family's or an unknown child: `404`), `isExcluded` (7c: "already reported", no form), `isInPendingBatch(childId, batchId, bookId)` (PRE-3: a book not in this pending batch, or a batch past `handoffDeadline`, is the `404`), then `getBooksForReview([bookId])` for the title. It renders `par.md`'s `ReportForm`, calls its `reportBook`, and links back to the batch page. Built with whichever of the two use cases is built second, since it needs both.
 - `src/server/lib/config.ts` (reused): gains `BATCH_REVIEW_WINDOW_HOURS`, an integer from 1 to 168, default 24, provisional (`OI-69`, [`rec-field-values.md`](rec-field-values.md)) (§8.2.6). It is the "downstream parent-review handoff duration" that the batch insert of `UC-REC-recommend-quiz-rules` adds to `createdAt` to store `handoffDeadline` (Rules quiz data). There is no other deadline and no second setting.
 - Reused as they are: `requireParent`, `getChildForFamily`, `isConsentConfirmed`, `action-result.ts`, `clock.ts` (`now()`), `log.ts`, `db.ts`.
+
+Added for `UC-REC-kid-review` (all new unless marked reused or contract):
+
+- `src/app/(child)/child/page.tsx` (the child home from [`shlf.md`](shlf.md), not built yet): gains a large "My recommendations" link, as the quiz adds "Get recommendations".
+- `src/app/(child)/child/recommendations/page.tsx`: steps 1–2. A server component, dynamic, no caching. `requireChild()` (`NOT_SIGNED_IN`: redirect to `/child/sign-in`; `NOT_A_CHILD`, a parent or admin session: `notFound()`), then `getRecommendationListForChild` with the `requireChild()` result. The child ID comes only from the session; no ID is in the URL. An empty list shows one message, "No new picks right now. You can ask again.", with a link to the quiz; it is the same for every empty case, including a batch the parent emptied (`UC-REC-parent-review` 4a). `error.tsx` beside it is the calm retry screen for a failed read (§8.2.1); no partial list is shown.
+- `.../recommendations/recommendation-list.tsx` (client component): one card per book with title, author, and for a suggestion the note and "From your grown-up"; three large buttons, "Yes", "Maybe later", "Not for me". "Not for me" opens the five reasons and "Skip" on the same card, with a way back; nothing is sent until the child picks a reason or Skip (6, 6a). Every button is disabled while an action is pending. On `ok` the card leaves the list (step 7); when `shelf` is `alreadyOnShelf` the child sees "This book is already on your shelf" (4a). On `SAVE_FAILED` the card stays with a calm error (7a). On `OUTCOME_UNKNOWN`, and when the action's promise rejects (a network failure or a crash, after which the transaction may still have committed, so it is an unconfirmed outcome, not `SAVE_FAILED`), the client calls `router.refresh()` so `/child/recommendations` and `/child/shelf` are read again, and the refreshed list decides (7a). If the book is gone from it, it was answered: the card leaves with no error, as on the committed-retry path below. If it is still there, the card stays with a calm message that the answer may have been saved, to check the shelf or try again, the buttons are enabled again, and a retry works. On `BOOK_NOT_IN_LIST` the card leaves with no error and the page refreshes: the book is already answered, which is also what a retry after an unknown commit that did apply gets. No count, "left", progress bar or position is shown (`BR-kid-no-metrics`).
+- `.../recommendations/actions.ts` and `schema.ts`: `reactToRecommendation({ bookId, reaction, declineReason? })`. Order (§8.2.3): `requireChild()`, the zod schema, then `recordReaction`. The schema: `bookId` a non-empty string of at most 100 characters (a malformed ID passes and is answered `BOOK_NOT_IN_LIST`, like an unknown one); `reaction` one of `yes`, `maybeLater`, `notForMe`; `declineReason` optional, one of the five keys, and allowed only with `notForMe` (§8.2.5, `BR-child-structured-responses`). Any other shape failure is `INVALID_INPUT`. On `ok`, `OUTCOME_UNKNOWN` and `BOOK_NOT_IN_LIST` it revalidates `/child/recommendations` and `/child/shelf`, since a first attempt whose outcome was unconfirmed may have created the shelf entry.
+- `src/shared/recommendation/reactions.ts` (pure, not `server-only`, §8.2.4): the reaction keys and the decline-reason keys `notInterested`, `tooEasy`, `tooHard`, `notMyStyle`, `other`, with the child-facing labels from the glossary's Decline Reason, shared by the form and the schema.
+- `src/server/recommendation/reactions.ts` (server-only; the only code that touches `recommendationReactions`):
+  - `getRecommendationListForChild(childSession)`: takes the `requireChild()` result, never a bare ID. Reads `listSuggestionsForChild(childSession)` and `listReleasedBatchesForChild(childId)`, drops from each batch the books that have a reaction naming that batch in `batchIds`, drops a batch book that is also suggested, and joins the remaining batch books to `getBooksForShelf` for title and author (the suggestions already carry theirs). Suggestions are filtered by `listSuggestionsForChild` as [`par.md`](par.md) fixes it, excluded books and books no longer active (blocked or back to draft) left out, and get **no** age-band filter: the parent chose the book (`BR-parent-rec-not-forced`; developer decision 2026-11-25, questions test item 1). A book in more than one released batch appears once, at its newest batch's place. Each item is `{ bookId, title, author }`, plus `note` and `fromGrownUp: true` for a suggestion, and nothing else: no batch ID, source, date or status. Throws on any failed read.
+  - `recordReaction(childSession, input)`: one `withTransaction`, in this order: (1) `lockChildForWrite(tx, childId)` (`CHILD_NOT_FOUND` when it matches nothing); (2) `getFamilyIdForChild(childId, tx)`, after (1) and on the same `tx`, so the family is read inside the transaction that holds the child lock; `null` stops with `CHILD_NOT_FOUND` and writes nothing, as a failed (1) does (§8.2.8); a new narrow read in Accounts & Family's `child-accounts.ts` that returns the child account's `familyId` as a string (`requireChild()` returns only `{ userId, childId, sessionId }`, [`shlf.md`](shlf.md), #134); the family never comes from the request; (3) `lockConsentForWrite(tx, familyId)` (`CONSENT_NOT_CONFIRMED`); (4) the book is active: the Catalog's same-book conditional write (`OI-58`); until `OI-58` is agreed, the fixture path only (Key decisions); not active is `BOOK_NOT_IN_LIST`; (5) `isExcluded(childId, bookId, tx)` (excluded is `BOOK_NOT_IN_LIST`); (6) `removeSuggestionInTx(tx, childId, bookId)`, whose answer says whether a pending suggestion existed (step 7); (7) the released batches holding the book unreacted (`listReleasedBatchesForChild(childId, tx)` minus reactions naming each batch). If (6) found no suggestion and (7) no batch, `BOOK_NOT_IN_LIST` and the transaction aborts, which undoes nothing since (6) deleted nothing. Otherwise (8) for `yes` or `maybeLater`, `addShelfEntryInTx(tx, childId, bookId, "readingNow" | "maybeLater")`, and (9) insert the reaction with `batchIds` and `reactedAt` from `now()`. `BOOK_NOT_IN_LIST` is thrown as a sentinel inside the callback and mapped after it. Returns `ok` with `shelf`: `added`, `alreadyOnShelf` (4a) or `none` (a decline). Any other error is logged through `logUnexpectedError`, and its error ID is returned. If the error that leaves `withTransaction` carries MongoDB's `UnknownTransactionCommitResult` label, the commit may have applied, and the result is `OUTCOME_UNKNOWN` (7a, save not confirmed). Every other error means the transaction did not commit, and the result is `SAVE_FAILED` (7a); the transaction leaves nothing behind.
+  - `listReactionsForSignals(childId, tx)`: the quiz's reaction reader (Rules quiz components): the latest reaction per book for the 20 most recent distinct books, as [`rec-field-values.md`](rec-field-values.md) fixes, on the quiz's transaction.
+  - `deleteChildRecords(tx, childId)`: this file's part of the §8.2.8 deletion contract (`UC-PAR-delete-kid-account`, `UC-PAR-delete-child-data`, the inactivity purge). `/implement` lists it directly in `DELETE_CHILD_RECORDS` in `child-deletion.ts` (#125). #125's completeness test must seed a `recommendationReactions` document for the child.
+  - `listReactionsForExport(familyId, childId, tx)`: the reactions part of the "Recommendations/reactions" row of `UC-PAR-review-child-data` ([`par.md`](par.md)): checks the child against the family, returns book ID, reaction, decline reason and `reactedAt`.
+- `src/server/recommendation/batches.ts` (reused, `UC-REC-parent-review`): `listReleasedBatchesForChild(childId, tx?)`, as built by #137, the handle [`par.md`](par.md) asks for; with `tx` its read of the child's age runs in the same transaction, through `getChildAgeForRecommendation(childId, tx?)` in `child-identity.ts` (Child Identity Store), as built by #137. Nothing else changes.
+- `src/server/shelf/shelf-entries.ts` (reused, one new write, owned by Shelf): `addShelfEntryInTx(tx, childId, bookId, category)`: one `updateOne` on `{ childId, bookId }` with `$setOnInsert` of the category and `movedAt: now()`, `upsert: true`, on the caller's transaction. `category` is a `ShelfCategory` from `SHELF_CATEGORIES` in `shelf-collections.ts`; the upsert fills every field that collection's validator requires (`_id`, `childId`, `bookId`, `category`, `movedAt`). Returns `added` when it inserted and `alreadyOnShelf` otherwise; it never moves an existing entry. No duplicate-key error can abort the caller's transaction.
+- `src/server/accounts-family/suggestions.ts` (contract, [`par.md`](par.md)): `listSuggestionsForChild` and `removeSuggestionInTx`, used exactly as designed there.
+- `src/server/accounts-family/book-reports.ts` (reused): `isExcluded(childId, bookId, tx)`, with the optional handle `par.md` adds.
+- `src/server/accounts-family/child-accounts.ts` (one new read, owned by Accounts & Family): `getFamilyIdForChild(childId, tx): Promise<string | null>`, the child account's `familyId` on the caller's transaction, `null` for no account. Its only caller is `recordReaction`, after `lockChildForWrite`.
+- Reused as they are: `requireChild()` ([`shlf.md`](shlf.md)), `lockChildForWrite`, `lockConsentForWrite`, `getBooksForShelf`, `withTransaction`, `action-result.ts`, `clock.ts`, `log.ts`, `ensureCollection`; `ensure-indexes.ts` gains the reactions setup.
 
 ## Sequence
 
@@ -330,6 +393,65 @@ sequenceDiagram
     end
 ```
 
+### UC-REC-kid-review: child reacts to recommended books
+
+```mermaid
+sequenceDiagram
+    actor C as Child
+    participant UI as /child/recommendations
+    participant ACT as reactToRecommendation
+    participant IA as Identity & Access
+    participant REC as Recommendation
+    participant AF as Accounts & Family
+    participant SH as Shelf
+    participant CAT as Catalog
+    participant DB as Database
+    C->>UI: Open my recommendations (step 1)
+    UI->>IA: requireChild()
+    UI->>REC: getRecommendationListForChild(childSession)
+    REC->>AF: listSuggestionsForChild(childSession)
+    REC->>REC: listReleasedBatchesForChild(childId), minus books with a reaction naming that batch
+    REC->>CAT: getBooksForShelf(batch bookIds), title and author
+    REC-->>UI: One list; a suggested book appears once, as the suggestion
+    UI-->>C: Each book with title and author; a suggestion with its note and label (step 2)
+    C->>UI: Yes, Maybe later or Not for me (step 3)
+    opt Not for me (step 6)
+        UI-->>C: The five reasons and Skip
+        C->>UI: A reason, or Skip (6a)
+    end
+    UI->>ACT: reactToRecommendation(bookId, reaction, declineReason?)
+    ACT->>IA: requireChild()
+    ACT->>ACT: Validate with the zod schema (steps 3, 6)
+    ACT->>REC: recordReaction(childSession, input)
+    REC->>DB: withTransaction
+    REC->>AF: lockChildForWrite, getFamilyIdForChild, lockConsentForWrite (PRE-1)
+    REC->>CAT: Same-book conditional write while active (OI-58); real data waits on it
+    REC->>AF: isExcluded(childId, bookId, tx)
+    REC->>AF: removeSuggestionInTx(tx, childId, bookId) (step 7)
+    REC->>REC: Released batches holding the book unreacted (PRE-2)
+    alt in no batch and no suggestion
+        REC-->>ACT: BOOK_NOT_IN_LIST, transaction aborted
+    end
+    opt Yes (step 4) or Maybe later (step 5)
+        REC->>SH: addShelfEntryInTx(tx, childId, bookId, readingNow or maybeLater)
+        SH-->>REC: added, or alreadyOnShelf (4a)
+    end
+    REC->>DB: Insert reaction with batchIds and reactedAt (steps 4–6, POST-1)
+    alt the transaction did not commit (7a)
+        DB-->>REC: error, transaction aborted
+        REC-->>ACT: SAVE_FAILED, error ID logged
+    else commit result unknown after the driver's retries (7a)
+        DB-->>REC: error labelled UnknownTransactionCommitResult
+        REC-->>ACT: OUTCOME_UNKNOWN, error ID logged; may have been saved
+    end
+    REC-->>ACT: ok, shelf added, alreadyOnShelf or none
+    ACT-->>UI: ok
+    UI-->>C: The book leaves the list (step 7); 4a: "already on your shelf"
+    Note over C,UI: The child repeats or leaves (step 8); a book not reacted to stays (3a)
+```
+
+Every interaction names a use case step or a precondition. The locks, the consent check, the exclusion check and the `OI-58` write implement no step; they come from §8.1, §8.2.8, `BR-coppa-parental-consent` and `KD-book-exclusion`, and are the same set the quiz save, `reportBook` and `createSuggestion` use.
+
 ## API contract
 
 | Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
@@ -347,6 +469,15 @@ sequenceDiagram
 Nothing in `UC-REC-kid-onboarding` is sent to a child's screen (`BR-parent-creates-kid-account`, §8.2.11).
 
 Nothing in `UC-REC-parent-review` is sent to a child's screen. The removed books are never returned by any function a child session can reach (POST-2).
+
+| Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
+|---|---|---|---|---|
+| Page `/child/recommendations` (UC-REC-kid-review steps 1–2, 3a) | A signed-in child; the child comes from the session | None | The recommendation list: each item's book ID, title and author, and for a suggestion its note and `fromGrownUp`; no count, date, batch ID, source or status. An empty list: "No new picks right now. You can ask again." with a link to the quiz | No session: redirect to `/child/sign-in`. A parent or admin session: `404`. A failed read: the `error.tsx` retry screen, no partial list |
+| Server action `reactToRecommendation` (UC-REC-kid-review steps 3–7, 4a, 6a, 7a) | A signed-in child; the child comes from the session, never the request | `bookId`, `reaction` (`yes`, `maybeLater`, `notForMe`), `declineReason` (optional, one of five, only with `notForMe`) | `ok` with `shelf`: `added` (steps 4, 5), `alreadyOnShelf` (4a: no second entry, the reaction is recorded) or `none` (step 6; 6a with no reason) | `NOT_SIGNED_IN`, `NOT_A_CHILD`. `INVALID_INPUT` for a wrong shape, an unknown reaction or reason, or a reason with `yes` or `maybeLater`. `CHILD_NOT_FOUND` when the child was deleted while the write ran. `CONSENT_NOT_CONFIRMED`. `BOOK_NOT_IN_LIST` when the book is not in the child's list now: already reacted to, reported, blocked or back to draft, or unknown or malformed. 7a: `SAVE_FAILED` with an error ID; no reaction, no shelf entry, the suggestion kept. 7a: `OUTCOME_UNKNOWN` with an error ID when the commit's result is unknown: the reaction may have been saved, and the child is told calmly to check the shelf or try again; a retry after a commit that did apply gets `BOOK_NOT_IN_LIST`, which the page treats as already answered |
+| Function `listReactionsForSignals(childId, tx)` (for `UC-REC-recommend-quiz-rules`) | Recommendation only, inside the quiz's save transaction | Child ID | The latest reaction per book for the 20 most recent distinct books | None of its own; a failed read throws, which the quiz treats as `LOAD_FAILED` |
+| Functions `deleteChildRecords(tx, childId)` and `listReactionsForExport(familyId, childId, tx)` | The §8.2.8 deletion contract; `UC-PAR-review-child-data` | Child (and family) ID, the caller's transaction | Every reaction of the child deleted; or each reaction's book ID, reaction, decline reason and `reactedAt` | Throw to the caller |
+
+Nothing in `UC-REC-kid-review` sends a pending batch, `removedBookIds`, `releasedAt`, a reaction or a decline reason to a child's screen.
 
 ### Rules quiz API contract
 
@@ -424,6 +555,32 @@ _**Changed in review of #137 (2026-11-26): the released read takes the caller's 
 
 **Removed books are kept on the batch for the parent only.** `removedBookIds` is the use case's "Removed books" (Associated Information), and POST-1 needs every book to be either removed or released. No child-callable function returns it. Whether the recommender learns from a parent's removal is `OI-2`'s; nothing here reads it for that.
 
+### UC-REC-kid-review
+
+**A batch book leaves the list because a reaction names its batch; the batch is never written.** Each reaction stores `batchIds`, the released batches the book was waiting in, and the list drops a batch's book once a reaction names that batch. Rejected: pulling the book from the batch's `bookIds`, which would make `bookIds` mean both "the parent kept it" and "the child has not answered", and would add a writer that races the block's `removeFromCurrentLists` ([`adm.md`](adm.md)).
+
+**The server works out where the book is; the client sends only the book ID.** Rejected: a batch or suggestion ID in the request, which a child could change to answer an entry that is not in their list, and which the server would have to check anyway.
+
+**One reaction answers every place the book is in the list.** It deletes the suggestion and names every released batch holding the book, which completes [`par.md`](par.md)'s rule that a book both suggested and released appears once, as the suggestion. Rejected: one reaction per source, which would show the child the book again right after they answered it.
+
+**Each reaction is one transaction that starts with the child lock and the consent lock** (§8.2.8: it inserts a reaction and may insert a shelf entry for a child; `BR-coppa-parental-consent`: nothing is collected without confirmed consent). The child lock also serializes a double tap and a report of the same book: the second reaction finds the book gone from the list and gets `BOOK_NOT_IN_LIST`, and a report that commits first makes `isExcluded` true. So reactions need no unique index. Rejected: a read-only consent check, whose snapshot would not conflict with a revocation (the same reason the quiz save and `reportBook` take the lock).
+
+**An unknown commit result is `OUTCOME_UNKNOWN`, not `SAVE_FAILED`** (review of #138). `withTransaction` retries a commit whose result is unknown until the driver's time limit ([`par.md`](par.md), the `reportBook` key decision on errors). If the error that finally leaves it carries the `UnknownTransactionCommitResult` label, the reaction may have committed. That error is `OUTCOME_UNKNOWN`, the code `UC-SHLF-parent-remove-book` ([`shlf.md`](shlf.md)) and `UC-PAR-report-book` (#136) use, logged with an error ID, and the child sees a calm message to check the shelf or try again (7a). Every other error means the transaction did not commit and stays `SAVE_FAILED`. A retry after a commit that did apply finds the book gone from the list and gets `BOOK_NOT_IN_LIST`, writing nothing; the page treats that as already answered, so the card leaves with no error. Rejected: `SAVE_FAILED` for it, which can say nothing was recorded when it was.
+
+**The shelf add is an upsert that only inserts**, so 4a is found without a duplicate-key error, which would abort the whole transaction. An existing entry keeps its category, including "Want to Read" and "Finished": the reaction does not move a book the child already shelved, which is `UC-SHLF-kid-move-book`'s job. Rejected: reading `isOnShelf` then inserting, which is correct under the child lock but is two round trips for the same answer.
+
+**4a still records the reaction and removes the book from the list, for "Yes" and "Maybe later" alike.** The child answered, and the answer is a signal for the recommender (`rec-field-values.md`). The use case's 4a is edited in this pull request to say so and to cover "Maybe later". Rejected: leaving the book in the list, which would ask the child again about a book already on their shelf.
+
+**Reactions are kept as a dated history, one document per reaction.** The quiz reads the latest reaction per book (`rec-field-values.md`), and the admin's lookup lists recommendation responses with their dates (`FR-ADM-child-lookup`); a declined book can come back in a later batch (`OI-2`'s proposal gives it −2, it does not exclude it), so one book can have several reactions over time. Rejected: one document per child and book, overwritten, which loses the dates the lookup shows.
+
+**"Not for me" is saved when the child picks a reason or taps Skip, in one write.** Rejected: saving the decline on the first tap and adding the reason in a second write, which edits a recorded response and leaves a decline with no reason when the child picks one and the second write fails. Leaving at the reason step saves nothing (3a).
+
+**Suggestions come first, then released batches, newest first.** The parent's pick carries a note for the child and is the smaller list. Rejected: ordering by time across both, which needs dates the child never sees (§8.2.11) and would bury a suggestion under a fresh batch.
+
+**One message for every empty list.** "No new picks right now. You can ask again." covers a batch the parent emptied (`UC-REC-parent-review` 4a), a list the child has finished, and no requests yet. Rejected: a separate message for a parent-emptied batch, which would tell the child that a parent removed books.
+
+**A block racing a reaction is settled by the Catalog's same-book conditional write (`OI-58`).** A snapshot read of the book's status cannot see a block that commits while the reaction is open, so the block's `removeEntriesForBook` could miss the new shelf entry. The reaction joins the callers of `OI-58`'s write, as `createSuggestion` and the shelf writes do. Changed in review of #138 (2026-11-26): `recordReaction` may be built and tested on the fixture path before then, but real shelf writes are not released until `OI-58`'s catalog write guard exists, as the quiz entry is kept unavailable for real use (`UC-REC-recommend-quiz-rules`, above) and suggestions are not enabled for real families ([`par.md`](par.md), `UC-PAR-suggest-book`); the race test waits on `OI-58`, as the ADM race test does. Rejected: an active-status read on the transaction until `OI-58` is agreed. It reads a snapshot, so it can create a shelf entry during a block, and filtering reads only hides that entry: the entry would come back if the book is unblocked and published again.
+
 ## Data model
 
 New collection `readingProfiles` (Recommendation), one document per child with a completed onboarding:
@@ -487,6 +644,28 @@ erDiagram
 - The validator (`ensureCollection`, §8.2.5) gains `removedBookIds` and `releasedAt`; `status` is the enum above, and `handoffDeadline` stays required.
 - Deleting a child's data or account removes the child's batches with the rest (`UC-PAR-delete-child-data`, `UC-PAR-delete-kid-account`), as #115 already lists them. The batch holds no new kind of child data: it is the recommendations `BR-kid-data-stored` already names.
 
+`UC-REC-kid-review` adds one collection, `recommendationReactions` (Recommendation), and changes no other collection's shape (`recommendationBatches`, `shelfEntries` and `parentSuggestions` are untouched):
+
+```mermaid
+erDiagram
+    CHILD ||--o{ RECOMMENDATION_REACTION : "responds"
+    RECOMMENDATION_BATCH ||--o{ RECOMMENDATION_REACTION : "named in batchIds"
+    RECOMMENDATION_REACTION {
+        id _id
+        string childId "the internal child ID"
+        string bookId "catalog book ID"
+        string reaction "yes, maybeLater or notForMe"
+        string declineReason "optional, only with notForMe: notInterested, tooEasy, tooHard, notMyStyle or other"
+        list batchIds "ObjectId, as batch _id: released batches the book was waiting in; empty for a suggestion alone"
+        date reactedAt "UTC, now()"
+    }
+```
+
+- Indexes: `{ childId, reactedAt }` for the quiz's reader and the export, and `{ childId, batchIds }` for the list. No unique index: the child lock serializes reactions (Key decisions).
+- The validator (`ensureCollection`, §8.2.5) requires every field but `declineReason`, holds `reaction` and `declineReason` to their enums, holds `batchIds` to an array of `objectId`, and allows no other field. That `declineReason` appears only with `notForMe` is the zod schema's check, the one that counts.
+- No name, age, grade or reading level (`KD-pii-segregation`); no copied book data. Reactions and decline reasons are already in `BR-kid-data-stored`'s inventory and `DI-child-stored`, so the consent notice gains no item.
+- Retention: kept while the child's account is active, as the recommender's input; deleted with the child's data or account and by the inactivity purge (`BR-coppa-retention`, `OI-22`), through `deleteChildRecords`.
+
 ## Reuse & cross-cutting
 
 For `UC-ADM-block-content`, Recommendation provides `removeFromCurrentLists(bookId, tx)` to remove a book from pending and released lists in the admin's transaction. See [the block design](adm.md#blocking-and-report-decisions).
@@ -506,6 +685,8 @@ For `UC-ADM-block-content`, Recommendation provides `removeFromCurrentLists(book
 Not used: Notification (no alert is asked for), the audit log (not in the §8.2.9 list), and the Child Identity Store.
 
 `UC-REC-parent-review` reuses `requireParent()` and the family check inside data access (`getChildForFamily`, §8.1), `isConsentConfirmed`, the result helper (§8.2.1), `now()` and the deadline-on-read rule (§8.2.2, `KD-time-rules-on-read`), the action shape (§8.2.3), the Catalog's active-only reads (§8.2.4), `listExcludedBookIds` from [`par.md`](par.md) (`KD-book-exclusion`), and conditional updates for a single-actor state change (§8.2.8). Configuration: `BATCH_REVIEW_WINDOW_HOURS` (§8.2.6). Logging: never the child ID with book IDs, the nickname or a removal (§8.2.7); a failed save logs an error ID only. Scheduled Cleanup: `releaseExpiredBatches` joins the daily route, logging a count only. Not used: Notification (the batch-ready notice is read from the batches; see Key decisions), the audit log (batch review is not in the §8.2.9 list), the Child Identity Store, Shelf, and email.
+
+`UC-REC-kid-review` reuses `requireChild()` ([`shlf.md`](shlf.md), §8.1), the result helper (§8.2.1), `now()` (§8.2.2), the action shape (§8.2.3), Shelf's and Accounts & Family's own functions rather than their collections (§8.2.4), one zod schema over fixed lists (§8.2.5, `BR-child-structured-responses`), one transaction with the child and consent locks (§8.2.8), and the child-facing rule (§8.2.11: book data, and the suggestion note and label under its exception). Exclusions and blocks are applied on every read of the list (`KD-book-exclusion`). Logging: never a decline reason (§8.2.7) and never the child ID with a book ID or reaction; a failed save logs an error ID only. The Child Identity Store is read only for the age band: `listReleasedBatchesForChild` reads the child's age through `getChildAgeForRecommendation` (#135), and nothing else (`KD-pii-segregation`). Not used: Notification (the use case asks for no notice), the audit log (a reaction is not in the §8.2.9 list; it is usage data the admin reaches only through the audited lookup), and email.
 
 ## Tests
 
@@ -562,6 +743,35 @@ Not used: Notification (no alert is asked for), the audit log (not in the §8.2.
 | UC-REC-parent-review child-facing | integration | No function a child session can reach returns a pending batch, a batch's `removedBookIds`, or a batch before its release (POST-2, §8.2.11) |
 | UC-REC-parent-review validator | integration | The `recommendationBatches` validator refuses a batch without `handoffDeadline` and a `status` outside pending, released and empty |
 | UC-REC-parent-review logging | integration | After a removal, a confirmation and a failed save, the logs hold no child ID with a book ID and no nickname |
+| UC-REC-kid-review main, Yes | integration | Under a fixed clock, a released batch book and "Yes": one `readingNow` shelf entry with `movedAt` equal to `now()`, one reaction `yes` whose `batchIds` holds that batch, and the book is gone from `getRecommendationListForChild` (steps 4, 7, POST-1, POST-2) |
+| UC-REC-kid-review main, Maybe later | integration | "Maybe later": one `maybeLater` shelf entry, one reaction `maybeLater`, the book gone from the list (step 5, POST-2) |
+| UC-REC-kid-review main, Not for me | integration | "Not for me" with a reason: one reaction `notForMe` with that reason, no shelf entry, the book gone from the list (step 6, POST-3) |
+| UC-REC-kid-review main | end-to-end | A child signs in, opens "My recommendations", answers three books with each reaction, and sees the empty-list message; the child's shelf shows two books, in Reading Now and Maybe Later (steps 1–8) |
+| UC-REC-kid-review 2, merged list | integration | Suggestions come first, newest first, then released batch books, newest batch first in ranked order; a book both suggested and released appears once, as the suggestion with its note and label; a book in two released batches appears once; each item holds only book ID, title, author and, for a suggestion, note and `fromGrownUp` |
+| UC-REC-kid-review 2, what is left out | integration | A pending batch's books, a parent-removed book, a book reported for the child, a blocked or draft book, and a book whose age band no longer holds the child's age are not in the list; a suggestion whose book is reported, blocked or back to draft is not in it, and a suggestion whose age band no longer holds the child's age still is |
+| UC-REC-kid-review 2, empty | end-to-end | With no suggestion and no unanswered released book, including a batch the parent emptied, the page shows "No new picks right now. You can ask again." and a link to the quiz, and no count |
+| UC-REC-kid-review 7, suggestion | integration | A reaction to a suggested book deletes the suggestion in the same transaction; a reaction to a book both suggested and in a released batch deletes the suggestion and names the batch, and the book does not reappear |
+| UC-REC-kid-review 3a | end-to-end | Leaving the page without answering, or after tapping "Not for me" and before choosing a reason or Skip, saves nothing; the book is in the list on the next visit |
+| UC-REC-kid-review 4a | integration and end-to-end | "Yes", and separately "Maybe later", on a book already on the shelf in Finished: still one entry, still in Finished, the reaction recorded, the book gone from the list, `shelf` is `alreadyOnShelf`, and the child sees "already on your shelf" |
+| UC-REC-kid-review 6a | integration | Skip records `notForMe` with no `declineReason` |
+| UC-REC-kid-review input | unit | The schema refuses an unknown reaction, an unknown reason, a reason with `yes` or `maybeLater`, a missing field and a non-string as `INVALID_INPUT`; a malformed book ID passes the schema |
+| UC-REC-kid-review input, book | integration | An unknown or malformed book ID, and a book already answered, return `BOOK_NOT_IN_LIST` and write nothing |
+| UC-REC-kid-review 7a | integration | Each write made to fail in turn (shelf entry, reaction, suggestion deletion): `SAVE_FAILED` with an error ID, no reaction, no shelf entry, the suggestion still there, and the book still in the list |
+| UC-REC-kid-review 7a, response lost | integration | Only the commit boundary is mocked: the transaction runs against the real database and commits, and then the commit call throws an error labelled `UnknownTransactionCommitResult`. The result is `OUTCOME_UNKNOWN` with an error ID and no exception text, and one error is logged with that ID; the reaction is saved: one reaction exists and, for `yes` or `maybeLater`, one shelf entry; the action revalidates `/child/recommendations` and `/child/shelf`; a retry then gets `BOOK_NOT_IN_LIST`, writes nothing, and revalidates both paths again |
+| UC-REC-kid-review 7a | end-to-end | After a failed save the card is still shown with the error, and a retry succeeds; when the action's promise rejects (network failure), run twice. Committed (the response is dropped after the server answers): after the refresh the card has left with no error, the shelf shows the book, and one reaction exists. Not committed (the call fails before it reaches the server): the card shows the may-have-saved message, its buttons are enabled again and the page is refreshed, and a retry succeeds |
+| UC-REC-kid-review concurrency | integration | Two simultaneous reactions to one book leave one reaction and at most one shelf entry; the other gets `BOOK_NOT_IN_LIST` |
+| UC-REC-kid-review report race | integration | A report and a reaction of the same book run together: either the reaction commits first and `reportBook` then removes its shelf entry, or the reaction gets `BOOK_NOT_IN_LIST`; no shelf entry for the excluded book is left |
+| UC-REC-kid-review block race (waits on `OI-58`) | integration | A block and a reaction of the same book run together; every interleaving ends with no shelf entry for the blocked book; unblocking and republishing the book afterwards leaves no shelf entry for it from the reaction |
+| UC-REC-kid-review deletion race, reaction first | integration | A reaction and the child's deletion run together and the reaction commits first: the deletion then removes its reaction and shelf entry, and no record of the child remains |
+| UC-REC-kid-review deletion race, deletion first | integration | A reaction and the child's deletion run together and the deletion commits first: the reaction returns `CHILD_NOT_FOUND` and writes nothing |
+| UC-REC-kid-review consent | integration | With consent revoked the reaction returns `CONSENT_NOT_CONFIRMED` and writes nothing |
+| UC-REC-kid-review authorization | integration | The action takes no child ID; a parent or admin session gets `NOT_A_CHILD` on the action and the `404` on the page; a book only in another child's list is `BOOK_NOT_IN_LIST` |
+| UC-REC-kid-review again later | integration | A book declined from one batch and released again in a later batch is in the list again; answering it adds a second reaction |
+| UC-REC-kid-review signals | integration | `listReactionsForSignals` returns the latest reaction per book for at most 20 distinct books, newest first, and only the given child's |
+| UC-REC-kid-review deletion and export | integration | `deleteChildRecords` deletes every reaction of the child and no other child's; `listReactionsForExport` returns them for the child's family and nothing for another family |
+| UC-REC-kid-review child-facing | integration | No data the page or action returns holds a count, date, batch ID, status, reaction history or decline reason (§8.2.11, `BR-kid-no-metrics`) |
+| UC-REC-kid-review validator | integration | The `recommendationReactions` validator refuses an unknown reaction or reason and an extra field |
+| UC-REC-kid-review logging | integration | After a reaction with a reason, a refused one and a failed save, the logs hold no decline reason and no child ID with a book ID |
 
 ### Rules quiz acceptance cases
 
@@ -600,6 +810,12 @@ For `UC-REC-parent-review`, edited in `architectural-design.md` in this pull req
 - §5.2 Scheduled Cleanup: also records the timeout release of a batch past its `handoffDeadline` (`releaseExpiredBatches`). It changes no read's result, so it is still never the only thing enforcing the rule (`KD-time-rules-on-read`).
 - Revision history: a v0.21 row.
 
+For `UC-REC-kid-review`, edited in `architectural-design.md` in this pull request:
+
+- §5.2 Shelf: names `addShelfEntryInTx`, the write Recommendation calls when a child's reaction puts a book on the shelf. §5.2 Recommendation already owns "the child's reactions".
+- §8.2.8: a child's reaction with its shelf entry and the deletion of the book's pending parent suggestion joins the list of single transactions.
+- Revision history: a v0.23 row.
+
 ## Open questions & risks
 
 What this design had to assume. The developer accepted each on 2026-11-16 on the condition that none breaches a rule or COPPA.
@@ -633,6 +849,24 @@ What this design had to assume. The developer accepted each on 2026-11-16 on the
 - **Parent-suggested books and the follow-up books after a rating are not batches here.** `BR-parent-rec-not-forced` sends suggestions straight to the child; whether the follow-up books skip review is `OI-32`.
 - **Accepted risk: the batch waits for the parent.** For up to the review window the child sees only #115's acknowledgment. If that is too long for children, the window is one setting.
 
+`UC-REC-kid-review`, what this design had to assume. The developer accepted each on 2026-11-25.
+
+- **4a covers "Maybe later" too, and still records the reaction (specification).** The use case's 4a named only "Yes" and did not say whether the reaction is kept. Edited in use cases in this pull request.
+- **Who sees decline reasons (client, `OI-73`).** `BR-kid-data-stored` lists the parent among those who see reactions and decline reasons; the use case leaves it undecided. This design shows them to the parent only through `UC-PAR-review-child-data` (review and export), which the COPPA review right needs anyway. Filed as `OI-73`.
+- **A declined book can come back (team, `OI-2`).** The ranking proposal lowers a declined book; it does not exclude it. The use case's open issue now cites that.
+- **Consent is locked on every reaction (team).** As the quiz save, `reportBook` and `createSuggestion` do; a session alone is not the consent check for a write that collects child data.
+- **"Not for me" waits for a reason or Skip (team).** See Key decisions.
+- **One reaction answers every place the book is (team).** See Key decisions.
+- **List order and the one empty message (team).** See Key decisions.
+- **No cover (client, `OI-65`).** Title and author, as on the shelf. The use case's step 2 is edited to say so.
+- **The shelf add never moves a book (team).** "Yes" on a book in Want to Read leaves it there.
+- **No notice tells the child new picks are ready (team).** The use case asks for none; the child finds them from the home screen.
+- **After release, a parent cannot take a book back (client, `OI-66`).** Unchanged by this design; if the client wants it, the list read gains one more filter.
+- **A suggestion never expires (client, `OI-67`).** It stays in the list until the child answers it.
+- **Build order (team).** `/implement` needs child sign-in and `requireChild()` ([`shlf.md`](shlf.md)), the batch code (`UC-REC-recommend-quiz-rules`, `UC-REC-parent-review`) and the suggestion code (`UC-PAR-suggest-book`) on `main` first. Integration tests can run on fixtures before then, but the page cannot reach real data. Real shelf writes also wait on `OI-58`'s catalog write guard (Key decisions, block race).
+- **Block race (team, `OI-58`).** The test waits on the agreed same-book write, as ADM's and the suggestion's do. Until then `recordReaction` runs on the fixture path only, and no real shelf write is released (Key decisions, changed in review of #138, 2026-11-26).
+- **`getFamilyIdForChild` (team).** A child session carries no family, and no existing Accounts & Family read maps a child ID to its family, so this design adds one narrow read; it returns only the family ID. `recordReaction` calls it after `lockChildForWrite` and inside the same transaction (write order step 2).
+
 ---
 
 ### Rules quiz open decisions
@@ -650,4 +884,4 @@ _Delegate: drafting diagrams from the use case, listing the existing files a cla
 
 ## The questions test (before you open the pull request)
 
-Start a fresh agent session in plan mode with only the use case, the business rules it cites, architecture section 8 and this document, and ask: _List every point you would still have to guess to implement `<UC-ID>` (`UC-REC-kid-onboarding` or `UC-REC-parent-review`). For each, say what you would guess and whether a wrong guess could violate a requirement. Do not write code._ For each item, fix this document or keep the guess with one line saying why a wrong guess breaks no requirement. Paste the list under How it was verified in the pull request, inside a collapsed `<details><summary>Questions test</summary> … </details>` block.
+Start a fresh agent session in plan mode with only the use case, the business rules it cites, architecture section 8 and this document, and ask: _List every point you would still have to guess to implement `<UC-ID>` (`UC-REC-kid-onboarding`, `UC-REC-parent-review` or `UC-REC-kid-review`). For each, say what you would guess and whether a wrong guess could violate a requirement. Do not write code._ For each item, fix this document or keep the guess with one line saying why a wrong guess breaks no requirement. Paste the list under How it was verified in the pull request, inside a collapsed `<details><summary>Questions test</summary> … </details>` block.

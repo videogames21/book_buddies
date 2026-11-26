@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { listChildrenForFamily } from "@/server/accounts-family/child-accounts";
 import { findActiveBookIds } from "@/server/catalog/books";
-import { requireSuggestingParent } from "../../access";
+import { decodeRouteParam, requireSuggestingParent } from "../../access";
 import { ChildPicker } from "./child-picker";
 
 // UC-PAR-suggest-book extension 1a: which child to suggest the book to. One child goes
@@ -15,13 +15,15 @@ export default async function SuggestChildPickerPage({
   params: Promise<{ bookId: string }>;
 }) {
   const session = await requireSuggestingParent();
-  const { bookId } = await params;
+  const bookId = decodeRouteParam((await params).bookId);
   // Unknown, draft and blocked books all give the same 404 (PRE-3).
   if ((await findActiveBookIds([bookId])).length === 0) notFound();
 
   const children = await listChildrenForFamily(session.familyId);
   if (children.length === 1 && children[0]) {
-    redirect(`/parent/children/${children[0]._id}/suggest/${bookId}`);
+    redirect(
+      `/parent/children/${encodeURIComponent(children[0]._id)}/suggest/${encodeURIComponent(bookId)}`,
+    );
   }
   if (children.length === 0) {
     // Only a Main Parent can add a child.

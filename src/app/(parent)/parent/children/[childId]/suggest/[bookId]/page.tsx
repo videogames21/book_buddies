@@ -6,7 +6,10 @@ import {
 } from "@/server/accounts-family/child-accounts";
 import { getSuggestionConflict } from "@/server/accounts-family/suggestions";
 import { findActiveBookIds, getBooksForShelf } from "@/server/catalog/books";
-import { requireSuggestingParent } from "../../../../books/access";
+import {
+  decodeRouteParam,
+  requireSuggestingParent,
+} from "../../../../books/access";
 import { SuggestScreen } from "./suggest-screen";
 
 // UC-PAR-suggest-book step 2, with 1b and the 4a warning before the parent confirms
@@ -21,7 +24,9 @@ export default async function SuggestPage({
   params: Promise<{ childId: string; bookId: string }>;
 }) {
   const session = await requireSuggestingParent();
-  const { childId, bookId } = await params;
+  const segments = await params;
+  const childId = decodeRouteParam(segments.childId);
+  const bookId = decodeRouteParam(segments.bookId);
 
   // Another family's child and an unknown one give the same 404.
   const child = await getChildForFamily(session.familyId, childId);

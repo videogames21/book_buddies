@@ -26,3 +26,16 @@ export async function requireSuggestingParent(): Promise<ParentSession> {
   }
   return session.data;
 }
+
+/**
+ * A route segment as stored. Next.js passes page params still percent-encoded, and the
+ * links encode catalog IDs, which are arbitrary strings (review of #147). A segment that
+ * is not valid encoding is a 404, like an unknown ID.
+ */
+export function decodeRouteParam(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    notFound();
+  }
+}

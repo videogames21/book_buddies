@@ -31,7 +31,7 @@ export function ChildPicker({ view }: ChildPickerProps) {
           <li key={child.id}>
             <Link
               className={styles.child}
-              href={`/parent/children/${child.id}/suggest/${view.bookId}`}
+              href={`/parent/children/${encodeURIComponent(child.id)}/suggest/${encodeURIComponent(view.bookId)}`}
             >
               <Image
                 src={avatarSrc(child.avatar)}

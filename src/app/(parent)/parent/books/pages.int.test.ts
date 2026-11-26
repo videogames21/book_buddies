@@ -245,6 +245,22 @@ describe("PRE-3, authorization and the gates, on every page", () => {
     }
   });
 
+  it("decodes the percent-encoded route segments Next.js passes, and a bad encoding is 404 (review of #147)", async () => {
+    const { main, childId } = await family();
+    // The fixture returns its own ID, so keep the one it is given.
+    const bookId = `odd/path?#id ${randomUUID()}`;
+    await insertBook("active", "Odd Path", { _id: bookId });
+    signInAs(main.userId);
+    expect(await picker(encodeURIComponent(bookId))).toEqual({
+      redirect: `/parent/children/${childId}/suggest/${encodeURIComponent(bookId)}`,
+    });
+    expect(
+      await confirm(encodeURIComponent(childId), encodeURIComponent(bookId)),
+    ).toMatchObject({ rendered: { view: { kind: "form", bookId } } });
+    expect(await picker("%E0%A4%A")).toEqual({ notFound: true });
+    expect(await confirm(childId, "%E0%A4%A")).toEqual({ notFound: true });
+  });
+
   it("a foreign, unknown or malformed child is the same 404", async () => {
     const { bookId } = await family();
     const { childId: foreignChild } = await family();

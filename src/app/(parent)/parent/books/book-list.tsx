@@ -21,7 +21,7 @@ export function BookList({ books }: BookListProps) {
               </span>
               <Link
                 className={styles.action}
-                href={`/parent/books/${book.id}/suggest`}
+                href={`/parent/books/${encodeURIComponent(book.id)}/suggest`}
                 aria-label={`Suggest ${book.title}`}
               >
                 Suggest

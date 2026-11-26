@@ -164,7 +164,7 @@ test("4a: removing every book shows the no-picks wording before Confirm, and con
   });
 });
 
-test("5a: after a failed confirmation the page still shows the batch and its controls, with the error", async ({
+test("5a: after a dropped confirmation the page refreshes and lets the parent retry", async ({
   page,
   context,
 }) => {
@@ -180,7 +180,7 @@ test("5a: after a failed confirmation the page still shows the batch and its con
 
   // Next.js adds an empty route-announcer alert to every page; this is the page's own.
   await expect(
-    page.getByRole("alert").filter({ hasText: "couldn't save" }),
+    page.getByRole("alert").filter({ hasText: "couldn’t verify the result" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm" })).toBeEnabled();
   await expect(

@@ -2,13 +2,14 @@ import "server-only";
 import { MongoServerError, ObjectId, type Db } from "mongodb";
 import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import { findActiveBookIds } from "@/server/catalog/books";
+import { listRuleHistoryTags } from "@/server/catalog/rule-candidates";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
-import type { InterestKey } from "./interests";
+import { catalogKeysForInterest, type InterestKey } from "./interests";
 
 // Recommendation's reading profiles: one document per child with a completed
 // onboarding, keyed by the opaque child ID (design/rec.md, Data model). No name, age,
@@ -125,15 +126,30 @@ export async function isOnboardingComplete(
   return profile !== null;
 }
 
-/** Uses a stored onboarding profile as a ranking signal, if the child has one. */
-export async function getQuizOnboardingSignals(
+/** Derives ranking weights for the session's child without returning their stored profile. */
+export async function getQuizOnboardingWeights(
   childId: string,
-  tx?: Tx,
-): Promise<OnboardingProfileInput | null> {
-  return getDb()
+  tx: Tx,
+): Promise<Map<string, number>> {
+  const profile = await getDb()
     .collection<ReadingProfileDocument>(READING_PROFILES)
     .findOne<OnboardingProfileInput>(
       { childId, onboardingComplete: true },
       { projection: { _id: 0, interests: 1, favoriteBookIds: 1 }, session: tx },
     );
+
+  const weights = new Map<string, number>();
+  if (!profile) return weights;
+
+  for (const interest of new Set(profile.interests)) {
+    for (const key of catalogKeysForInterest(interest)) {
+      weights.set(key, (weights.get(key) ?? 0) + 2);
+    }
+  }
+  for (const keys of (
+    await listRuleHistoryTags(profile.favoriteBookIds, tx)
+  ).values()) {
+    for (const key of keys) weights.set(key, (weights.get(key) ?? 0) + 1);
+  }
+  return weights;
 }

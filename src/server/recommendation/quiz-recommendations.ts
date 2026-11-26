@@ -12,8 +12,7 @@ import {
   listRecentShelfSignalBookIds,
 } from "@/server/shelf/recommendation-signals";
 import type { QuizAnswers } from "@/shared/recommendation/quiz";
-import { catalogKeysForInterest } from "./interests";
-import { getQuizOnboardingSignals } from "./reading-profiles";
+import { getQuizOnboardingWeights } from "./reading-profiles";
 import { rankRuleCandidates } from "./rules";
 
 type QuizRanking =
@@ -49,24 +48,18 @@ export async function rankQuizBooks(
   );
   if (candidates.length === 0) return { outcome: "noMatches" };
 
-  const onboarding = await getQuizOnboardingSignals(childId, tx);
+  const byTag = await getQuizOnboardingWeights(childId, tx);
   const noteKeys = await listLatestNoteInterestKeys(childId, tx);
   const shelfBookIds = await listRecentShelfSignalBookIds(childId, tx);
   const ratings = await listRecentRatingSignals(childId, tx);
-  const favorites = new Set(onboarding?.favoriteBookIds);
   const history = await listRuleHistoryTags(
-    [...favorites, ...shelfBookIds, ...ratings.map(({ bookId }) => bookId)],
+    [...shelfBookIds, ...ratings.map(({ bookId }) => bookId)],
     tx,
   );
 
-  const byTag = new Map<string, number>();
   function add(keys: readonly string[], weight: number) {
     for (const key of keys) byTag.set(key, (byTag.get(key) ?? 0) + weight);
   }
-  for (const interest of new Set(onboarding?.interests)) {
-    add(catalogKeysForInterest(interest), 2);
-  }
-  for (const id of favorites) add(history.get(id) ?? [], 1);
   add(noteKeys, 1);
   for (const id of shelfBookIds) add(history.get(id) ?? [], 1);
   for (const { bookId, value } of ratings) {

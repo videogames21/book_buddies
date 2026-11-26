@@ -347,7 +347,7 @@ export async function deleteSuggestionsForBookInTx(
 
 /**
  * This file's part of the §8.2.8 deletion contract: all of one child's suggestions.
- * `UC-PAR-delete-kid-account` (#125, not merged) adds it to `child-deletion.ts`'s list,
+ * It is in `child-deletion.ts`'s list (`UC-PAR-delete-kid-account`),
  * and `UC-PAR-delete-child-data` and the inactivity purge call it too.
  */
 export async function deleteChildRecords(

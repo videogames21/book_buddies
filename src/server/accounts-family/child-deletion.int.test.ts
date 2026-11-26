@@ -31,6 +31,12 @@ vi.mock("@/server/safety-flagging/screen-note", async (importOriginal) => {
     >();
   return { ...actual, screenNote: vi.fn(actual.screenNote) };
 });
+// Parent suggestions are behind a release gate (README) that is off by default; the
+// seed turns it on so the suggestion goes through its real write path.
+vi.mock("@/server/lib/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/lib/config")>();
+  return { ...actual, areParentSuggestionsEnabled: () => true };
+});
 // The transaction helper, wrapped so a test can make MongoDB report an unknown commit
 // result (5b). It runs the real helper unless a test says otherwise.
 vi.mock("@/server/lib/db", async (importOriginal) => {
@@ -43,6 +49,7 @@ const { screenNote } = await import("@/server/safety-flagging/screen-note");
 const { createChild } = await import("./child-accounts");
 const { deleteChild } = await import("./child-deletion");
 const { reportBook } = await import("./book-reports");
+const { createSuggestion } = await import("./suggestions");
 const { getOnboardingStep } = await import("./families");
 const { saveOnboardingProfile } =
   await import("@/server/recommendation/reading-profiles");
@@ -91,8 +98,8 @@ async function mainParent() {
  * account, identity, credential and a flagged note with its flag (createChild), a
  * reading profile (saveOnboardingProfile), sessions with their end records
  * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
- * shelf records and a recommendation batch (fixtures), and a report with its exclusion
- * and notice (reportBook).
+ * shelf records and a recommendation batch (fixtures), a report with its exclusion
+ * and notice (reportBook), and a parent suggestion (createSuggestion).
  */
 async function seedChild(
   session: ParentSession,
@@ -154,6 +161,13 @@ async function seedChild(
     comment: "Invented comment about this book.",
   });
   if (!reported.ok) throw new Error(`seed failed: ${reported.error.code}`);
+  const suggested = await createSuggestion(session, {
+    childId,
+    bookId: await insertBook("active", "Suggested book"),
+    note: "Invented note for this child.",
+    suggestAnyway: false,
+  });
+  if (!suggested.ok) throw new Error(`seed failed: ${suggested.error.code}`);
   return {
     childId,
     userId,

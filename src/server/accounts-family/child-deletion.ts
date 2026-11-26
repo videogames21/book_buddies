@@ -48,6 +48,8 @@ export type DeleteChildCode =
 
 const DELETE_FAILED_MESSAGE =
   "We couldn't delete the account. Nothing was deleted; please try again.";
+const DELETE_UNCONFIRMED_MESSAGE =
+  "We couldn't confirm whether the account was deleted. Reload the page to check before trying again.";
 
 /**
  * Deletes one child of the session's family and everything held about them, all or
@@ -97,10 +99,12 @@ export async function deleteChild(
 
 /**
  * 5b, when MongoDB cannot say whether the commit happened (the driver has already
- * retried it). The transaction is all or nothing, so the child account tells which:
- * gone means the deletion committed, present means nothing was deleted. The read is at
- * majority read concern, so it does not trust a node that may roll back. If even that
- * read fails, the result says the outcome is unknown rather than claim a rollback.
+ * retried it). The transaction is all or nothing, so a majority read that finds the
+ * child account gone means the deletion committed: `ok`. A child still there is not
+ * proof of a rollback, because the commit can still become visible after the read
+ * (Pradeep's review of #125, as in #135), so that, like a failed read, is
+ * `DELETE_UNCONFIRMED`, never "Nothing was deleted". `DELETE_FAILED` is kept for errors
+ * whose rollback is known.
  */
 async function confirmOutcome(
   familyId: string,
@@ -109,13 +113,8 @@ async function confirmOutcome(
 ): Promise<ActionResult<null, DeleteChildCode>> {
   try {
     if (!(await childAccountExists(familyId, childId))) return ok(null);
-    return fail("DELETE_FAILED", DELETE_FAILED_MESSAGE, errorId);
   } catch (readErr) {
     logUnexpectedError("deleteChild.confirmOutcome", readErr);
-    return fail(
-      "DELETE_UNCONFIRMED",
-      "We couldn't confirm whether the account was deleted. Reload the page to check before trying again.",
-      errorId,
-    );
   }
+  return fail("DELETE_UNCONFIRMED", DELETE_UNCONFIRMED_MESSAGE, errorId);
 }

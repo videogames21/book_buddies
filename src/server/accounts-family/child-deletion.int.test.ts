@@ -619,7 +619,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
     ).toBe(1);
   });
 
-  it("5b, commit result unknown and not committed: the read finds the child and the result is DELETE_FAILED; nothing changed", async () => {
+  it("5b, commit result unknown and not committed: the read finds the child and the result is DELETE_UNCONFIRMED, not a rollback claim; nothing changed", async () => {
     const { session } = await mainParent();
     const child = await seedChild(session, "Starfish", "star_reader");
     const before = await dumpDatabase();
@@ -643,12 +643,56 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       return originalFindOne.apply(this, args);
     } as Collection["findOne"]);
 
-    expect(await deleteChild(session, child.childId)).toMatchObject({
+    const result = await deleteChild(session, child.childId);
+    expect(result).toMatchObject({
       ok: false,
-      error: { code: "DELETE_FAILED", errorId: expect.any(String) as unknown },
+      error: {
+        code: "DELETE_UNCONFIRMED",
+        errorId: expect.any(String) as unknown,
+      },
     });
+    if (!result.ok) {
+      expect(result.error.message).not.toContain("Nothing was deleted");
+    }
     expect(childReadConcerns).toEqual(["majority"]);
     expect(await dumpDatabase()).toEqual(before);
+  });
+
+  it("5b, commit result unknown and the commit lands after the confirming read: DELETE_UNCONFIRMED, then everything is deleted (review of #125)", async () => {
+    const { session } = await mainParent();
+    const child = await seedChild(session, "Starfish", "star_reader");
+    // The driver reports the outcome as unknown while the commit is still on its way;
+    // it becomes visible only after deleteChild has read the child back.
+    let delayedCommit: (() => Promise<unknown>) | undefined;
+    vi.mocked(withTransaction).mockImplementationOnce((work, options) => {
+      delayedCommit = () => actualDb.withTransaction(work, options);
+      return Promise.reject(unknownCommitResult());
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await deleteChild(session, child.childId);
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "DELETE_UNCONFIRMED",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (!result.ok) {
+      expect(result.error.message).not.toContain("Nothing was deleted");
+    }
+
+    await delayedCommit?.();
+    expect(
+      await getDb()
+        .collection<{ _id: string }>("children")
+        .countDocuments({ _id: child.childId }),
+    ).toBe(0);
+    expect(
+      await getDb()
+        .collection("auditLog")
+        .countDocuments({ event: "child-account-deleted" }),
+    ).toBe(1);
   });
 
   it("5b, commit result unknown and the confirming read fails: DELETE_UNCONFIRMED, which does not claim a rollback", async () => {

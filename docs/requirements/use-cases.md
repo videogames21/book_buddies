@@ -1160,7 +1160,7 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 - 3a. The child leaves the list without reacting to a book. The book stays in the recommendation list for the next visit.
 - 4a. The reaction is "Yes" or "Maybe later" and the book is already on the child's shelf. The system does not add a duplicate or move the book, tells the child it is already on their shelf, records the reaction, and continues at step 7.
 - 6a. The child skips the optional reason. The decline is recorded with no reason.
-- 7a. Saving the shelf change or the reaction fails. The system shows an error and keeps the book in the list; the reaction is not recorded.
+- 7a. Saving the shelf change or the reaction fails. If the save was rolled back, the system keeps the book in the list and offers a retry. If the result is uncertain, the system refreshes the list and asks the child to check their picks and shelf before trying again.
 
 **Priority:** High — the child's accept/decline is the step that moves a recommendation onto the shelf.\
 **Frequency of Use:** Several times per active child per week, following each recommendation request.\

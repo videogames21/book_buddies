@@ -2,6 +2,7 @@ import "server-only";
 import { getDb, type Tx } from "@/server/lib/db";
 import { GENRES, LENGTHS, MOODS, SUBJECTS } from "@/shared/catalog/tags";
 import type { QuizAnswers } from "@/shared/recommendation/quiz";
+import { lockActiveBookForWrite } from "./books";
 import { booksCollection, type BookDocument } from "./books-collection";
 
 export type RuleCandidate = {
@@ -124,7 +125,22 @@ export type QuizCatalogGuard = (
   bookIds: readonly string[],
 ) => Promise<boolean>;
 
-/** OI-58 supplies the same-book write before the production quiz can open. */
+/**
+ * The quiz's part of the same-book conditional write the team agreed for `OI-58`
+ * (2026-11-26; design/adm.md, "Check races with the owning use cases"). Inside the save
+ * transaction it writes each ranked book while it is still active, so a block or a
+ * return to draft of any of them conflicts with the batch insert and MongoDB lets only
+ * one commit. `false` means a book is no longer active, and the quiz saves nothing.
+ * One at a time: a transaction's operations run in order on its session.
+ */
+export const lockActiveBooksForQuiz: QuizCatalogGuard = async (tx, bookIds) => {
+  for (const bookId of bookIds) {
+    if (!(await lockActiveBookForWrite(tx, bookId))) return false;
+  }
+  return true;
+};
+
+/** The guard the production quiz saves with; with it present the quiz entry opens. */
 export function getQuizCatalogGuard(): QuizCatalogGuard | undefined {
-  return undefined;
+  return lockActiveBooksForQuiz;
 }

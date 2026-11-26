@@ -1,9 +1,308 @@
 import "server-only";
+import { ObjectId } from "mongodb";
+import { listExcludedBookIds } from "@/server/accounts-family/book-reports";
+import {
+  getChildForFamily,
+  isConsentConfirmed,
+  listChildrenForFamily,
+} from "@/server/accounts-family/child-accounts";
+import { getBooksForReview, type ReviewBook } from "@/server/catalog/books";
+import type { ParentSession } from "@/server/identity-access/sessions";
+import { fail, ok, type ActionResult } from "@/server/lib/action-result";
+import { now } from "@/server/lib/clock";
 import { getDb, type Tx } from "@/server/lib/db";
-import { RECOMMENDATION_BATCHES } from "./batch-schema";
+import { logUnexpectedError } from "@/server/lib/log";
+import {
+  RECOMMENDATION_BATCHES,
+  type BatchSource,
+  type BatchStatus,
+} from "./batch-schema";
+import {
+  batchState,
+  pendingFilter,
+  releasePipeline,
+  type EffectiveBatchState,
+} from "./batch-state";
 
 // Recommendation's batches (design/rec.md, UC-REC-parent-review). The only code that
-// touches `recommendationBatches`.
+// touches `recommendationBatches`, and the only code that changes a batch after the
+// quiz stores it. The family always comes from the session; every read checks the
+// child against it first (§8.1).
+
+type BatchDocument = {
+  _id: ObjectId;
+  requestId: string;
+  childId: string;
+  source: BatchSource;
+  status: BatchStatus;
+  bookIds: string[];
+  createdAt: Date;
+  handoffDeadline: Date;
+  removedBookIds?: string[];
+  releasedAt?: Date;
+};
+
+const batches = () => getDb().collection<BatchDocument>(RECOMMENDATION_BATCHES);
+
+/**
+ * A batch ID is the 24-hex form of an ObjectId. Anything else is answered like an
+ * unknown ID, without a query (`ObjectId.isValid` accepts any 12-character string).
+ */
+function toBatchId(batchId: string): ObjectId | null {
+  return /^[0-9a-f]{24}$/i.test(batchId) ? new ObjectId(batchId) : null;
+}
+
+/**
+ * The remaining books, in `bookIds` order: minus the child's report exclusions and minus
+ * any book the Catalog does not return (blocked, draft or, with `age`, out of band).
+ * The 4a wording, the count on /parent and the child's `empty` all use this set.
+ */
+async function remainingBooks(
+  childId: string,
+  bookIds: readonly string[],
+  options: { age?: number } = {},
+): Promise<ReviewBook[]> {
+  const excluded = new Set(await listExcludedBookIds(childId));
+  const wanted = bookIds.filter((id) => !excluded.has(id));
+  const found = new Map(
+    (await getBooksForReview(wanted, options)).map((book) => [book.id, book]),
+  );
+  return wanted.flatMap((id) => {
+    const book = found.get(id);
+    return book ? [book] : [];
+  });
+}
+
+export type PendingBatch = {
+  batchId: string;
+  childId: string;
+  nickname: string;
+  bookCount: number;
+  handoffDeadline: Date;
+};
+
+/**
+ * Step 1: the family's batches still pending at `now()` (before `handoffDeadline`),
+ * oldest first, for the parent home. Callers authenticate first.
+ */
+export async function listPendingBatchesForFamily(
+  familyId: string,
+): Promise<PendingBatch[]> {
+  const children = await listChildrenForFamily(familyId);
+  if (children.length === 0) return [];
+  const nicknames = new Map(children.map((c) => [c._id, c.nickname]));
+  const pending = await batches()
+    .find(
+      { childId: { $in: [...nicknames.keys()] }, ...pendingFilter(now()) },
+      { projection: { childId: 1, bookIds: 1, handoffDeadline: 1 } },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
+  return Promise.all(
+    pending.map(async (batch) => ({
+      batchId: batch._id.toHexString(),
+      childId: batch.childId,
+      nickname: nicknames.get(batch.childId) ?? "",
+      bookCount: (await remainingBooks(batch.childId, batch.bookIds)).length,
+      handoffDeadline: batch.handoffDeadline,
+    })),
+  );
+}
+
+export type BatchReviewView = {
+  batchId: string;
+  childId: string;
+  nickname: string;
+  state: EffectiveBatchState;
+  source: BatchSource;
+  handoffDeadline: Date;
+  books: ReviewBook[];
+};
+
+/**
+ * Steps 2-3. Null for another family's child, an unknown or malformed child or batch
+ * ID, and a batch of another child: the page gives the same 404 for all of them. Never
+ * returns `removedBookIds`.
+ */
+export async function getBatchForReview(
+  familyId: string,
+  childId: string,
+  batchId: string,
+): Promise<BatchReviewView | null> {
+  const child = await getChildForFamily(familyId, childId);
+  if (!child) return null;
+  const _id = toBatchId(batchId);
+  if (!_id) return null;
+  const batch = await batches().findOne(
+    { _id, childId },
+    {
+      projection: {
+        status: 1,
+        source: 1,
+        bookIds: 1,
+        handoffDeadline: 1,
+      },
+    },
+  );
+  if (!batch) return null;
+  return {
+    batchId: batch._id.toHexString(),
+    childId,
+    nickname: child.nickname,
+    state: batchState(batch, now()),
+    source: batch.source,
+    handoffDeadline: batch.handoffDeadline,
+    books: await remainingBooks(childId, batch.bookIds),
+  };
+}
+
+export type BatchActionCode =
+  | "CHILD_NOT_FOUND"
+  | "CONSENT_NOT_CONFIRMED"
+  | "BATCH_NOT_FOUND"
+  | "BATCH_ALREADY_RELEASED"
+  | "SAVE_FAILED";
+
+export type RemoveBookCode = BatchActionCode | "BOOK_NOT_IN_BATCH";
+
+const MESSAGES: Record<RemoveBookCode, string> = {
+  CHILD_NOT_FOUND: "We couldn't find that child.",
+  CONSENT_NOT_CONFIRMED:
+    "Your family's consent must be confirmed before you can review recommendations.",
+  BATCH_NOT_FOUND: "We couldn't find these recommendations.",
+  BATCH_ALREADY_RELEASED:
+    "These recommendations have already gone to your child, so they can't be changed.",
+  BOOK_NOT_IN_BATCH: "That book isn't in these recommendations.",
+  SAVE_FAILED:
+    "We couldn't save that. Nothing changed, and nothing was sent to your child. Please try again.",
+};
+
+const refuse = <Code extends RemoveBookCode>(code: Code) =>
+  fail(code, MESSAGES[code]);
+
+/** The child and consent checks both actions make, in this order (design/rec.md). */
+async function checkChildAndConsent(
+  session: ParentSession,
+  childId: string,
+): Promise<"CHILD_NOT_FOUND" | "CONSENT_NOT_CONFIRMED" | null> {
+  if (!(await getChildForFamily(session.familyId, childId))) {
+    return "CHILD_NOT_FOUND";
+  }
+  if (!(await isConsentConfirmed(session.familyId))) {
+    return "CONSENT_NOT_CONFIRMED";
+  }
+  return null;
+}
+
+/** Why a conditional update on the batch matched nothing. */
+async function whyNotPending(
+  _id: ObjectId,
+  childId: string,
+): Promise<
+  { code: "BATCH_NOT_FOUND" | "BATCH_ALREADY_RELEASED" } | BatchDocument
+> {
+  const batch = await batches().findOne({ _id, childId });
+  if (!batch) return { code: "BATCH_NOT_FOUND" };
+  if (batchState(batch, now()) !== "pending") {
+    return { code: "BATCH_ALREADY_RELEASED" };
+  }
+  return batch;
+}
+
+export type BatchInput = { childId: string; batchId: string };
+export type RemoveBookInput = BatchInput & { bookId: string };
+
+/**
+ * Step 4: moves one book from `bookIds` to `removedBookIds`, saved at once. One
+ * conditional update that matches only a batch still pending (Key decisions). A book
+ * already removed is `ok` (a double tap). Consent is read, not locked, and the child
+ * lock is not taken, on purpose (Key decisions, "The batch writes read consent").
+ */
+export async function removeBookFromBatch(
+  session: ParentSession,
+  input: RemoveBookInput,
+): Promise<ActionResult<null, RemoveBookCode>> {
+  const { childId, batchId, bookId } = input;
+  try {
+    const refused = await checkChildAndConsent(session, childId);
+    if (refused) return refuse(refused);
+    const _id = toBatchId(batchId);
+    if (!_id) return refuse("BATCH_NOT_FOUND");
+
+    const result = await batches().updateOne(
+      { _id, childId, ...pendingFilter(now()), bookIds: bookId },
+      { $pull: { bookIds: bookId }, $addToSet: { removedBookIds: bookId } },
+    );
+    if (result.matchedCount === 1) return ok(null);
+
+    const why = await whyNotPending(_id, childId);
+    if ("code" in why) return refuse(why.code);
+    if (why.removedBookIds?.includes(bookId)) return ok(null);
+    return refuse("BOOK_NOT_IN_BATCH");
+  } catch (err) {
+    return fail(
+      "SAVE_FAILED",
+      MESSAGES.SAVE_FAILED,
+      logUnexpectedError("removeBookFromBatch", err),
+    );
+  }
+}
+
+/**
+ * Steps 5-6 and 4a: one conditional update releases the batch, `empty` when no book is
+ * left in `bookIds` and `released` otherwise, with `releasedAt` = `now()`. That write is
+ * the release; there is no hand-off after it (6a). The first of two parents, or of a
+ * parent and the deadline, wins; the other gets `BATCH_ALREADY_RELEASED`.
+ */
+export async function confirmBatch(
+  session: ParentSession,
+  input: BatchInput,
+): Promise<ActionResult<{ state: "released" | "empty" }, BatchActionCode>> {
+  const { childId, batchId } = input;
+  try {
+    const refused = await checkChildAndConsent(session, childId);
+    if (refused) return refuse(refused);
+    const _id = toBatchId(batchId);
+    if (!_id) return refuse("BATCH_NOT_FOUND");
+
+    const at = now();
+    const released = await batches().findOneAndUpdate(
+      { _id, childId, ...pendingFilter(at) },
+      releasePipeline(at),
+      { returnDocument: "after", projection: { status: 1 } },
+    );
+    if (released) {
+      return ok({ state: released.status === "empty" ? "empty" : "released" });
+    }
+    const why = await whyNotPending(_id, childId);
+    // Pending a moment ago but not matched: the deadline passed in between.
+    return refuse("code" in why ? why.code : "BATCH_ALREADY_RELEASED");
+  } catch (err) {
+    return fail(
+      "SAVE_FAILED",
+      MESSAGES.SAVE_FAILED,
+      logUnexpectedError("confirmBatch", err),
+    );
+  }
+}
+
+/**
+ * PRE-3 of the batch entry page of UC-PAR-report-book: the book is in this batch of the
+ * child and the batch is still pending. Callers check the child's family first.
+ */
+export async function isInPendingBatch(
+  childId: string,
+  batchId: string,
+  bookId: string,
+): Promise<boolean> {
+  const _id = toBatchId(batchId);
+  if (!_id) return false;
+  const batch = await batches().findOne(
+    { _id, childId, ...pendingFilter(now()), bookIds: bookId },
+    { projection: { _id: 1 } },
+  );
+  return batch !== null;
+}
 
 /**
  * UC-PAR-delete-kid-account: every batch of the child, whatever its status. Joins
@@ -13,7 +312,5 @@ export async function deleteChildRecords(
   tx: Tx,
   childId: string,
 ): Promise<void> {
-  await getDb()
-    .collection(RECOMMENDATION_BATCHES)
-    .deleteMany({ childId }, { session: tx });
+  await batches().deleteMany({ childId }, { session: tx });
 }

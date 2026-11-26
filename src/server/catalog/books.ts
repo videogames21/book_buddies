@@ -119,14 +119,13 @@ export async function findActiveBookIds(ids: string[]): Promise<string[]> {
 }
 
 /**
- * The same-book conditional write `OI-58` proposes (design/adm.md, "Check races with the
+ * The same-book conditional write the team agreed for `OI-58` (2026-11-26; design/adm.md, "Check races with the
  * owning use cases"; design/par.md, the block race key decision). A write that puts a book
  * in front of a child calls it inside its own transaction: it increments `writeVersion` only
  * while the book is active, and returns whether it matched. A block or a return to draft
  * writes the same document, so the two transactions conflict and MongoDB reruns or refuses
  * the later one; a snapshot read of the status alone would not conflict. `false` means the
  * book is no longer active (or never was), and the caller refuses the write.
- * Pending team sign-off on `OI-58` (callers and contention).
  */
 export async function lockActiveBookForWrite(
   tx: Tx,

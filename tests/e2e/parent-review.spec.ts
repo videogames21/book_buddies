@@ -165,8 +165,10 @@ test("4a: removing every book shows the no-picks wording before Confirm, and con
 });
 
 /** Requests to a server action (not page or refresh loads), which Next.js marks. */
-const isAction = (request: { method(): string; headers(): Record<string, string> }) =>
-  request.method() === "POST" && "next-action" in request.headers();
+const isAction = (request: {
+  method(): string;
+  headers(): Record<string, string>;
+}) => request.method() === "POST" && "next-action" in request.headers();
 
 test("5a: after a failed confirmation the page reloads the batch, still pending, with its controls and the error", async ({
   page,
@@ -184,9 +186,13 @@ test("5a: after a failed confirmation the page reloads the batch, still pending,
 
   // Next.js adds an empty route-announcer alert to every page; this is the page's own.
   await expect(
-    page.getByRole("alert").filter({ hasText: "This page now shows what is saved" }),
+    page
+      .getByRole("alert")
+      .filter({ hasText: "This page now shows what is saved" }),
   ).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: /try again/i })).toHaveCount(0);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /try again/i }),
+  ).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Confirm" })).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Remove Otter Reach E2E" }),
@@ -220,7 +226,9 @@ test("5a, response lost: a confirmation saved on the server but whose response i
   );
   await expect(page.getByRole("button", { name: "Confirm" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Remove/ })).toHaveCount(0);
-  await expect(page.getByRole("alert").filter({ hasText: /try again/i })).toHaveCount(0);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /try again/i }),
+  ).toHaveCount(0);
   expect((await storedBatch(batchId))?.status).toBe("released");
 });
 
@@ -288,10 +296,12 @@ test.describe("in a New York browser", () => {
 /** WCAG contrast ratio of two CSS `rgb(...)` colors. */
 function contrast(a: string, b: string) {
   const luminance = (css: string) => {
-    const [r, g, bl] = (css.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map((v) => {
-      const c = Number(v) / 255;
-      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
+    const [r, g, bl] = (css.match(/\d+(\.\d+)?/g) ?? [])
+      .slice(0, 3)
+      .map((v) => {
+        const c = Number(v) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
     return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (bl ?? 0);
   };
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);

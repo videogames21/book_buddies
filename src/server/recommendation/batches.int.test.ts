@@ -469,7 +469,10 @@ describe("5a", () => {
     const result = await confirmBatch(main, { childId, batchId });
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
     });
     if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
     await inFlight?.();
@@ -499,7 +502,10 @@ describe("5a", () => {
     });
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
     });
     if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
     await inFlight?.();
@@ -1212,12 +1218,15 @@ describe("listReleasedBatchesForChild (step 6, POST-2; for UC-REC-kid-review)", 
         },
         tx,
       );
-      await getDb()
-        .collection("childBookExclusions")
-        .insertOne(
-          { childId, bookId: reported, reportId: new ObjectId(), createdAt: NOW },
-          { session: tx },
-        );
+      await getDb().collection("childBookExclusions").insertOne(
+        {
+          childId,
+          bookId: reported,
+          reportId: new ObjectId(),
+          createdAt: NOW,
+        },
+        { session: tx },
+      );
       // Outside the transaction the uncommitted age is not there, so the read throws.
       await expect(listReleasedBatchesForChild(childId)).rejects.toThrow(
         "no recorded age",
@@ -1226,7 +1235,12 @@ describe("listReleasedBatchesForChild (step 6, POST-2; for UC-REC-kid-review)", 
     });
 
     expect(inside.read).toEqual([
-      { batchId: inside.batchId, releasedAt: NOW, bookIds: [kept], empty: false },
+      {
+        batchId: inside.batchId,
+        releasedAt: NOW,
+        bookIds: [kept],
+        empty: false,
+      },
     ]);
   });
 });

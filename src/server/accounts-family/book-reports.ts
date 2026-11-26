@@ -5,7 +5,7 @@ import { findActiveBookIds } from "@/server/catalog/books";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { createRemovalNoticeInTx } from "@/server/notification/child-notices";
 import { removeShelfEntryInTx } from "@/server/shelf/shelf-entries";
@@ -182,14 +182,18 @@ export async function reportBook(
   }
 }
 
-/** PRE-4 for the report page. Callers check the child's family first. */
+/**
+ * PRE-4 for the report page. Callers check the child's family first. With `tx` the read
+ * joins that transaction's snapshot (UC-PAR-suggest-book 1b).
+ */
 export async function isExcluded(
   childId: string,
   bookId: string,
+  tx?: Tx,
 ): Promise<boolean> {
   const exclusion = await getDb()
     .collection<ExclusionDocument>(CHILD_BOOK_EXCLUSIONS)
-    .findOne({ childId, bookId }, { projection: { _id: 1 } });
+    .findOne({ childId, bookId }, { projection: { _id: 1 }, session: tx });
   return exclusion !== null;
 }
 

@@ -417,6 +417,34 @@ describe("getBooksForShelf (the Catalog's shelf read)", () => {
     ]);
   });
 
+  it("returns the series name only for a book in a series", async () => {
+    const alone = await insertBook("active", "Alone");
+    const inSeries = await insertBook("active", "Second Moon");
+    await getDb()
+      .collection<{ _id: string }>("books")
+      .updateOne({ _id: inSeries }, { $set: { seriesName: "Moon books" } });
+
+    const books = await getBooksForShelf([alone, inSeries]);
+
+    expect(new Map(books.map((book) => [book.id, book]))).toEqual(
+      new Map([
+        [alone, { id: alone, title: "Alone", author: "A. Writer" }],
+        [
+          inSeries,
+          {
+            id: inSeries,
+            title: "Second Moon",
+            author: "A. Writer",
+            seriesName: "Moon books",
+          },
+        ],
+      ]),
+    );
+    expect(books.find((book) => book.id === alone)).not.toHaveProperty(
+      "seriesName",
+    );
+  });
+
   it("asks the database nothing for an empty list", async () => {
     const find = vi.spyOn(Collection.prototype, "find");
 

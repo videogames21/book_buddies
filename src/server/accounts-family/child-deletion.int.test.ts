@@ -48,6 +48,8 @@ const { saveOnboardingProfile } =
   await import("@/server/recommendation/reading-profiles");
 const { createDatabaseSession } =
   await import("@/server/identity-access/sessions");
+const { recordChildSignIn } =
+  await import("@/server/identity-access/child-sign-ins");
 const { claimSignInAttempt } =
   await import("@/server/identity-access/sign-in-throttle");
 const { getDb, getMongoClient, withTransaction } =
@@ -90,7 +92,8 @@ async function mainParent() {
  * One child with a record in every collection that can hold one today: the child
  * account, identity, credential and a flagged note with its flag (createChild), a
  * reading profile (saveOnboardingProfile), sessions with their end records
- * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
+ * (createDatabaseSession), a sign-in record (recordChildSignIn), a throttle row under
+ * the child's key (claimSignInAttempt),
  * shelf records and a recommendation batch (fixtures), and a report with its exclusion
  * and notice (reportBook).
  */
@@ -139,6 +142,7 @@ async function seedChild(
   ).map((doc) => doc._id.toHexString());
   await claimSignInAttempt(`child:${username}:shared`);
   await claimSignInAttempt(`child:${username}:dev:invented-device-hash`);
+  await withTransaction((tx) => recordChildSignIn(tx, childId));
   await insertShelfEntry(childId, BOOK_ID, "readingNow");
   await insertRating(childId, BOOK_ID, "lovedIt");
   await insertFinishConfirmation(childId, BOOK_ID);
@@ -222,6 +226,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       "finishConfirmations",
       "childBookExclusions",
       "childNotices",
+      "childSignIns",
     ]) {
       const key = name === "children" ? "_id" : "childId";
       expect(

@@ -4,6 +4,7 @@ import { MongoServerError, type ObjectId } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { getDb, type Tx } from "@/server/lib/db";
 import { deleteChildSessionEndsInTx } from "./child-sessions";
+import { deleteChildSignInRecords } from "./child-sign-ins";
 import { PASSWORD_WORDS } from "./password-words";
 
 // A child's sign-in credential: a document in the Auth.js `users` collection with
@@ -76,17 +77,18 @@ export async function insertChildCredential(
 }
 
 /**
- * UC-PAR-delete-kid-account POST-1: deletes the child's credential (its `users`
- * document), every session of that user with each session's `childSessionEnds` record
- * (#134), and every sign-in throttle row under the child's username
- * (`child:<username>:...`, design/shlf.md), inside the caller's transaction. Child
- * sign-in adds its `childSignIns` delete here when that record is built. The username
- * is never logged.
+ * UC-PAR-delete-kid-account POST-1: deletes the child's sign-in records, credential (its
+ * `users` document), every session of that user with each session's `childSessionEnds`
+ * record (#134), and every sign-in throttle row under the child's username
+ * (`child:<username>:...`, design/shlf.md), inside the caller's transaction. The
+ * username is never logged.
  */
 export async function deleteChildSignIn(
   tx: Tx,
   childId: string,
 ): Promise<void> {
+  // Keyed by the child ID, so they go whether or not a credential is still there.
+  await deleteChildSignInRecords(tx, childId);
   const user = await getDb()
     .collection<{ _id: ObjectId; username?: string }>("users")
     .findOneAndDelete(

@@ -37,3 +37,13 @@ export async function recordChildSignIn(
     .collection<ChildSignInDocument>(CHILD_SIGN_INS)
     .insertOne({ childId, at: now() }, { session: tx });
 }
+
+/** UC-PAR-delete-kid-account: every sign-in record of the child, in its transaction. */
+export async function deleteChildSignInRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection<ChildSignInDocument>(CHILD_SIGN_INS)
+    .deleteMany({ childId }, { session: tx });
+}

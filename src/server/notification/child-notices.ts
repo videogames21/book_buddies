@@ -1,5 +1,5 @@
 import "server-only";
-import type { Db, ObjectId } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
@@ -45,10 +45,12 @@ export async function ensureChildNoticeIndexes(db: Db): Promise<void> {
     .createIndex({ childId: 1, seenAt: 1 }, { name: "childId_seenAt" });
 }
 
+export type ChildNoticeKind = (typeof CHILD_NOTICE_KINDS)[number];
+
 type ChildNoticeDocument = {
   _id: ObjectId;
   childId: string;
-  kind: (typeof CHILD_NOTICE_KINDS)[number];
+  kind: ChildNoticeKind;
   /** For `book-removed` only. */
   bookId?: string;
   createdAt: Date;
@@ -81,4 +83,41 @@ export async function createRemovalNoticeInTx(
       { childId, kind: "book-removed", bookId, createdAt: now() },
       { session: tx },
     );
+}
+
+/** The child's notices they have not tapped OK on, oldest first. Reading marks nothing. */
+export async function peekUnseenChildNotices(
+  childId: string,
+): Promise<{ id: string; kind: ChildNoticeKind; bookId?: string }[]> {
+  const notices = await getDb()
+    .collection<ChildNoticeDocument>(CHILD_NOTICES)
+    .find(
+      { childId, seenAt: { $exists: false } },
+      { projection: { kind: 1, bookId: 1 } },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
+  return notices.map(({ _id, kind, bookId }) => ({
+    id: _id.toHexString(),
+    kind,
+    ...(bookId && { bookId }),
+  }));
+}
+
+/**
+ * The child tapped OK. One conditional update on that child's own unseen notice, so a
+ * second tap, another tab or another child's notice ID changes nothing. Returns whether
+ * this call marked it. `noticeId` must be a 24-character hexadecimal ID.
+ */
+export async function markNoticeSeen(
+  childId: string,
+  noticeId: string,
+): Promise<boolean> {
+  const { modifiedCount } = await getDb()
+    .collection<ChildNoticeDocument>(CHILD_NOTICES)
+    .updateOne(
+      { _id: new ObjectId(noticeId), childId, seenAt: { $exists: false } },
+      { $set: { seenAt: now() } },
+    );
+  return modifiedCount === 1;
 }

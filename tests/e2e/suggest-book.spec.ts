@@ -44,9 +44,8 @@ async function insertChild(familyId: ObjectId, nickname: string) {
   return _id;
 }
 
-async function insertBook(title: string) {
+async function insertBook(title: string, _id: string = randomUUID()) {
   const db = await e2eDb();
-  const _id = randomUUID();
   // The `books` validator requires every field below (design/adm.md, Data model).
   await db.collection("books").insertOne({
     _id: _id as never,
@@ -152,4 +151,86 @@ test("4a: the warning shows before the parent confirms, and the button reads Sug
 
   await expect(page.getByRole("status")).toHaveText("Suggested to Wren");
   expect(await suggestionsFor(childId)).toEqual([{ bookId }]);
+});
+
+test("a book ID with URL characters reaches its confirmation page and is suggested (review of #147)", async ({
+  page,
+  context,
+}) => {
+  const { familyId } = await signInParent(context, {
+    parentRole: "main",
+    consentConfirmed: true,
+  });
+  const childId = await insertChild(familyId, "Heron");
+  // Catalog IDs are strings; this one would break an unencoded path.
+  const bookId = await insertBook(
+    "Odd Path Suggest E2E",
+    `e2e/odd?#id ${randomUUID()}`,
+  );
+
+  await page.goto("/parent/books");
+  await page
+    .getByRole("link", { name: "Suggest Odd Path Suggest E2E" })
+    .click();
+  await expect(page.getByText("To Heron")).toBeVisible();
+  await page.getByRole("button", { name: "Suggest", exact: true }).click();
+
+  await expect(page.getByRole("status")).toHaveText("Suggested to Heron");
+  expect(await suggestionsFor(childId)).toEqual([{ bookId }]);
+});
+
+test.describe("without JavaScript (before hydration; review of #147)", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the form posts: the suggestion is saved and the note never reaches the URL", async ({
+    page,
+    context,
+  }) => {
+    const { familyId } = await signInParent(context, {
+      parentRole: "main",
+      consentConfirmed: true,
+    });
+    const childId = await insertChild(familyId, "Kestrel");
+    const bookId = await insertBook("No Script Suggest E2E");
+    const urls: string[] = [];
+    page.on("request", (request) => urls.push(request.url()));
+
+    await page.goto(`/parent/children/${childId}/suggest/${bookId}`);
+    await page
+      .getByLabel("A note for Kestrel (optional)")
+      .fill("private note before hydration");
+    await page.getByRole("button", { name: "Suggest", exact: true }).click();
+
+    await expect(page.getByRole("status")).toHaveText("Suggested to Kestrel");
+    expect(await suggestionsFor(childId)).toEqual([
+      { bookId, note: "private note before hydration" },
+    ]);
+    expect(page.url()).not.toContain("note=");
+    expect(urls.filter((url) => url.includes("note="))).toEqual([]);
+  });
+
+  test("4a: Suggest anyway works without JavaScript too", async ({
+    page,
+    context,
+  }) => {
+    const { familyId } = await signInParent(context, {
+      parentRole: "main",
+      consentConfirmed: true,
+    });
+    const childId = await insertChild(familyId, "Plover");
+    const bookId = await insertBook("No Script Anyway Suggest E2E");
+    const db = await e2eDb();
+    await db.collection("shelfEntries").insertOne({
+      childId,
+      bookId,
+      category: "wantToRead",
+      movedAt: new Date(),
+    });
+
+    await page.goto(`/parent/children/${childId}/suggest/${bookId}`);
+    await page.getByRole("button", { name: "Suggest anyway" }).click();
+
+    await expect(page.getByRole("status")).toHaveText("Suggested to Plover");
+    expect(await suggestionsFor(childId)).toEqual([{ bookId }]);
+  });
 });

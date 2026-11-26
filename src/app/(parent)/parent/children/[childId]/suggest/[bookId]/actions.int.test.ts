@@ -36,7 +36,7 @@ const { insertChildIdentity } =
   await import("@/server/child-identity/child-identity");
 const { getDb, withTransaction } = await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
-const { suggestBook } = await import("./actions");
+const { submitSuggestion, suggestBook } = await import("./actions");
 
 const mockedAuth = vi.mocked(
   auth as unknown as () => Promise<{ user: { id: string } } | null>,
@@ -200,5 +200,79 @@ describe("suggestBook (UC-PAR-suggest-book steps 3-4)", () => {
     expect(await stored()).toEqual([
       { childId, bookId, note: "Second", suggestedAt: AT },
     ]);
+  });
+});
+
+describe("submitSuggestion, the form's action (review of #147)", () => {
+  const form = (fields: Record<string, string>) => {
+    const data = new FormData();
+    for (const [name, value] of Object.entries(fields)) data.set(name, value);
+    return data;
+  };
+  const editing = {
+    status: "editing" as const,
+    note: "",
+    conflict: null,
+    error: null,
+  };
+
+  it("saves from posted form data, with the child and book bound by the page", async () => {
+    const { main, childId, bookId } = await family();
+    signInAs(main.userId);
+    const state = await submitSuggestion(
+      childId,
+      bookId,
+      editing,
+      form({ note: "  Posted note  ", suggestAnyway: "0" }),
+    );
+    expect(state).toEqual({ status: "done" });
+    expect(await stored()).toEqual([
+      { childId, bookId, note: "Posted note", suggestedAt: AT },
+    ]);
+  });
+
+  it("4a: a conflict found at submit keeps the note and offers Suggest anyway, which then saves", async () => {
+    const { main, childId, bookId } = await family();
+    await getDb()
+      .collection("shelfEntries")
+      .insertOne({ childId, bookId, category: "wantToRead", movedAt: AT });
+    signInAs(main.userId);
+    const warned = await submitSuggestion(
+      childId,
+      bookId,
+      editing,
+      form({ note: "Keep me", suggestAnyway: "0" }),
+    );
+    expect(warned).toEqual({
+      status: "editing",
+      note: "Keep me",
+      conflict: "onShelf",
+      error: null,
+    });
+    expect(await stored()).toEqual([]);
+    expect(
+      await submitSuggestion(
+        childId,
+        bookId,
+        warned,
+        form({ note: "Keep me", suggestAnyway: "1" }),
+      ),
+    ).toEqual({ status: "done" });
+    expect(await stored()).toHaveLength(1);
+  });
+
+  it("3b: a note too long keeps the note, shows the message and saves nothing", async () => {
+    const { main, childId, bookId } = await family();
+    signInAs(main.userId);
+    const note = "a".repeat(251);
+    const state = await submitSuggestion(
+      childId,
+      bookId,
+      editing,
+      form({ note }),
+    );
+    expect(state).toMatchObject({ status: "editing", note });
+    expect(state.status === "editing" && state.error).toBeTruthy();
+    expect(await stored()).toEqual([]);
   });
 });

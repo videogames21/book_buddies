@@ -1,20 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type SubmitEvent } from "react";
+import { useActionState, useState } from "react";
 import type { SuggestionConflict } from "@/server/accounts-family/suggestions";
 import { SUGGESTION_NOTE_MAX_LENGTH } from "@/shared/accounts-family/suggestion";
 import styles from "../../../../books/books.module.css";
-import { suggestBook } from "./actions";
+import { initialFormState, type SuggestFormState } from "./form-state";
 
 // UC-PAR-suggest-book steps 2-3, 3a, 3b and 4a. The server checks everything; this form
-// only sends it. The child and book IDs come from the route, never from a field.
-
-const CONFLICT_FROM_CODE: Partial<Record<string, SuggestionConflict>> = {
-  ALREADY_SUGGESTED: "suggested",
-  ALREADY_RECOMMENDED: "recommended",
-  ALREADY_ON_SHELF: "onShelf",
-};
+// only sends it. It posts to a server action through useActionState, so it works before
+// hydration and without JavaScript, and the note never goes into a URL (review of #147).
+// The child and book IDs are bound to the action by the page, never sent as fields.
 
 function warningText(conflict: SuggestionConflict, nickname: string): string {
   switch (conflict) {
@@ -28,26 +24,23 @@ function warningText(conflict: SuggestionConflict, nickname: string): string {
 }
 
 export function SuggestForm({
-  childId,
-  bookId,
+  action,
   nickname,
   initialConflict,
 }: {
-  childId: string;
-  bookId: string;
+  action: (
+    previous: SuggestFormState,
+    formData: FormData,
+  ) => Promise<SuggestFormState>;
   nickname: string;
   initialConflict: SuggestionConflict | null;
 }) {
-  const [note, setNote] = useState("");
-  const [conflict, setConflict] = useState(initialConflict);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [state, formAction, pending] = useActionState(
+    action,
+    initialFormState(initialConflict),
+  );
 
-  const length = note.trim().length;
-  const tooLong = length > SUGGESTION_NOTE_MAX_LENGTH;
-
-  if (done) {
+  if (state.status === "done") {
     return (
       <section aria-live="polite">
         <p role="status">Suggested to {nickname}</p>
@@ -55,55 +48,43 @@ export function SuggestForm({
       </section>
     );
   }
+  return (
+    <EditingForm
+      // A new state (a refusal) starts the field from the note it carries.
+      key={JSON.stringify(state)}
+      state={state}
+      formAction={formAction}
+      pending={pending}
+      nickname={nickname}
+    />
+  );
+}
 
-  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (tooLong) return;
-    setPending(true);
-    setError(null);
-    try {
-      const result = await suggestBook({
-        childId,
-        bookId,
-        note,
-        suggestAnyway: conflict !== null,
-      });
-      if (result.ok) {
-        setDone(true);
-        return;
-      }
-      const changed = CONFLICT_FROM_CODE[result.error.code];
-      if (changed) {
-        // The state changed after the page loaded: warn, keep the note, offer "anyway".
-        setConflict(changed);
-      } else {
-        setError(
-          result.error.errorId
-            ? `${result.error.message} (Error ID: ${result.error.errorId})`
-            : result.error.message,
-        );
-      }
-    } catch {
-      setError(
-        "We couldn't reach BookBuddies, so we don't know whether the book was suggested. Reload the page and try again: if it was saved, we'll tell you.",
-      );
-    } finally {
-      setPending(false);
-    }
-  }
+function EditingForm({
+  state,
+  formAction,
+  pending,
+  nickname,
+}: {
+  state: Extract<SuggestFormState, { status: "editing" }>;
+  formAction: (formData: FormData) => void;
+  pending: boolean;
+  nickname: string;
+}) {
+  const [note, setNote] = useState(state.note);
+  const length = note.trim().length;
+  const tooLong = length > SUGGESTION_NOTE_MAX_LENGTH;
+  const { conflict } = state;
 
   return (
-    <form
-      className={styles.form}
-      onSubmit={(event) => {
-        void onSubmit(event);
-      }}
-    >
+    <form className={styles.form} action={formAction}>
       {conflict ? (
         <p role="alert" className={styles.warning}>
           {warningText(conflict, nickname)}
         </p>
       ) : null}
+      {/* "Suggest anyway" is the answer to the warning shown above (4a). */}
+      <input type="hidden" name="suggestAnyway" value={conflict ? "1" : "0"} />
       <label>
         A note for {nickname} (optional)
         <textarea
@@ -127,9 +108,9 @@ export function SuggestForm({
           fewer.
         </p>
       ) : null}
-      {error ? (
+      {state.error ? (
         <p role="alert" className={styles.error}>
-          {error}
+          {state.error}
         </p>
       ) : null}
       <div className={styles.buttons}>

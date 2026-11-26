@@ -10,6 +10,7 @@ import {
 } from "@/server/identity-access/sessions";
 import { fail, type ActionResult } from "@/server/lib/action-result";
 import { logUnexpectedError } from "@/server/lib/log";
+import { toFormState, type SuggestFormState } from "./form-state";
 import {
   firstErrorCode,
   SUGGEST_BOOK_SCHEMA_MESSAGES,
@@ -53,4 +54,31 @@ export async function suggestBook(
       logUnexpectedError("suggestBookAction", err),
     );
   }
+}
+
+/**
+ * The confirmation form's action (review of #147). The page binds the child and book IDs
+ * from the route, so they never come from a form field, and the form posts through
+ * `useActionState`. It therefore works before hydration or without JavaScript: the note
+ * goes in a POST body, never in a URL (§8.2.7). Every check is `suggestBook`'s.
+ */
+export async function submitSuggestion(
+  childId: string,
+  bookId: string,
+  previous: SuggestFormState,
+  formData: FormData,
+): Promise<SuggestFormState> {
+  const rawNote = formData.get("note");
+  const note = typeof rawNote === "string" ? rawNote : "";
+  const result = await suggestBook({
+    childId,
+    bookId,
+    note,
+    suggestAnyway: formData.get("suggestAnyway") === "1",
+  });
+  return toFormState(
+    result,
+    note,
+    previous.status === "editing" ? previous.conflict : null,
+  );
 }

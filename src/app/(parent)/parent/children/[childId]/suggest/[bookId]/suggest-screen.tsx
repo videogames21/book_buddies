@@ -3,6 +3,7 @@ import Link from "next/link";
 import { avatarSrc, type AvatarKey } from "@/server/accounts-family/avatars";
 import type { SuggestionConflict } from "@/server/accounts-family/suggestions";
 import styles from "../../../../books/books.module.css";
+import { submitSuggestion } from "./actions";
 import { SuggestForm } from "./suggest-form";
 
 export type SuggestScreenView =
@@ -55,8 +56,8 @@ export function SuggestScreen({ view }: SuggestScreenProps) {
         <span>To {view.nickname}</span>
       </p>
       <SuggestForm
-        childId={view.childId}
-        bookId={view.bookId}
+        // The route's IDs are bound here, on the server, never sent as form fields.
+        action={submitSuggestion.bind(null, view.childId, view.bookId)}
         nickname={view.nickname}
         initialConflict={view.conflict}
       />

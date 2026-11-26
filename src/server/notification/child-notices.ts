@@ -11,25 +11,34 @@ import { getDb, type Tx } from "@/server/lib/db";
 
 export const CHILD_NOTICES = "childNotices";
 
-/** The kinds written so far; `finish-declined` joins with UC-SHLF-par-finish-book. */
-export const CHILD_NOTICE_KINDS = ["book-removed"] as const;
+/** `finish-declined` is written by UC-SHLF-par-finish-book, which is not built yet. */
+export const CHILD_NOTICE_KINDS = ["book-removed", "finish-declined"] as const;
 
 export async function ensureChildNoticeIndexes(db: Db): Promise<void> {
   await ensureCollection(db, CHILD_NOTICES, {
     bsonType: "object",
-    required: ["_id", "childId", "kind", "bookId", "createdAt"],
+    required: ["_id", "childId", "kind", "createdAt"],
     additionalProperties: false,
     properties: {
       _id: { bsonType: "objectId" },
       childId: { bsonType: "string", minLength: 1 },
       kind: { enum: [...CHILD_NOTICE_KINDS] },
-      // The catalog's book IDs are UUID strings. bookId is required only because
-      // book-removed is the only kind so far; finish-declined (no book) will need a
-      // per-kind rule.
+      // The catalog's book IDs are UUID strings.
       bookId: { bsonType: "string", minLength: 1 },
       createdAt: { bsonType: "date" },
       seenAt: { bsonType: "date" },
     },
+    // A removal names its book; a declined finish names none (fixed wording).
+    oneOf: [
+      {
+        properties: { kind: { enum: ["book-removed"] } },
+        required: ["bookId"],
+      },
+      {
+        properties: { kind: { enum: ["finish-declined"] } },
+        not: { required: ["bookId"] },
+      },
+    ],
   });
   await db
     .collection(CHILD_NOTICES)
@@ -40,7 +49,8 @@ type ChildNoticeDocument = {
   _id: ObjectId;
   childId: string;
   kind: (typeof CHILD_NOTICE_KINDS)[number];
-  bookId: string;
+  /** For `book-removed` only. */
+  bookId?: string;
   createdAt: Date;
   seenAt?: Date;
 };

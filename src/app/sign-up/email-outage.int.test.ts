@@ -1,3 +1,4 @@
+import { format } from "node:util";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../../../tests/integration/db";
@@ -59,7 +60,31 @@ async function signInSavedParent() {
   mockedAuth.mockResolvedValue({ user: { id: user._id.toString() } });
 }
 
+/** The plaintext token, as only the email holds it. */
+function tokenFrom(text: string): string {
+  const token = /#token=([A-Za-z0-9_-]+)/.exec(text)?.[1];
+  if (!token) throw new Error("no link in the email");
+  return token;
+}
+
 let logged: string[];
+
+/** Checks everything logged so far against what must never be logged (§8.2.7). */
+async function expectNoSecretsLogged() {
+  const log = logged.join("\n");
+  // The failure was logged, so the checks below are not passing on an empty log.
+  expect(log).toContain("errorId");
+  const sessions = await getDb().collection("sessions").find().toArray();
+  for (const secret of [
+    input.name,
+    input.email,
+    input.password,
+    ...sendMail.mock.calls.map(([message]) => tokenFrom(message.text)),
+    ...sessions.map((session) => session.sessionToken as string),
+  ]) {
+    expect(log).not.toContain(secret);
+  }
+}
 
 beforeEach(async () => {
   await resetDatabase();
@@ -67,9 +92,12 @@ beforeEach(async () => {
   mockedAuth.mockResolvedValue(null);
   sendMail.mockReset().mockRejectedValue(timeout);
   logged = [];
-  vi.spyOn(console, "error").mockImplementation((line) => {
-    logged.push(String(line));
-  });
+  for (const method of ["log", "info", "warn", "error", "debug"] as const) {
+    vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
+      // As the console would print it, so text inside an object is checked too.
+      logged.push(format(...args));
+    });
+  }
 });
 
 afterEach(() => {
@@ -98,10 +126,7 @@ describe("the email service is down", () => {
     expect(page).toContain("Your account is saved.");
     expect(page).toContain("Send it again");
 
-    const log = logged.join("\n");
-    expect(log).toContain("errorId");
-    expect(log).not.toContain(input.email);
-    expect(log).not.toContain(input.password);
+    await expectNoSecretsLogged();
   });
 
   it("6b: a resend says it failed, and works once the service is back", async () => {
@@ -117,10 +142,14 @@ describe("the email service is down", () => {
       },
     });
 
+    await expectNoSecretsLogged();
+
     sendMail.mockResolvedValue({});
     expect(await resendConsentEmail()).toEqual({ ok: true, data: null });
-    const text = sendMail.mock.lastCall?.[0].text ?? "";
-    const token = /#token=([A-Za-z0-9_-]+)/.exec(text)?.[1];
+    // Sign-up, the failed resend and this one. The token must come from this one:
+    // the failed resend's link would confirm too.
+    expect(sendMail).toHaveBeenCalledTimes(3);
+    const token = tokenFrom(sendMail.mock.calls[2][0].text);
     expect(await confirmConsent(token)).toMatchObject({ ok: true });
   });
 });

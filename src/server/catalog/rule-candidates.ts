@@ -124,10 +124,7 @@ export type QuizCatalogGuard = (
   bookIds: readonly string[],
 ) => Promise<boolean>;
 
-/**
- * Before release, OI-58 must supply the same-book write and account deletion must
- * remove batches. The production path stays closed until both are wired.
- */
+/** OI-58 supplies the same-book write before the production quiz can open. */
 export function getQuizCatalogGuard(): QuizCatalogGuard | undefined {
   return undefined;
 }

@@ -7,6 +7,7 @@ import { insertChild } from "../../../tests/fixtures/children";
 import { insertConsentedMainParent } from "../../../tests/fixtures/family";
 import { resetDatabase } from "../../../tests/integration/db";
 import * as bookReports from "@/server/accounts-family/book-reports";
+import { deleteChild } from "@/server/accounts-family/child-deletion";
 import * as families from "@/server/accounts-family/families";
 import * as parentNotes from "@/server/accounts-family/parent-notes";
 import * as catalog from "@/server/catalog/rule-candidates";
@@ -357,4 +358,33 @@ it("lets a report racing an in-flight quiz remove the book from the committed ba
   await expect(
     batches().findOne({ childId, status: "pending" }),
   ).resolves.toMatchObject({ bookIds: [retained] });
+});
+
+it("leaves no batch when child deletion races a quiz submission", async () => {
+  const { childId, userId, familyId } = await seedChild();
+  await insertBook("active");
+  const reachedGuard = Promise.withResolvers<boolean>();
+  const canSave = Promise.withResolvers<boolean>();
+  const quiz = submitRulesQuiz(childId, answer(), async () => {
+    reachedGuard.resolve(true);
+    await canSave.promise;
+    return true;
+  });
+
+  await Promise.race([reachedGuard.promise, quiz]);
+  const deletion = deleteChild(
+    { userId, familyId, parentRole: "main" },
+    childId,
+  );
+  canSave.resolve(true);
+
+  await expect(quiz).resolves.toEqual({ ok: true, data: null });
+  await expect(deletion).resolves.toEqual({ ok: true, data: null });
+  await expect(batches().countDocuments({ childId })).resolves.toBe(0);
+  await expect(
+    submitRulesQuiz(childId, answer(), () => Promise.resolve(true)),
+  ).resolves.toMatchObject({
+    ok: false,
+    error: { code: "CHILD_NOT_FOUND" },
+  });
 });

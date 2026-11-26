@@ -1,8 +1,13 @@
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { insertBook } from "../../../tests/fixtures/catalog";
 import { resetDatabase } from "../../../tests/integration/db";
 import { quizSubmissionSchema } from "@/shared/recommendation/quiz";
-import { listRuleCandidates } from "./rule-candidates";
+import { getDb, withTransaction } from "@/server/lib/db";
+import {
+  getQuizCatalogGuard,
+  listRuleCandidates,
+  lockActiveBooksForQuiz,
+} from "./rule-candidates";
 
 beforeEach(resetDatabase);
 
@@ -74,4 +79,44 @@ it("requires both fixed answers and rejects caller-provided identity", () => {
       childId: "untrusted",
     }).success,
   ).toBe(false);
+});
+
+describe("lockActiveBooksForQuiz (OI-58, team decision 2026-11-26)", () => {
+  const versions = async (ids: string[]) =>
+    Promise.all(
+      ids.map(
+        async (id) =>
+          (
+            await getDb()
+              .collection<{ _id: string; writeVersion?: number }>("books")
+              .findOne({ _id: id })
+          )?.writeVersion,
+      ),
+    );
+
+  it("is the production quiz's guard", () => {
+    expect(getQuizCatalogGuard()).toBe(lockActiveBooksForQuiz);
+  });
+
+  it("writes every active book and returns true", async () => {
+    const ids = [
+      await insertBook("active", "One"),
+      await insertBook("active", "Two"),
+    ];
+    await expect(
+      withTransaction((tx) => lockActiveBooksForQuiz(tx, ids)),
+    ).resolves.toBe(true);
+    await expect(versions(ids)).resolves.toEqual([1, 1]);
+  });
+
+  it.each(["draft", "blocked"] as const)(
+    "returns false when a book is %s",
+    async (status) => {
+      const active = await insertBook("active", "Active");
+      const other = await insertBook(status, "Not active");
+      await expect(
+        withTransaction((tx) => lockActiveBooksForQuiz(tx, [active, other])),
+      ).resolves.toBe(false);
+    },
+  );
 });

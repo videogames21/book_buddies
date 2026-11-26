@@ -5,7 +5,7 @@ import { findActiveBookIds } from "@/server/catalog/books";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, type Tx, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { createRemovalNoticeInTx } from "@/server/notification/child-notices";
 import { removeFromPendingBatchInTx } from "@/server/recommendation/batches";
@@ -206,10 +206,13 @@ export async function isExcluded(
  * apply `KD-book-exclusion`, as a `$nin` beside the blocked-book filter. No caller yet.
  * Callers check the child's family first.
  */
-export async function listExcludedBookIds(childId: string): Promise<string[]> {
+export async function listExcludedBookIds(
+  childId: string,
+  tx?: Tx,
+): Promise<string[]> {
   const exclusions = await getDb()
     .collection<ExclusionDocument>(CHILD_BOOK_EXCLUSIONS)
-    .find({ childId }, { projection: { bookId: 1 } })
+    .find({ childId }, { projection: { bookId: 1 }, session: tx })
     .toArray();
   return exclusions.map((exclusion) => exclusion.bookId);
 }

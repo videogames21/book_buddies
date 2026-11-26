@@ -1192,4 +1192,41 @@ describe("listReleasedBatchesForChild (step 6, POST-2; for UC-REC-kid-review)", 
       "releasedAt",
     ]);
   });
+
+  it("with a transaction, reads the age, batches, exclusions and books inside it (design/par.md contract, review of #137)", async () => {
+    const { childId } = await family();
+    const [kept, reported] = [
+      await insertBook("active", "Alpha"),
+      await insertBook("active", "Bravo"),
+    ];
+
+    const inside = await withTransaction(async (tx) => {
+      // Written only inside the transaction: the age, a released batch and a report.
+      await insertChildIdentity(tx, { childId, age: 7, grade: "3" });
+      const batchId = await insertBatch(
+        {
+          childId,
+          bookIds: [kept, reported],
+          status: "released",
+          releasedAt: NOW,
+        },
+        tx,
+      );
+      await getDb()
+        .collection("childBookExclusions")
+        .insertOne(
+          { childId, bookId: reported, reportId: new ObjectId(), createdAt: NOW },
+          { session: tx },
+        );
+      // Outside the transaction the uncommitted age is not there, so the read throws.
+      await expect(listReleasedBatchesForChild(childId)).rejects.toThrow(
+        "no recorded age",
+      );
+      return { batchId, read: await listReleasedBatchesForChild(childId, tx) };
+    });
+
+    expect(inside.read).toEqual([
+      { batchId: inside.batchId, releasedAt: NOW, bookIds: [kept], empty: false },
+    ]);
+  });
 });

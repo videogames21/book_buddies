@@ -533,7 +533,7 @@ describe("5a, response lost after the write applied (review of #135)", () => {
     expect((await stored(batchId))?.releasedAt).toEqual(earlier);
   });
 
-  it("confirm: when the read-back fails too, SAVE_UNCONFIRMED, which does not say nothing changed", async () => {
+  it("confirm: when the read-back fails too, OUTCOME_UNKNOWN, which does not say nothing changed", async () => {
     const { main, childId } = await family();
     const { batchId } = await pendingBatchOfThree(childId);
     loseResponseAfterWrite("findOneAndUpdate");
@@ -544,7 +544,7 @@ describe("5a, response lost after the write applied (review of #135)", () => {
     expect(result).toMatchObject({
       ok: false,
       error: {
-        code: "SAVE_UNCONFIRMED",
+        code: "OUTCOME_UNKNOWN",
         errorId: expect.any(String) as unknown,
       },
     });
@@ -576,7 +576,7 @@ describe("5a, response lost after the write applied (review of #135)", () => {
     });
   });
 
-  it("remove: when the read-back fails too, SAVE_UNCONFIRMED, which does not say nothing changed", async () => {
+  it("remove: when the read-back fails too, OUTCOME_UNKNOWN, which does not say nothing changed", async () => {
     const { main, childId } = await family();
     const { batchId, bookIds } = await pendingBatchOfThree(childId);
     loseResponseAfterWrite("updateOne");
@@ -591,7 +591,7 @@ describe("5a, response lost after the write applied (review of #135)", () => {
     expect(result).toMatchObject({
       ok: false,
       error: {
-        code: "SAVE_UNCONFIRMED",
+        code: "OUTCOME_UNKNOWN",
         errorId: expect.any(String) as unknown,
       },
     });

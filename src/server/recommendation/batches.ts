@@ -173,7 +173,7 @@ export type BatchActionCode =
   | "BATCH_NOT_FOUND"
   | "BATCH_ALREADY_RELEASED"
   | "SAVE_FAILED"
-  | "SAVE_UNCONFIRMED";
+  | "OUTCOME_UNKNOWN";
 
 export type RemoveBookCode = BatchActionCode | "BOOK_NOT_IN_BATCH";
 
@@ -187,7 +187,7 @@ const MESSAGES: Record<RemoveBookCode, string> = {
   BOOK_NOT_IN_BATCH: "That book isn't in these recommendations.",
   SAVE_FAILED:
     "We couldn't save that. Nothing changed, and nothing was sent to your child. Please try again.",
-  SAVE_UNCONFIRMED:
+  OUTCOME_UNKNOWN:
     "We couldn't confirm whether that was saved. Reload the page to check before trying again.",
 };
 
@@ -242,7 +242,7 @@ async function readBack(
 }
 
 const unconfirmed = (errorId: string) =>
-  fail("SAVE_UNCONFIRMED", MESSAGES.SAVE_UNCONFIRMED, errorId);
+  fail("OUTCOME_UNKNOWN", MESSAGES.OUTCOME_UNKNOWN, errorId);
 
 export type BatchInput = { childId: string; batchId: string };
 export type RemoveBookInput = BatchInput & { bookId: string };

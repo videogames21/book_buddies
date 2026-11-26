@@ -1,4 +1,4 @@
-import { Collection, ObjectId } from "mongodb";
+import { Collection, MongoNetworkError, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_DEADLINE, insertBatch } from "../../../tests/fixtures/batches";
 import { insertBook } from "../../../tests/fixtures/catalog";
@@ -431,6 +431,182 @@ describe("5a", () => {
       error: { code: "SAVE_FAILED", errorId: expect.any(String) as unknown },
     });
     expect((await stored(batchId))?.bookIds).toEqual(bookIds);
+  });
+});
+
+/**
+ * Lets the first write to `recommendationBatches` through `method` apply for real, then
+ * loses its response, as a dropped connection would (review of #135).
+ */
+function loseResponseAfterWrite(method: "findOneAndUpdate" | "updateOne") {
+  const original = Reflect.get(Collection.prototype, method) as (
+    this: Collection,
+    ...args: unknown[]
+  ) => Promise<unknown>;
+  let lost = false;
+  vi.spyOn(Collection.prototype, method).mockImplementation(async function (
+    this: Collection,
+    ...args: unknown[]
+  ) {
+    const result = await original.apply(this, args);
+    if (this.collectionName !== "recommendationBatches" || lost) return result;
+    lost = true;
+    throw new MongoNetworkError("invented: connection reset");
+  } as never);
+}
+
+/**
+ * Records the read concern of every read of `recommendationBatches`. With `fail`, the
+ * first of those reads (the action's read-back) fails; later ones, such as the test's
+ * own check of the stored batch, succeed.
+ */
+function batchReads(options: { fail?: boolean } = {}) {
+  const concerns: (string | undefined)[] = [];
+  let failed = false;
+  const original = Reflect.get(Collection.prototype, "findOne") as (
+    this: Collection,
+    ...args: unknown[]
+  ) => Promise<unknown>;
+  vi.spyOn(Collection.prototype, "findOne").mockImplementation(function (
+    this: Collection,
+    ...args: unknown[]
+  ) {
+    if (this.collectionName !== "recommendationBatches") {
+      return original.apply(this, args);
+    }
+    concerns.push(this.readConcern?.level);
+    if (options.fail && !failed) {
+      failed = true;
+      return Promise.reject(new Error("invented: database unreachable"));
+    }
+    return original.apply(this, args);
+  } as never);
+  return concerns;
+}
+
+describe("5a, response lost after the write applied (review of #135)", () => {
+  it("confirm: the release applied and its response was lost is ok, read back at majority, and a retry is BATCH_ALREADY_RELEASED", async () => {
+    const { main, childId } = await family();
+    const { batchId } = await pendingBatchOfThree(childId);
+    loseResponseAfterWrite("findOneAndUpdate");
+    const concerns = batchReads();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await confirmBatch(main, { childId, batchId })).toEqual({
+      ok: true,
+      data: { state: "released" },
+    });
+    expect(concerns).toEqual(["majority"]);
+    expect(await stored(batchId)).toMatchObject({
+      status: "released",
+      releasedAt: NOW,
+    });
+    expect(await confirmBatch(main, { childId, batchId })).toMatchObject({
+      ok: false,
+      error: { code: "BATCH_ALREADY_RELEASED" },
+    });
+  });
+
+  it("confirm, 4a: an empty batch released with its response lost is ok with state empty", async () => {
+    const { main, childId } = await family();
+    const batchId = await insertBatch({ childId, bookIds: [] });
+    loseResponseAfterWrite("findOneAndUpdate");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await confirmBatch(main, { childId, batchId })).toEqual({
+      ok: true,
+      data: { state: "empty" },
+    });
+  });
+
+  it("confirm: a write that failed after the other parent released the batch is BATCH_ALREADY_RELEASED, not ok", async () => {
+    const { sub, childId } = await family();
+    const { batchId } = await pendingBatchOfThree(childId);
+    // The other parent's confirmation lands first, at another moment, and this
+    // parent's write then fails without applying.
+    const earlier = new Date(NOW.getTime() - 60_000);
+    vi.spyOn(Collection.prototype, "findOneAndUpdate").mockImplementationOnce(
+      async () => {
+        await batches().updateOne(
+          { _id: new ObjectId(batchId) },
+          { $set: { status: "released", releasedAt: earlier } },
+        );
+        throw new MongoNetworkError("invented: connection reset");
+      },
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await confirmBatch(sub, { childId, batchId })).toMatchObject({
+      ok: false,
+      error: { code: "BATCH_ALREADY_RELEASED" },
+    });
+    expect((await stored(batchId))?.releasedAt).toEqual(earlier);
+  });
+
+  it("confirm: when the read-back fails too, OUTCOME_UNKNOWN, which does not say nothing changed", async () => {
+    const { main, childId } = await family();
+    const { batchId } = await pendingBatchOfThree(childId);
+    loseResponseAfterWrite("findOneAndUpdate");
+    batchReads({ fail: true });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await confirmBatch(main, { childId, batchId });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
+    expect((await stored(batchId))?.status).toBe("released");
+  });
+
+  it("remove: the removal applied and its response was lost is ok, read back at majority, and a retry is ok", async () => {
+    const { main, childId } = await family();
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    loseResponseAfterWrite("updateOne");
+    const concerns = batchReads();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const input = { childId, batchId, bookId: bookIds[0] };
+
+    expect(await removeBookFromBatch(main, input)).toEqual({
+      ok: true,
+      data: null,
+    });
+    expect(concerns).toEqual(["majority"]);
+    expect(await stored(batchId)).toMatchObject({
+      status: "pending",
+      bookIds: [bookIds[1], bookIds[2]],
+      removedBookIds: [bookIds[0]],
+    });
+    expect(await removeBookFromBatch(main, input)).toEqual({
+      ok: true,
+      data: null,
+    });
+  });
+
+  it("remove: when the read-back fails too, OUTCOME_UNKNOWN, which does not say nothing changed", async () => {
+    const { main, childId } = await family();
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    loseResponseAfterWrite("updateOne");
+    batchReads({ fail: true });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await removeBookFromBatch(main, {
+      childId,
+      batchId,
+      bookId: bookIds[0],
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
+    expect((await stored(batchId))?.removedBookIds).toEqual([bookIds[0]]);
   });
 });
 

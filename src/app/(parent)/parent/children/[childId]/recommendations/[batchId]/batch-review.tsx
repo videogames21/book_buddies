@@ -51,7 +51,9 @@ export function BatchReview({ view }: BatchReviewProps) {
       ) {
         if (result.error.code === "OUTCOME_UNKNOWN")
           setError(result.error.message);
-        refresh(() => router.refresh());
+        refresh(() => {
+          router.refresh();
+        });
       } else {
         setError(result.error.message);
       }
@@ -59,7 +61,9 @@ export function BatchReview({ view }: BatchReviewProps) {
       setError(
         "We couldn’t verify the result. Check the refreshed batch before trying again.",
       );
-      refresh(() => router.refresh());
+      refresh(() => {
+        router.refresh();
+      });
     } finally {
       setBusy(false);
     }
@@ -139,7 +143,9 @@ export function BatchReview({ view }: BatchReviewProps) {
               () => confirmBatch({ childId, batchId }),
               () => {
                 setConfirmed(true);
-                refresh(() => router.refresh());
+                refresh(() => {
+                  router.refresh();
+                });
               },
             );
           }}

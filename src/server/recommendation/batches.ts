@@ -48,6 +48,49 @@ type BatchDocument = {
 
 const batches = () => getDb().collection<BatchDocument>(RECOMMENDATION_BATCHES);
 
+/** An existing request or an unexpired pending batch gets the same acknowledgment. */
+export async function hasQuizBatch(
+  childId: string,
+  tx?: Tx,
+  requestId?: string,
+): Promise<boolean> {
+  const pending = pendingFilter(now());
+  const filter = requestId
+    ? { childId, $or: [{ requestId }, pending] }
+    : { childId, ...pending };
+  const batch = await batches().findOne(filter, {
+    projection: { _id: 1 },
+    session: tx,
+  });
+  return batch !== null;
+}
+
+/** Called after the child, consent and Catalog write guards in the quiz transaction. */
+export async function insertQuizBatch(
+  tx: Tx,
+  childId: string,
+  requestId: string,
+  bookIds: string[],
+  reviewWindowHours: number,
+): Promise<void> {
+  const createdAt = now();
+  await batches().insertOne(
+    {
+      _id: new ObjectId(),
+      childId,
+      requestId,
+      bookIds,
+      source: "rules",
+      status: "pending",
+      createdAt,
+      handoffDeadline: new Date(
+        createdAt.getTime() + reviewWindowHours * 3_600_000,
+      ),
+    },
+    { session: tx },
+  );
+}
+
 /**
  * The batches read at majority read concern, for reading back a write whose response
  * was lost (5a): a read after a failover cannot see a write a majority has not

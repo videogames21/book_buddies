@@ -151,3 +151,24 @@ it("uses midpoint before ordinal IDs, caps fixture results at six, and preserves
   expect(candidates.map(({ id }) => id)).toEqual(original);
   expect(rankRuleCandidates([], child, neutral)).toEqual([]);
 });
+
+it("uses the tie-breakers for an equal tag average plus a length adjustment", () => {
+  const candidates = [
+    book("b-tags", { genres: ["mystery", "fantasy", "adventure"] }),
+    book("a-length", {
+      genres: ["animal story", "fantasy", "adventure"],
+      length: "longer story",
+    }),
+  ];
+
+  expect(
+    rankRuleCandidates(candidates, child, {
+      ...neutral,
+      byTag: new Map([
+        ["mystery", 5],
+        ["animal story", 2],
+      ]),
+      byLength: new Map([["longer story", 1]]),
+    }),
+  ).toEqual(["a-length", "b-tags"]);
+});

@@ -56,10 +56,11 @@ function interestScore(
   let total = 0;
   for (const tag of tags) total += weights.byTag.get(tag) ?? 0;
 
-  const tagMean = tags.size === 0 ? 0 : total / tags.size;
   const length = weights.byLength.get(book.length) ?? 0;
   const decline = weights.declinedBookIds.has(book.id) ? -2 : 0;
-  return tagMean + length + decline + levelPoint(book, level);
+  const extra = length + decline + levelPoint(book, level);
+  // Divide once so equivalent scores reach the midpoint and ID tie-breakers.
+  return tags.size === 0 ? extra : (total + extra * tags.size) / tags.size;
 }
 
 /** OI-2 proposal. Call with books already filtered for eligibility by Catalog. */

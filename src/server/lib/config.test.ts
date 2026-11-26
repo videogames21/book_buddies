@@ -164,3 +164,21 @@ it("defaults the child session times", async () => {
     CHILD_IDLE_MINUTES: 30,
   });
 });
+
+it.each([
+  [undefined, "rules"],
+  ["rules", "rules"],
+  ["ai", null],
+  ["off", null],
+  ["invented", null],
+] as const)(
+  "selects an available recommender for mode %s",
+  async (mode, expected) => {
+    vi.resetModules();
+    vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+    vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+    vi.stubEnv("RECOMMENDER_MODE", mode);
+    const { getRecommenderMode } = await import("./config");
+    expect(getRecommenderMode()).toBe(expected);
+  },
+);

@@ -118,3 +118,16 @@ export async function listRuleCandidates(
     ];
   });
 }
+
+export type QuizCatalogGuard = (
+  tx: Tx,
+  bookIds: readonly string[],
+) => Promise<boolean>;
+
+/**
+ * Before release, OI-58 must supply the same-book write and account deletion must
+ * remove batches. The production path stays closed until both are wired.
+ */
+export function getQuizCatalogGuard(): QuizCatalogGuard | undefined {
+  return undefined;
+}

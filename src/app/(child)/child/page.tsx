@@ -4,12 +4,14 @@ import { notFound, redirect } from "next/navigation";
 import { avatarSrc } from "@/server/accounts-family/avatars";
 import { getChildDisplay } from "@/server/accounts-family/child-accounts";
 import { requireChild } from "@/server/identity-access/sessions";
+import { isRulesQuizAvailable } from "@/server/recommendation/quiz-submission";
 import styles from "./child.module.css";
 import { CHILD_SHELF_PATH, CHILD_SIGN_IN_PATH } from "./paths";
+import { StartRecommendationQuizButton } from "./recommendations/quiz/start-button";
 import { SignOutButton } from "./sign-out-button";
 
 // The child's home screen (design/shlf.md, a supporting flow with no use case, OI-46):
-// the nickname, the avatar, My Shelf and Sign out, and nothing else (§8.2.11).
+// The quiz entry appears only after its production write dependencies are available.
 export const dynamic = "force-dynamic";
 
 export default async function ChildHomePage() {
@@ -27,6 +29,7 @@ export default async function ChildHomePage() {
       <Link className={styles.primary} href={CHILD_SHELF_PATH} prefetch={false}>
         My Shelf
       </Link>
+      {isRulesQuizAvailable() && <StartRecommendationQuizButton />}
       <SignOutButton />
     </main>
   );

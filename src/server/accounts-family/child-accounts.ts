@@ -241,6 +241,20 @@ export async function lockChildForWrite(
   return result.matchedCount === 1;
 }
 
+/** The family of the authenticated child, for the quiz's consent check. */
+export async function getFamilyIdForChild(
+  childId: string,
+  tx?: Tx,
+): Promise<string | null> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .findOne(
+      { _id: childId },
+      { projection: { _id: 0, familyId: 1 }, session: tx },
+    );
+  return child?.familyId.toHexString() ?? null;
+}
+
 /**
  * Every child in the family, by nickname and avatar only, oldest account first. Pages
  * authenticate before calling this function, as for `getChildForFamily`.

@@ -459,7 +459,10 @@ describe("5a", () => {
     const result = await confirmBatch(main, { childId, batchId });
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
     });
     if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
     await inFlight?.();
@@ -489,7 +492,10 @@ describe("5a", () => {
     });
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
     });
     if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
     await inFlight?.();

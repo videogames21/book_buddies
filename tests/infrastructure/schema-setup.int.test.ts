@@ -37,6 +37,116 @@ it("creates readingProfiles with a unique childId index and a validator", async 
   await profiles.deleteMany({});
 });
 
+it("creates the three shelf collections with a unique childId and bookId index", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  for (const name of ["shelfEntries", "ratings", "finishConfirmations"]) {
+    const indexes = await getDb().collection(name).indexes();
+    expect(
+      indexes.find((index) => index.name === "childId_bookId_unique"),
+      name,
+    ).toMatchObject({ key: { childId: 1, bookId: 1 }, unique: true });
+  }
+});
+
+it("refuses a second shelf entry, rating or confirmation for the same child and book", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ObjectId } = await import("mongodb");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const when = new Date("2026-11-01T12:00:00Z");
+  const entry = {
+    childId: "c1",
+    bookId: "b1",
+    category: "wantToRead",
+    movedAt: when,
+  };
+  const rating = {
+    childId: "c1",
+    bookId: "b1",
+    value: "lovedIt",
+    ratedAt: when,
+  };
+  const confirmation = {
+    childId: "c1",
+    bookId: "b1",
+    confirmedByParentId: new ObjectId(),
+    confirmedAt: when,
+  };
+  const cases = [
+    ["shelfEntries", entry],
+    ["ratings", rating],
+    ["finishConfirmations", confirmation],
+  ] as const;
+  for (const [name, doc] of cases) {
+    const collection = getDb().collection(name);
+    await collection.deleteMany({});
+    await collection.insertOne({ ...doc });
+    await expect(collection.insertOne({ ...doc }), name).rejects.toThrow();
+    await collection.deleteMany({});
+  }
+});
+
+it("rejects a shelf document that holds a child detail or an unknown value (KD-pii-segregation)", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ObjectId } = await import("mongodb");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const when = new Date("2026-11-01T12:00:00Z");
+  const bad = [
+    [
+      "shelfEntries",
+      {
+        childId: "c",
+        bookId: "b",
+        category: "finished",
+        movedAt: when,
+        nickname: "Starfish",
+      },
+    ],
+    [
+      "shelfEntries",
+      { childId: "c", bookId: "b", category: "favorites", movedAt: when },
+    ],
+    [
+      "ratings",
+      { childId: "c", bookId: "b", value: "five stars", ratedAt: when },
+    ],
+    [
+      "ratings",
+      { childId: "c", bookId: "b", value: "lovedIt", ratedAt: when, age: 8 },
+    ],
+    [
+      "finishConfirmations",
+      {
+        childId: "c",
+        bookId: "b",
+        confirmedByParentId: "a parent",
+        confirmedAt: when,
+      },
+    ],
+    [
+      "finishConfirmations",
+      {
+        childId: "c",
+        bookId: "b",
+        confirmedByParentId: new ObjectId(),
+        confirmedAt: when,
+        note: "free text",
+      },
+    ],
+  ] as const;
+  for (const [name, doc] of bad) {
+    await expect(
+      getDb()
+        .collection(name)
+        .insertOne({ ...doc }),
+      `${name}: ${JSON.stringify(doc)}`,
+    ).rejects.toThrow();
+  }
+});
+
 // UC-ADM-add-content, "Schema validator": the MongoDB backstop for the `books` collection.
 it("validates books and keeps the two unique indexes", async () => {
   const { getDb } = await import("@/server/lib/db");
@@ -235,6 +345,9 @@ it("creates consentRecords with a unique familyId and a validator (DI-consent-re
   await expect(records.insertOne({ ...record })).rejects.toThrow(
     /duplicate key/,
   );
+  await expect(
+    records.insertOne({ ...record, familyId: new ObjectId() }),
+  ).rejects.toThrow(/confirmationTokenHash_unique/);
   // A record missing the acknowledgment fields, or storing the plaintext token, is refused.
   await expect(
     records.insertOne({ familyId: new ObjectId(), confirmedAt: new Date() }),
@@ -247,6 +360,39 @@ it("creates consentRecords with a unique familyId and a validator (DI-consent-re
     }),
   ).rejects.toThrow();
   await records.deleteMany({});
+});
+
+it("creates passwordResets with one row per user and per token hash, and a validator (OI-44)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const resets = getDb().collection("passwordResets");
+  const row = {
+    userId: new ObjectId(),
+    tokenHash: "b".repeat(64),
+    issuedAt: new Date(),
+    expiresAt: new Date(),
+  };
+  await resets.insertOne({ ...row });
+  await expect(
+    resets.insertOne({ ...row, tokenHash: "c".repeat(64) }),
+  ).rejects.toThrow(/userId_unique/);
+  await expect(
+    resets.insertOne({ ...row, userId: new ObjectId() }),
+  ).rejects.toThrow(/tokenHash_unique/);
+  // The plaintext token, or a row with no expiry, is refused.
+  await expect(
+    resets.insertOne({ ...row, userId: new ObjectId(), token: "plaintext" }),
+  ).rejects.toThrow();
+  const { expiresAt: _dropped, ...noExpiry } = row;
+  await expect(
+    resets.insertOne({ ...noExpiry, userId: new ObjectId() }),
+  ).rejects.toThrow();
+  expect(
+    (await resets.indexes()).find((index) => index.name === "expiresAt"),
+  ).toMatchObject({ key: { expiresAt: 1 } });
+  await resets.deleteMany({});
 });
 
 it("accepts exactly the audit shapes §8.2.9 allows, IDs only", async () => {

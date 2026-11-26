@@ -15,6 +15,7 @@ import { ensureCollection } from "@/server/lib/collections";
 import { getDb, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { AvatarKey } from "./avatars";
+import { CONSENT_RECORDS } from "./consent-record-schema";
 
 import { insertParentNote, type NoteState } from "./parent-notes";
 import {
@@ -28,10 +29,6 @@ import { appendNoteFlagAudit } from "@/server/audit/audit-log";
 // which is all other components hold about a child (KD-pii-segregation).
 
 const CHILDREN = "children";
-// The family's consent record belongs to UC-PAR-onboarding, which is not designed yet.
-// Assumed shape: one document per family with `confirmedAt` set once consent is
-// confirmed (DI-consent-record; design/par.md, Open questions).
-const CONSENT_RECORDS = "consentRecords";
 
 class ConsentNotConfirmedError extends Error {}
 
@@ -212,4 +209,25 @@ export async function getChildForFamily(familyId: string, childId: string) {
       { _id: childId, familyId: new ObjectId(familyId) },
       { projection: { _id: 1, nickname: 1, avatar: 1 } },
     );
+}
+
+/**
+ * Every child in the family, by nickname and avatar only, oldest account first. Pages
+ * authenticate before calling this function, as for `getChildForFamily`.
+ */
+export async function listChildrenForFamily(familyId: string) {
+  return getDb()
+    .collection<{
+      _id: string;
+      nickname: string;
+      avatar: AvatarKey;
+      familyId: ObjectId;
+      createdAt: Date;
+    }>(CHILDREN)
+    .find(
+      { familyId: new ObjectId(familyId) },
+      { projection: { _id: 1, nickname: 1, avatar: 1 } },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
 }

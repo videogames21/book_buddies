@@ -4,10 +4,10 @@
 **Team:** Team 05
 **Area:** `UC-ADM`
 
-> **Realizes:** `UC-ADM-add-content`, `FR-ADM-catalog`, `FEAT-book-tagging`, `FEAT-admin-catalog`
-> **Depends on:** `DI-book-id`, `DI-book-tags`, `DI-catalog-status`, `DI-field-tables`, `SAF-child-content`, `SEC-role-authorization`, `SEC-pii-boundary`, `AS-seed-catalog-size`, `KD-catalog-import-offline`, `KD-auth-sessions`, `BR-admin-limited-view`, `BR-reading-level-proxy`, `BR-kid-no-metrics`
+> **Realizes:** `UC-ADM-add-content`, `UC-ADM-block-content`, `FR-ADM-report-review`, `FR-ADM-catalog`, `FEAT-book-tagging`, `FEAT-admin-catalog`
+> **Depends on:** `DI-book-id`, `DI-book-tags`, `DI-catalog-status`, `DI-field-tables`, `SAF-child-content`, `SEC-role-authorization`, `SEC-pii-boundary`, `AS-seed-catalog-size`, `KD-catalog-import-offline`, `KD-auth-sessions`, `BR-admin-limited-view`, `BR-reading-level-proxy`, `BR-kid-no-metrics`, `BR-parent-report-book`, `UC-PAR-report-book`, Notification (architecture §5.2)
 > **See:** [use cases, ADM area](../docs/requirements/use-cases.md#uc-adm-add-content-add-a-book-to-the-seed-catalog), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [glossary](../docs/requirements/project-glossary.md), [architecture-of-record](architectural-design.md), [PAR design](par.md), [field values](adm-field-values.md)
-> **Designed against:** `d8beec6` (no application code exists yet)
+> **Designed against:** `d8beec6` for add-content and `f9b6fa2` for block-content.
 
 ---
 
@@ -15,9 +15,11 @@
 
 The Administration area owns the admin's work on the catalog and the system ([containers](architectural-design.md#51-containers), [use case areas and components](architectural-design.md#52-use-case-areas-and-components)). `UC-ADM-add-content`, the first use case designed here, lets an admin add one book with its tags. The book lives in the Catalog, a cross-cutting component that owns books, tags, catalog status and custom tags (architecture §5.2), so this design also defines the Catalog's `books` collection, its indexes and its first write path. The admin supplies the book's details; the server validates them, saves the book as `draft`, and records the add in the audit log in the same transaction. A book is never active at save: it becomes active only when an admin publishes it through `UC-ADM-edit-content` (`OI-43`). The system makes no outside call and no child record is read or written, so the Child Identity Store is not involved and the admin's boundary (`BR-admin-limited-view`) is untouched. A book added here is bulk-import-compatible: the same fields, keys and checks are the ones the catalog import will use (`KD-catalog-import-offline`), and the validation and normalization code is a shared module the import can call.
 
+`UC-ADM-block-content` adds the reported-books queue and the catalog block control. Administration coordinates the decision. Catalog owns the book status, Accounts & Family owns reports and per-child exclusions, Shelf owns shelf entries, Recommendation owns list entries, and Notification delivers the false-report warning. The design builds on the Catalog contract in this file, Catalog's existing `findActiveBookIds` read, the report contract in #110, and the separate shelf, rating and finish records in [shlf.md](shlf.md).
+
 ## Components & classes
 
-All files are new, and paths follow §8.2.3 and §8.2.4. The shared files named below are created by whichever use case (PAR, REC or ADM) is built first.
+Paths follow §8.2.3 and §8.2.4. The original add-content section marks files that were new when it was written. The shared files named below are created by whichever use case (PAR, REC or ADM) is built first.
 
 ```mermaid
 classDiagram
@@ -62,6 +64,29 @@ classDiagram
     CatalogListPage --> books
     NewBookPage --> sessions
     NewBookPage --> books
+    class BookDecisions {
+        +block(bookId, entryPoint, decision)
+        +discard(bookId)
+        +warn(bookId, reportId)
+    }
+    class ReportDecisions {
+        +closeOpenReports(bookId, decision)
+    }
+    class Shelf {
+        +removeEntriesForBook(bookId)
+    }
+    class Recommendation {
+        +removeFromCurrentLists(bookId)
+    }
+    class Notification {
+        +saveFalseReportWarning(recipientId)
+    }
+    BookDecisions --> books
+    BookDecisions --> ReportDecisions
+    BookDecisions --> Shelf
+    BookDecisions --> Recommendation
+    BookDecisions --> Notification
+    BookDecisions --> auditLog
     NewBookPage --> sharedCatalog
     catalogActions --> sessions
     catalogActions --> sharedCatalog
@@ -81,6 +106,11 @@ classDiagram
 - `src/server/catalog/books.ts` (new, server-only): the only code that touches `books`. `addBook` gets its collection from one function, `booksCollection(db)` (in `books-collection.ts`, so tests can replace it), which is the test seam (see Tests). It builds the `matchKey`, sets status `draft` and `createdAt` from `now()`, generates the book ID, and runs the insert and the audit entry through the driver's `withTransaction`, which retries transient write conflicts, with `timeoutMS: 5000` on the call (the driver's client-side operation timeout; if the installed driver version lacks it, use `maxCommitTimeMS: 5000` and accept the driver's default retry window). Any error that escapes `withTransaction` goes to `classifyInsertError` (see Key decisions). `listBooksForAdmin` returns every book including blocked ones with every stored field, and is the only Catalog read that does. `listCustomTags` returns the distinct custom tags across all books, sorted. Every other Catalog read, which other designs add, excludes blocked books and omits `customTags` and `readingLevel` by projection, except `listRuleCandidates`: that Recommendation-only read may load `readingLevel` internally but returns only normalized `comparableLevels`, omitting the raw annotation and `customTags` as fixed below.
 - `src/server/identity-access/sessions.ts` (PAR's file, extended): adds `requireAdmin()`, which returns `{ userId, role: "admin" }` from the Auth.js database session and refuses any other role, including a Main Parent, a Sub Parent and a child (`KD-auth-sessions`). With no session, a page redirects to sign-in and the action returns `NOT_SIGNED_IN`. With the wrong role, a page ends with HTTP 403 and a fixed "Not authorized" page that names nothing else, and the action returns `NOT_AN_ADMIN`; the pages use Next.js `forbidden()` if the installed version supports it, otherwise ask before choosing another way.
 - `src/server/audit/audit-log.ts`, `src/server/lib/db.ts`, `clock.ts`, `action-result.ts` and `src/server/setup/ensure-indexes.ts` (new if not yet built, otherwise reused): the append-only audit function, the one Mongo client, the settable clock, the result helper and the idempotent index setup, which gains the two `books` indexes. [par.md](par.md) fixes only `appendAudit(tx, entry)`; this design defines the entry: `{ event, actorId, actorRole, recordId }`, with the time (`occurredAt`) set inside `appendAudit` from `now()`. As built, `event` and `occurredAt` keep the names the note-flag audit already uses.
+
+- `src/app/(admin)/admin/reports/page.tsx` and `reports/[bookId]/page.tsx` (new): queue and report detail. Admin checks run server-side. The queue groups open reports before joining Catalog, sorts by the most recent open report (book ID breaks ties), and shows title, count and reasons. Detail shows reasons and opaque references from the report projection. Missing references are shown as unavailable. Step 3's comment display is deferred pending `OI-57`; it should render approved comment text as text once that decision is made.
+- `src/app/(admin)/admin/catalog/page.tsx` (catalog list from #83): add a **Block book** button on eligible rows. It opens the shared confirmation dialog with the book and current shelf count. After a Catalog block, return to the catalog list and show the updated status.
+- `src/server/administration/book-decisions.ts` (new): coordinates block, discard and warning. Each write passes one MongoDB session to the owning components. Reuse `requireAdmin`, the shared result helper, `now()`, and the Catalog and Audit interfaces from the add-content design (#108 is the pending implementation). The coordinator does not query another component's collections.
+- Owners provide narrow operations: Catalog reads block metadata and conditionally blocks the book, Accounts & Family groups and closes reports, Shelf counts and deletes entries by book ID, Recommendation removes the book from stored current lists, and Notification creates the in-app warning for the report's recorded recipient. Audit appends the decision with IDs only.
 
 ## Sequence
 
@@ -135,6 +165,33 @@ sequenceDiagram
 
 Step 4a's required fields and step 4d are in the schema: 4d is not an error, because a custom tag that matches an existing one after normalization is simply stored as that one tag, and the form's existing-tag list is what "offers the existing tag". Step 4i is a warning in the form only; the server never rejects an age for being outside 0 to 21.
 
+### UC-ADM-block-content: block a catalog book
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant UI as Admin pages
+    participant ADM as Administration
+    participant Owners as Data owners
+    Admin->>UI: Open reported books (1)
+    UI->>ADM: Load grouped open reports (2)
+    ADM->>Owners: Read report groups and catalog titles (2)
+    ADM-->>UI: Newest first, or empty (2, 2a)
+    Admin->>UI: Open a reported book (3)
+    UI->>ADM: Load report detail (3)
+    ADM-->>UI: Reasons and opaque references (3, comments pending OI-57)
+    Admin->>UI: Choose Block book (4)
+    UI->>ADM: Request block preview (5)
+    ADM-->>UI: Current shelf count, impact and reason choices (5)
+    Admin->>UI: Choose reason and confirm (6)
+    UI->>ADM: Request confirmed block (7)
+    ADM->>Owners: Block, remove current list and shelf entries, close open reports, append audit (7)
+    Owners-->>ADM: Transaction commits (7)
+    ADM-->>UI: Show blocked and return to reported books (8)
+```
+
+The catalog entry point joins at step 5 (1a). Cancellation calls no write. Warn and discard use their own confirmations and return to report detail and the queue respectively (3a, 4a).
+
 ## API contract
 
 | Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
@@ -142,8 +199,13 @@ Step 4a's required fields and step 4d are in the schema: 4d is not an error, bec
 | Page `/admin/catalog` (UC-ADM-add-content step 7) | A signed-in admin | None | Every book with every stored field | Not an admin: HTTP 403, "Not authorized" (1a). No session: redirect to sign-in |
 | Page `/admin/catalog/new` (UC-ADM-add-content steps 1 to 3) | A signed-in admin | None | The form, the approved tag lists, the existing custom tags | Same |
 | Server action `addCatalogBook` (UC-ADM-add-content) | A signed-in admin; the admin comes from the session | Title, author, year, ISBN (or the "no ISBN" box ticked), genres, subjects (or none), moods, format, length, age min, age max, reading challenge, reading level (or none), custom tags (or none) | `ok` with the new book's ID. The status is not in the request and is always `draft` | 1a: `NOT_SIGNED_IN`, `NOT_AN_ADMIN`. 4a: `TITLE_REQUIRED`, `AUTHOR_REQUIRED`, `YEAR_REQUIRED`, `TAG_REQUIRED` (the message names the field). 4b: `INVALID_TAG` (the message names the list). 4c: `INVALID_YEAR`, `INVALID_AGE_RANGE` (min above max only), `INVALID_READING_LEVEL`. 4e: `INVALID_CUSTOM_TAG`. 4f: `INVALID_ISBN`. 4g: `TOO_MANY_CUSTOM_TAGS`. 4h: `ISBN_CHOICE_REQUIRED`. 5a: `BOOK_ALREADY_EXISTS`, whose message names the existing book's title, author, year and status. 6a: `SAVE_FAILED`, whose `errorId` field (the shared helper's, §8.2.1) carries an error ID, nothing stored. Also `TITLE_TOO_LONG`, `AUTHOR_TOO_LONG` and `INVALID_AGE` (a negative or non-whole age), added during the build. 3a, 4d and 4i are not errors |
+| Reported books pages `/admin/reports` and `/admin/reports/[bookId]` (block-content 1–3) | Admin | Book ID for detail | Grouped queue or report detail. Detail includes the book's current status and existing block reason when blocked. | Signed out or non-admin refused (§8.1). Unknown book: not found. Empty queue: empty state (2a). Read failure: retry message. |
+| Block preview (4–5, 1a) | Admin | Book ID and entry point | Title, status, current shelf entry count and reason choices. An already blocked book returns its recorded reason and, on the reports path, offers **Close as blocked**. Read only. | Unknown book or read failure: no confirmation. A blocked catalog book shows its recorded status and reason. |
+| `blockCatalogBook` (7, 1a, 4b) | Admin | Book ID, entry point and confirmation. Decision is either **Block book** with a reason or **Close as blocked** without a reason (reports path only). | `BLOCKED` or `ALREADY_BLOCKED` with the stored status and reason. Only the reports path closes open reports. | `BOOK_NOT_FOUND`, `NO_OPEN_REPORTS` if the reports path lost its last report before a new block, `INVALID_REASON`, `CONFIRMATION_REQUIRED`, or `BLOCK_FAILED`. If the book is no longer blocked when **Close as blocked** is submitted, return `BOOK_STATUS_CHANGED` and refresh the preview. |
+| `discardBookReports` (4a) | Admin | Book ID and confirmation | Closes still-open reports as discarded and returns to the queue. An empty repeat is a no-op. | `BOOK_NOT_FOUND`, `CONFIRMATION_REQUIRED`, `REPORT_DECISION_FAILED`. |
+| `warnReportingParent` (3a) | Admin | Book ID, report ID and confirmation | Discards that open report and saves one in-app warning for its reporter. | `REPORT_NOT_OPEN` for stale or mismatched report, `REPORTER_UNAVAILABLE` if the recipient is gone, `CONFIRMATION_REQUIRED`, or `REPORT_DECISION_FAILED`. |
 
-Nothing in this use case reaches a child's or parent's screen (§8.2.11).
+Adding a book reaches no parent or child screen. A block changes what they see on the next load. After warning a parent, the admin returns to the book's report detail. If that was the last report, the detail shows no open reports and a link back to the queue.
 
 ## Key decisions
 
@@ -186,6 +248,18 @@ Nothing in this use case reaches a child's or parent's screen (§8.2.11).
 
 **The catalog list shows every stored field.** The admin sees the whole record, including custom tags and reading level; parents see only title and author (`listPickerBooks`, `design/rec.md`). No filter, no detail page, no block, edit or publish controls. Those belong to `UC-ADM-edit-content`, `UC-ADM-block-content` and `UC-ADM-unblock-content`. Rejected: building a detail page here for 5a's "open it instead", which would be that use case's page without its design.
 
+### Blocking and report decisions
+
+**Block or close as blocked.** A new block can start from `draft` or `active`. The server accepts the reasons `age-inappropriate`, `content concern`, `data error` and `other` (step 6, `OI-56`). On the reports path, a confirmed decision closes open reports for that book at commit. If the book is already blocked (4b), keep its stored reason, actor and time and close only those reports. The UI shows the stored status and reason from the successful `ALREADY_BLOCKED` response. The catalog path leaves reports open. Opening a preview makes no changes.
+
+**Save a block in one transaction.** Change the status and record the block on the book. Remove every Shelf entry by book ID and every occurrence in current Recommendation lists, including batches under parent review or already released, and every pending parent suggestion of the book, through Accounts & Family's `deleteSuggestionsForBookInTx(tx, bookId)` ([`par.md`](par.md), `UC-PAR-suggest-book`). Preserve ratings, finish confirmations, finish notes, historical signals and per-child exclusions. Search, recommendation reads and shelf delivery filter by current Catalog status. An open page updates on the next load (7b). A global block sends no removal notices.
+
+**Check races with the owning use cases.** Catalog's active-book read in #110 refuses a book already blocked at confirmation with `BOOK_NOT_FOUND`. If a block removes the last eligible shelf or batch row before the report can save, #110 returns `NOT_ON_SHELF_OR_BATCH`. Extension 4b handles reports already open on a blocked book, for example after a catalog block. A MongoDB snapshot read can see an earlier status. ADM, Shelf and Recommendation must settle the write contract in `OI-58` before implementation. The proposed contract is a conditional write on the Catalog book while its status is active, in the same transaction as each shelf or current-list insertion, including a parent suggestion's insert or update (`createSuggestion`, [`par.md`](par.md)). It conflicts with the block's status write. The team needs to confirm the write cost for popular books and the affected write paths. See [MongoDB's transaction considerations](https://www.mongodb.com/docs/manual/core/transactions-production-consideration/#in-progress-transactions-and-stale-reads). The edit-content design should account for a block racing an edit or publish.
+
+**Send one warning for an open report.** Use the recipient stored on the report. Update that report from open to discarded, save the warning and append its audit entry in one transaction. Proposed text: “False reports are not allowed and may lead to your account being suspended.” The parent sees it in the authenticated in-app Notification view (architecture §5.2). That view is a dependency for 3a. The warning goes to the recorded reporter only while `OI-56` is open. If the account is unavailable, return `REPORTER_UNAVAILABLE` and leave the report open. The admin can still discard the book's reports or close them by blocking. Suspension is its own use case.
+
+**Audit confirmed decisions.** Use `catalog.book_blocked` and `report.discarded` with the book ID as `recordId`, and `report.parent_warned` with the report ID as `recordId`. Each record includes the admin's `actorId`, `actorRole` and UTC `occurredAt`, following #108's proposed audit shape. When 4b closes at least one open report, append `report.closed_as_blocked` with the book ID in the same transaction as the report update (§8.2.9). If there are no open reports, the repeat writes no audit entry. Keep comments out of audits, warnings and logs. Apply these event entries to the shared validator once #107 and #108 settle its shape. If commit cannot be confirmed, ask the admin to refresh before retrying and reload the current state.
+
 ## Data model
 
 New collection `books` (Catalog). One document per book, written by one transaction together with its audit entry.
@@ -220,6 +294,10 @@ erDiagram
 - `status` takes the three values of `DI-catalog-status`. Add writes only `draft`.
 - Audit: one entry per add in the existing append-only collection, IDs only (§8.2.9).
 
+**Block-content data.** Catalog writes `blockReason`, `blockedBy` (the opaque admin ID) and `blockedAt` (UTC) on the book with the change to `blocked`. Existing draft and active books need no backfill. Field cleanup and history on reversal belong to `UC-ADM-unblock-content`.
+
+Accounts & Family owns `bookReports` and its indexes in #110. The queue reads open reports by `{ status, reportedAt }`; detail and decision writes use `{ bookId, status }`. An admin detail read projects report ID, book ID, reason, time and available opaque account references. Comment text joins that projection after `OI-57` is resolved. Shelf owns entries by child and book, with a book ID index for global counts and deletes. Recommendation owns removal from its current lists. Notification stores the warning for the recorded recipient.
+
 ## Reuse & cross-cutting
 
 - **Authentication and authorization:** `requireAdmin()` on both pages and the action; the role is checked on the server, never by hiding the button (`KD-auth-sessions`, §8.1, `SEC-role-authorization`).
@@ -232,7 +310,7 @@ erDiagram
 - **Transactions and concurrency:** the insert and the audit entry are one `withTransaction`, and the unique indexes settle two admins adding one book (§8.2.8).
 - **Auditing:** `catalog.book_added`, admin user ID and role, the book ID (§8.2.9).
 
-Not used: Notification, the Child Identity Store, Accounts & Family, and the catalog import (the script is its own design and reuses `src/shared/catalog/`).
+Add-content does not use Notification, the Child Identity Store, Accounts & Family, and the catalog import (the script is its own design and reuses `src/shared/catalog/`).
 
 ## Tests
 
@@ -291,7 +369,25 @@ Not used: Notification, the Child Identity Store, Accounts & Family, and the cat
 | a | b c | `a␟b c` (not equal to the row above) |
 | É | é | `e␟e` |
 
+### Block-content acceptance cases
+
+| Flow | Level | Expected result |
+|---|---|---|
+| `UC-ADM-block-content` main (1–8) | Integration + UI | Given multiple children, multiple reports and several shelf categories, verify grouping and sort, preview count, and one committed block removes all active-list and shelf occurrences, closes only this book's open reports and saves block metadata and audit. Ratings, confirmations, notes, other books and exclusions remain. |
+| 1a, direct Catalog | Integration | Block an active or draft book with open reports. Verify the catalog, recommendation and shelf effects and leave the queue's reports open. |
+| 2a, empty queue | UI | Render an empty state with no decision controls. |
+| 3a, false-report warning | Integration + UI | Cancel changes nothing. Confirm shows one in-app warning to the recorded reporter and discards only that report. Concurrent repeats cannot duplicate it. A missing reporter leaves the report open and the separate discard action is still available. |
+| 4a, discard | Integration + UI | Cancel changes nothing. Confirm discards this book's open reports and preserves book status, shelves and exclusions. Repeating after the reports close makes no new audit. |
+| 4b, already blocked | Integration | Return the stored status and reason, preserve the admin and timestamp, and close open reports only on the reports path. Append one `report.closed_as_blocked` audit only when at least one report closes. On audit failure, roll back the report updates. A stale **Close as blocked** request cannot block the book again. |
+| 5a and 6a | UI + integration | Cancel makes no write. The action refuses a missing or unknown reason for a new block and missing confirmation for either decision. |
+| 7a, failed write | Integration | Force a downstream owner or audit write to fail. Assert status, block fields, reports, lists, shelf entries and audit roll back together. A failed warning leaves both report and notification unchanged. |
+| 7b, loaded screen | E2E | Open a child's shelf or recommendations. Block in a separate admin session. Reload the child view and check that the book disappears without ending the session or delivering a block notice. |
+| Writer races and later unblock (pending OI-58) | Integration | Race block with a shelf insert and recommendation-list write. No shelf or list entry from before or during the block reappears after unblock and publish. Only future picks can add the book again. Existing exclusions, closed reports and deleted shelf entries stay as they were. |
+| Authorization and privacy | Integration | Reject signed-out, child and parent callers for every read and action. Check that the admin projection contains opaque references and that comment text is withheld while OI-57 is open. Verify URLs, audit records and errors carry no report comments or names. |
+
 ## Changes to the architecture-of-record
+
+The block design adds no architecture rule. Its Shelf, Recommendation and Notification contracts are linked from their owning designs below.
 
 - Revision history: a v0.12 row records that `design/adm.md` has had its pass for `UC-ADM-add-content`: the Catalog's `books` collection, its indexes and add path, and `requireAdmin()`. It assumes the v0.11 row from the REC design is already merged; if this is merged first, renumber it v0.11. It cites `OI-42` and `OI-43`.
 - §8.2.4: allows pure modules under `src/shared/<component>/` that the browser, the server and the import script share, with no `server-only`, database, clock or session import. Done in this change.
@@ -313,6 +409,15 @@ What this design had to assume, and where each answer belongs.
 - **Year, ISBN and the importer.** The catalog import must call the same `src/shared/catalog/` functions and use the same unique keys, or an import and an admin add could create two copies of one book. That is the import design's to keep.
 - **Accepted risk: two unique keys can disagree.** One book's ISBN may match one existing book and its title and author another. Only the first is reported (the ISBN's, when both are named); the admin may need a second attempt to see the other. Accepted, because it needs a duplicate in the catalog already.
 - **Accepted risk: punctuation folding merges some real titles.** "Spider-Man" and "Spiderman" match. Accepted, because a false duplicate is caught by the admin and a missed one puts two copies in front of a child.
+
+### Block-content questions
+
+- **Block reasons and warning (`OI-56`).** Confirm the reason labels, warning text, and whether a Main Parent also gets a warning about a Sub Parent's report. Discuss with the PAR owner alongside #110's proposed `OI-53` on reporter visibility.
+- **Report comments (`OI-57`).** Step 3 is partly deferred. The queue and detail can show reasons and opaque references. The client and team need to decide what comment text can be shown under `BR-admin-limited-view`, since a parent may identify a child in free text. Discuss with the PAR owner alongside #110's proposed `OI-55` on comment length.
+- **Integration order.** Check the shared audit validator and update the baseline again after #108 and its add-content design write-back land. #107's parent sign-in changes are already on the baseline. The Catalog list UI from #83 and the parent Notification view are needed for their corresponding entry points.
+- **Transaction size.** Before enabling global block, the ADM implementer runs the full block transaction against a production-like fixture with the projected maximum number of shelves, current recommendation lists and open reports for one book. It must complete within the implementation's configured transaction deadline and leave zero current entries. A forced timeout must leave all the affected records unchanged. The ADM owner records the fixture counts and deadline with the test results.
+- **Concurrent writes (team, `OI-58`).** ADM, Catalog, Shelf, Recommendation and Accounts & Family (parent suggestions) need to agree on the proposed same-book write and the callers it covers. The race test waits on that decision.
+- **Visibility after unblock.** An unblocked book returns to draft and needs to be published. The shelf design covers whether a retained rating appears if the book is added again (`OI-41`).
 
 ---
 

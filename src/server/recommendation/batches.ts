@@ -7,6 +7,7 @@ import {
   listChildrenForFamily,
 } from "@/server/accounts-family/child-accounts";
 import { getBooksForReview, type ReviewBook } from "@/server/catalog/books";
+import { getChildAgeForRecommendation } from "@/server/child-identity/child-identity";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
@@ -19,8 +20,10 @@ import {
 } from "./batch-schema";
 import {
   batchState,
+  effectiveReleasedAt,
   expiredPendingFilter,
   pendingFilter,
+  releasedFilter,
   releasePipeline,
   type EffectiveBatchState,
 } from "./batch-state";
@@ -74,9 +77,9 @@ function toBatchId(batchId: string): ObjectId | null {
 async function remainingBooks(
   childId: string,
   bookIds: readonly string[],
-  options: { age?: number } = {},
+  options: { age?: number; tx?: Tx } = {},
 ): Promise<ReviewBook[]> {
-  const excluded = new Set(await listExcludedBookIds(childId));
+  const excluded = new Set(await listExcludedBookIds(childId, options.tx));
   const wanted = bookIds.filter((id) => !excluded.has(id));
   const found = new Map(
     (await getBooksForReview(wanted, options)).map((book) => [book.id, book]),
@@ -452,6 +455,61 @@ export async function releaseExpiredBatches(): Promise<number> {
     releasePipeline("handoffDeadline"),
   );
   return result.modifiedCount;
+}
+
+export type ReleasedBatch = {
+  batchId: string;
+  /** For ordering only: never sent to a child's screen (Associated Information). */
+  releasedAt: Date;
+  bookIds: string[];
+  empty: boolean;
+};
+
+/**
+ * Step 6 and POST-2: the hand-off to UC-REC-kid-review, which calls it once a child
+ * session has been checked. Released batches by the one rule in `batch-state.ts`
+ * (stored released or empty, or pending past `handoffDeadline`), newest first. Each
+ * holds the remaining books, read with the child's current age, so a book whose age
+ * band no longer holds it is left out; `empty` is true when none remain, whatever the
+ * stored status (4a). `releasedAt` is the recorded release, or `handoffDeadline` before
+ * the timeout release is recorded: the same value either way. Never returns
+ * `removedBookIds` or a pending batch. A missing age or a failed read throws, so the
+ * caller shows no books rather than unchecked ones.
+ */
+export async function listReleasedBatchesForChild(
+  childId: string,
+  tx?: Tx,
+): Promise<ReleasedBatch[]> {
+  const age = await getChildAgeForRecommendation(childId, tx);
+  if (age === null) throw new Error("no recorded age for the child");
+  const released = await batches()
+    .find(
+      { childId, ...releasedFilter(now()) },
+      {
+        projection: { bookIds: 1, handoffDeadline: 1, releasedAt: 1 },
+        session: tx,
+      },
+    )
+    .toArray();
+  const ordered = released
+    .map((batch) => ({ batch, releasedAt: effectiveReleasedAt(batch) }))
+    .sort(
+      (a, b) =>
+        b.releasedAt.getTime() - a.releasedAt.getTime() ||
+        b.batch._id.toHexString().localeCompare(a.batch._id.toHexString()),
+    );
+  // One batch at a time: a transaction's session takes one operation at a time.
+  const result: ReleasedBatch[] = [];
+  for (const { batch, releasedAt } of ordered) {
+    const books = await remainingBooks(childId, batch.bookIds, { age, tx });
+    result.push({
+      batchId: batch._id.toHexString(),
+      releasedAt,
+      bookIds: books.map((book) => book.id),
+      empty: books.length === 0,
+    });
+  }
+  return result;
 }
 
 /**

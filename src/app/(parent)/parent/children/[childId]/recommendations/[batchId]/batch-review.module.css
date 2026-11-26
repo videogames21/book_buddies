@@ -1,0 +1,54 @@
+/* No dark-mode override: the page background stays light in every color scheme
+   (globals.css), so these colors keep about 7:1 contrast (review of #137). */
+.page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 5rem;
+}
+.title {
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 500;
+  margin: 0.25rem 0 0.5rem;
+}
+.source,
+.deadline,
+.none,
+.bookAuthor,
+.tags {
+  color: #4a5547;
+}
+.released {
+  color: #2f5d3a;
+  font-weight: 700;
+}
+.list {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.book {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #c6cec2;
+  border-radius: 0.5rem;
+}
+.bookTitle {
+  font-weight: 600;
+}
+.tags {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+.error {
+  color: #9b2c2c;
+}
+.confirm {
+  margin-top: 0.5rem;
+}

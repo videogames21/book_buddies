@@ -45,10 +45,11 @@ export async function insertChildIdentity(
  */
 export async function getChildAgeForRecommendation(
   childId: string,
+  tx?: Tx,
 ): Promise<number | null> {
   const identity = await getDb()
     .collection<{ childId: string; age: number }>(COLLECTION)
-    .findOne({ childId }, { projection: { _id: 0, age: 1 } });
+    .findOne({ childId }, { projection: { _id: 0, age: 1 }, session: tx });
   return typeof identity?.age === "number" ? identity.age : null;
 }
 

@@ -6,7 +6,7 @@ import type { AdminSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, type Tx, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { NewBook } from "@/shared/catalog/new-book-schema";
 import {
@@ -167,10 +167,10 @@ export type ReviewBook = {
  */
 export async function getBooksForReview(
   ids: readonly string[],
-  options: { age?: number } = {},
+  options: { age?: number; tx?: Tx } = {},
 ): Promise<ReviewBook[]> {
   if (ids.length === 0) return [];
-  const { age } = options;
+  const { age, tx } = options;
   const books = await getDb()
     .collection<BookDocument>(BOOKS)
     .find(
@@ -191,6 +191,7 @@ export async function getBooksForReview(
           moods: 1,
           length: 1,
         },
+        session: tx,
       },
     )
     .toArray();

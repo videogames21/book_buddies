@@ -38,6 +38,20 @@ export async function insertChildIdentity(
     );
 }
 
+/**
+ * The child's recorded age, for Recommendation's child-facing read of released batches
+ * (UC-REC-parent-review; design/rec.md), or null when no record exists. Age only: no
+ * grade or reading level. Callers check the child session or family first.
+ */
+export async function getChildAgeForRecommendation(
+  childId: string,
+): Promise<number | null> {
+  const identity = await getDb()
+    .collection<{ childId: string; age: number }>(COLLECTION)
+    .findOne({ childId }, { projection: { _id: 0, age: 1 } });
+  return typeof identity?.age === "number" ? identity.age : null;
+}
+
 export async function ensureChildIdentityIndexes(db: Db): Promise<void> {
   await ensureCollection(db, COLLECTION, {
     bsonType: "object",

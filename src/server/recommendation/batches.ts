@@ -66,7 +66,10 @@ function toBatchId(batchId: string): ObjectId | null {
 /**
  * The remaining books, in `bookIds` order: minus the child's report exclusions and minus
  * any book the Catalog does not return (blocked, draft or, with `age`, out of band).
- * The 4a wording, the count on /parent and the child's `empty` all use this set.
+ * The 4a wording, the count on /parent and what the child sees all use this set. The
+ * stored `empty` status does not: `confirmBatch` sets it from the raw `bookIds`, so a
+ * batch whose only books left are blocked or excluded is stored `released` and is empty
+ * to the child by this rule (design/rec.md, `confirmBatch`).
  */
 async function remainingBooks(
   childId: string,
@@ -324,6 +327,9 @@ async function removalAfterLostWrite(
  * left in `bookIds` and `released` otherwise, with `releasedAt` = `now()`. That write is
  * the release; there is no hand-off after it (6a). The first of two parents, or of a
  * parent and the deadline, wins; the other gets `BATCH_ALREADY_RELEASED`.
+ * The returned `state` is the stored status, so it follows the raw `bookIds`, not the
+ * remaining books; a page shows "no books left" from the remaining books
+ * (`getBatchForReview`), never from this `state`.
  */
 export async function confirmBatch(
   session: ParentSession,
@@ -382,6 +388,9 @@ async function confirmationAfterLostWrite(
   const { batch } = read;
   if (!batch) return refuse("BATCH_NOT_FOUND");
   if (batch.status !== "pending") {
+    // Known limit: the other parent's confirmation in the same millisecond also has
+    // `releasedAt` = `at` and is taken for this one. The answer is still true for this
+    // parent (the batch is released, as they asked), so it is left as `ok`.
     if (batch.releasedAt?.getTime() === at.getTime()) {
       return ok({ state: batch.status === "empty" ? "empty" : "released" });
     }

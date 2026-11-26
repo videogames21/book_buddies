@@ -192,3 +192,35 @@ test("5a: after a failed confirmation the page still shows the batch and its con
   await page.getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByRole("status")).toHaveText(/released/i);
 });
+
+test.describe("review across tabs in a local time zone", () => {
+  test.use({ timezoneId: "America/New_York", locale: "en-US" });
+
+  test("renders the local deadline and reloads the released books after another tab removes one", async ({
+    context,
+    page,
+  }) => {
+    const { childId, batchId } = await setUp(context, [
+      "Brave Meadow E2E",
+      "Quiet Hill E2E",
+    ]);
+    const path = `/parent/children/${childId}/recommendations/${batchId}`;
+    const batch = await storedBatch(batchId);
+    const expected = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(batch?.handoffDeadline as Date);
+    const other = await context.newPage();
+    await page.goto(path);
+    await other.goto(path);
+    await expect(page.locator("time")).toHaveText(expected);
+    await removeTitle(other, "Brave Meadow E2E");
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByText(/released to/i)).toBeVisible();
+    await expect(page.getByText("Quiet Hill E2E")).toBeVisible();
+    await expect(page.getByText("Brave Meadow E2E")).toHaveCount(0);
+    await other.close();
+  });
+});

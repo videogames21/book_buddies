@@ -74,9 +74,9 @@ function toBatchId(batchId: string): ObjectId | null {
 async function remainingBooks(
   childId: string,
   bookIds: readonly string[],
-  options: { age?: number } = {},
+  options: { age?: number; tx?: Tx } = {},
 ): Promise<ReviewBook[]> {
-  const excluded = new Set(await listExcludedBookIds(childId));
+  const excluded = new Set(await listExcludedBookIds(childId, options.tx));
   const wanted = bookIds.filter((id) => !excluded.has(id));
   const found = new Map(
     (await getBooksForReview(wanted, options)).map((book) => [book.id, book]),
@@ -468,13 +468,17 @@ export type ReleasedBatch = {
  */
 export async function listReleasedBatchesForChild(
   childId: string,
+  tx?: Tx,
 ): Promise<ReleasedBatch[]> {
-  const age = await getChildAgeForRecommendation(childId);
+  const age = await getChildAgeForRecommendation(childId, tx);
   if (age === null) throw new Error("no recorded age for the child");
   const released = await batches()
     .find(
       { childId, ...releasedFilter(now()) },
-      { projection: { bookIds: 1, handoffDeadline: 1, releasedAt: 1 } },
+      {
+        projection: { bookIds: 1, handoffDeadline: 1, releasedAt: 1 },
+        session: tx,
+      },
     )
     .toArray();
   const ordered = released
@@ -484,17 +488,18 @@ export async function listReleasedBatchesForChild(
         b.releasedAt.getTime() - a.releasedAt.getTime() ||
         b.batch._id.toHexString().localeCompare(a.batch._id.toHexString()),
     );
-  return Promise.all(
-    ordered.map(async ({ batch, releasedAt }) => {
-      const books = await remainingBooks(childId, batch.bookIds, { age });
-      return {
-        batchId: batch._id.toHexString(),
-        releasedAt,
-        bookIds: books.map((book) => book.id),
-        empty: books.length === 0,
-      };
-    }),
-  );
+  const result: ReleasedBatch[] = [];
+  // The caller may already be in a transaction. Its session cannot run parallel reads.
+  for (const { batch, releasedAt } of ordered) {
+    const books = await remainingBooks(childId, batch.bookIds, { age, tx });
+    result.push({
+      batchId: batch._id.toHexString(),
+      releasedAt,
+      bookIds: books.map((book) => book.id),
+      empty: books.length === 0,
+    });
+  }
+  return result;
 }
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import type { ReviewBook } from "@/server/catalog/books";
 import type { BatchReviewView } from "@/server/recommendation/batches";
 import { LocalTime } from "../../../../local-time";
@@ -24,7 +24,9 @@ const tagsOf = (book: ReviewBook) =>
  */
 export function BatchReview({ view }: BatchReviewProps) {
   const router = useRouter();
-  const [books, setBooks] = useState(view.books);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [refreshing, refresh] = useTransition();
+  const books = view.books.filter(({ id }) => !removedIds.includes(id));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -43,13 +45,21 @@ export function BatchReview({ view }: BatchReviewProps) {
       const result = await action();
       if (result.ok) {
         onOk();
-      } else if (result.error.code === "BATCH_ALREADY_RELEASED") {
-        router.refresh();
+      } else if (
+        result.error.code === "BATCH_ALREADY_RELEASED" ||
+        result.error.code === "OUTCOME_UNKNOWN"
+      ) {
+        if (result.error.code === "OUTCOME_UNKNOWN")
+          setError(result.error.message);
+        refresh(() => router.refresh());
       } else {
         setError(result.error.message);
       }
     } catch {
-      setError("We couldn't save that. Please try again.");
+      setError(
+        "We couldn’t verify the result. Check the refreshed batch before trying again.",
+      );
+      refresh(() => router.refresh());
     } finally {
       setBusy(false);
     }
@@ -70,7 +80,9 @@ export function BatchReview({ view }: BatchReviewProps) {
         </p>
       )}
 
-      {books.length === 0 ? (
+      {confirmed && view.state === "pending" ? (
+        <p role="status">Refreshing the released books…</p>
+      ) : books.length === 0 ? (
         <p className={styles.none}>
           {released
             ? "No books were sent."
@@ -88,7 +100,7 @@ export function BatchReview({ view }: BatchReviewProps) {
               {!released && (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || refreshing}
                   aria-label={`Remove ${book.title}`}
                   onClick={() => {
                     void run(
@@ -99,9 +111,7 @@ export function BatchReview({ view }: BatchReviewProps) {
                           bookId: book.id,
                         }),
                       () => {
-                        setBooks((left) =>
-                          left.filter((other) => other.id !== book.id),
-                        );
+                        setRemovedIds((ids) => [...ids, book.id]);
                       },
                     );
                   }}
@@ -114,7 +124,7 @@ export function BatchReview({ view }: BatchReviewProps) {
         </ul>
       )}
 
-      {error && (
+      {error && !released && (
         <p className={styles.error} role="alert">
           {error}
         </p>
@@ -123,13 +133,13 @@ export function BatchReview({ view }: BatchReviewProps) {
         <button
           type="button"
           className={styles.confirm}
-          disabled={busy}
+          disabled={busy || refreshing}
           onClick={() => {
             void run(
               () => confirmBatch({ childId, batchId }),
               () => {
                 setConfirmed(true);
-                router.refresh();
+                refresh(() => router.refresh());
               },
             );
           }}

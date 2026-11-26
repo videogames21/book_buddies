@@ -50,21 +50,3 @@
 .confirm {
   margin-top: 0.5rem;
 }
-@media (prefers-color-scheme: dark) {
-  .source,
-  .deadline,
-  .none,
-  .bookAuthor,
-  .tags {
-    color: #b7c2b3;
-  }
-  .released {
-    color: #8fd19e;
-  }
-  .book {
-    border-color: #3a4338;
-  }
-  .error {
-    color: #f2a3a3;
-  }
-}

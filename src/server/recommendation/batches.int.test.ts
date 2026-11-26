@@ -951,6 +951,27 @@ describe("listReleasedBatchesForChild (step 6, POST-2; for UC-REC-kid-review)", 
     expect(JSON.stringify(released)).not.toContain(bookIds[1]);
   });
 
+  it("reads an exclusion written in the caller's transaction", async () => {
+    const { main, childId } = await family();
+    await withAge(childId, 7);
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    await confirmBatch(main, { childId, batchId });
+
+    await withTransaction(async (tx) => {
+      await getDb().collection("childBookExclusions").insertOne(
+        {
+          childId,
+          bookId: bookIds[0],
+          createdAt: NOW,
+        },
+        { session: tx, bypassDocumentValidation: true },
+      );
+      expect(ids(await listReleasedBatchesForChild(childId, tx))).toEqual([
+        [bookIds[1], bookIds[2]],
+      ]);
+    });
+  });
+
   it("2a, read: past handoffDeadline with no parent activity and nothing run, the batch is released with every book at handoffDeadline, and gone from /parent's list", async () => {
     const { childId, familyId } = await family();
     await withAge(childId, 7);

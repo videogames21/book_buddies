@@ -188,6 +188,7 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `bookReports`               | Child UUID, book ID, reporting parent's user ID, reason (fixed list), optional comment (at most 250 characters, `OI-55`), status, report time | Accounts & Family; admin sees open reports by opaque reference only (`UC-ADM-block-content`); never returned to the child; comment never logged |
 | `childBookExclusions`       | Child UUID, book ID, report ID, creation time                                       | Accounts & Family; Recommendation and search read book IDs only (`KD-book-exclusion`); no undo |
 | `childNotices`              | Child UUID, notice kind, book ID, creation and seen times                           | Notification; shown to the child; no reason and no parent (§8.2.11) |
+| `recommendationReactions`   | Child UUID, book ID, reaction (fixed list), optional decline reason (fixed list), batch IDs, reaction time; no name or free text | Recommendation; the child's own list, the parent's review and export (`UC-PAR-review-child-data`) and the quiz's signal read. Kept while the account is active; deleted with the child account, by `UC-PAR-delete-child-data` and by the inactivity purge (`BR-coppa-retention`, `OI-22`) |
 
 No real name or uploaded photograph is collected or stored. One transaction covers child, identity, credentials, note, flag and audit. No child data or notes are sent to external screening services. Legal notices, retention/deletion workflows and audited admin flag review are owned by their separate use cases.
 

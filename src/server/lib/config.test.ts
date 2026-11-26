@@ -99,3 +99,26 @@ it("fails closed in production when email and the app URL are not configured", a
   expect(() => config.getAppUrl()).toThrow("APP_URL must be configured");
   expect(() => config.getMailFrom()).toThrow("MAIL_FROM must be configured");
 });
+
+it("keeps parent suggestions off unless the release gate flag is exactly 1 (UC-PAR-suggest-book)", async () => {
+  for (const [value, enabled] of [
+    [undefined, false],
+    ["", false],
+    ["0", false],
+    ["1", true],
+  ] as const) {
+    vi.resetModules();
+    vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+    vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+    vi.stubEnv("PARENT_SUGGESTIONS_ENABLED", value);
+    const { areParentSuggestionsEnabled } = await import("./config");
+    expect(areParentSuggestionsEnabled()).toBe(enabled);
+  }
+
+  vi.resetModules();
+  vi.stubEnv("PARENT_SUGGESTIONS_ENABLED", "true");
+  const refused = await import("./config");
+  expect(() => refused.areParentSuggestionsEnabled()).toThrow(
+    "Invalid environment: PARENT_SUGGESTIONS_ENABLED",
+  );
+});

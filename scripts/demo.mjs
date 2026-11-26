@@ -138,6 +138,8 @@ try {
     NEXT_TELEMETRY_DISABLED: "1",
     // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
     ALLOW_ADMIN_PARENT_SIGNIN: "1",
+    // UC-PAR-suggest-book release gate: on only because the demo holds invented data.
+    PARENT_SUGGESTIONS_ENABLED: "1",
   };
   console.log("Building the demo application...");
   app = spawn(process.execPath, [nextBin, "build"], {

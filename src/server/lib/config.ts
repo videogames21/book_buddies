@@ -10,6 +10,15 @@ const blankAsUnset = <Schema extends z.ZodType>(schema: Schema) =>
 const optionalString = (schema: z.ZodType<string>) =>
   blankAsUnset(schema.optional());
 
+function isTimeZone(name: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: name });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const configSchema = z.object({
   AUTH_SECRET: z.string().min(1),
   PRIVACY_NOTICE_URL: optionalString(z.url()),
@@ -49,6 +58,14 @@ const configSchema = z.object({
   // How long a child can do nothing before being signed out (SEC-auth).
   CHILD_IDLE_MINUTES: blankAsUnset(
     z.coerce.number().int().min(1).max(240).default(30),
+  ),
+  // The zone "midnight" is read in (OI-48). Needed by child sign-in only.
+  CHILD_SESSION_TIME_ZONE: optionalString(z.string().refine(isTimeZone)),
+  // Signs the trusted-device cookie. Needed by child sign-in only.
+  CHILD_DEVICE_SECRET: optionalString(z.string().min(32)),
+  // How many children one browser's trusted-device cookie holds at once.
+  CHILD_DEVICE_MAX_CHILDREN: blankAsUnset(
+    z.coerce.number().int().min(1).max(10).default(4),
   ),
 });
 
@@ -108,4 +125,21 @@ export function getMailFrom(): string {
   if (from) return from;
   if (isProduction()) throw new Error("MAIL_FROM must be configured");
   return "BookBuddies <no-reply@bookbuddies.test>";
+}
+
+/**
+ * The zone a child's session ends in (OI-48). No default, so child sign-in fails closed
+ * when it is unset, and nothing else depends on it.
+ */
+export function getChildSessionTimeZone(): string {
+  const zone = getConfig().CHILD_SESSION_TIME_ZONE;
+  if (!zone) throw new Error("CHILD_SESSION_TIME_ZONE must be configured");
+  return zone;
+}
+
+/** No default, so child sign-in fails closed when it is unset (§8.2.6). */
+export function getChildDeviceSecret(): string {
+  const secret = getConfig().CHILD_DEVICE_SECRET;
+  if (!secret) throw new Error("CHILD_DEVICE_SECRET must be configured");
+  return secret;
 }

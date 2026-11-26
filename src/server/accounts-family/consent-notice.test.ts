@@ -27,3 +27,20 @@ it("keeps the published placeholder template under its original version", () => 
     createHash("sha256").update(JSON.stringify(notice)).digest("hex"),
   ).toBe("bbcb3e90708e3023cdb6b9f0001c0608c0b8465e454993da09e2d34e38df897a");
 });
+
+it("names what child sign-in collects, and why (COPPA-direct-notice)", () => {
+  const text = JSON.stringify(consentNotice(14));
+  for (const item of [
+    "times your child signs in, to measure how much the app is used",
+    "look up one child's sign-in times",
+    "last did something there, only to sign them out",
+    "A cookie on each device your child signs in on",
+    "30 days",
+    "only to slow down password guessing",
+  ]) {
+    expect(text).toContain(item);
+  }
+  expect(
+    JSON.stringify(consentNoticeForVersion("2026-11-23-placeholder-14d")),
+  ).not.toContain("signs in");
+});

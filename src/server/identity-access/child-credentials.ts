@@ -16,6 +16,32 @@ export class UsernameTakenError extends Error {
   }
 }
 
+/**
+ * What sign-in needs of a child's account and nothing else. `username` must already be
+ * trimmed and lowercased, as it is stored, so the match is exact.
+ */
+export async function findChildCredential(
+  username: string,
+): Promise<{ userId: string; childId: string; passwordHash: string } | null> {
+  const user = await getDb()
+    .collection<{
+      role: string;
+      username: string;
+      childId: string;
+      passwordHash: string;
+    }>("users")
+    .findOne(
+      { role: "child", username },
+      { projection: { childId: 1, passwordHash: 1 } },
+    );
+  if (!user) return null;
+  return {
+    userId: user._id.toHexString(),
+    childId: user.childId,
+    passwordHash: user.passwordHash,
+  };
+}
+
 /** Three words and two digits from a cryptographically random source, such as `otter-maple-sun-42`. */
 export function generateChildPassword(): string {
   const words = Array.from(

@@ -136,6 +136,7 @@ it.each([
   ["CHILD_KEEPALIVE_SECONDS", 5, 300],
   ["CHILD_LEAVE_GRACE_SECONDS", 60, 3600],
   ["CHILD_IDLE_MINUTES", 1, 240],
+  ["CHILD_DEVICE_MAX_CHILDREN", 1, 10],
 ] as const)("accepts %s from %i to %i only", async (name, lowest, highest) => {
   vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
   vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
@@ -163,6 +164,42 @@ it("defaults the child session times", async () => {
     CHILD_LEAVE_GRACE_SECONDS: 600,
     CHILD_IDLE_MINUTES: 30,
   });
+});
+
+it("leaves the child session time zone to be set, with no default (OI-48)", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("CHILD_SESSION_TIME_ZONE", "");
+  const config = await import("./config");
+  expect(() => config.getChildSessionTimeZone()).toThrow(
+    "CHILD_SESSION_TIME_ZONE must be configured",
+  );
+});
+
+it("accepts a real time zone and refuses an unknown one", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("CHILD_SESSION_TIME_ZONE", "America/Chicago");
+  const accepted = await import("./config");
+  expect(accepted.getChildSessionTimeZone()).toBe("America/Chicago");
+
+  vi.resetModules();
+  vi.stubEnv("CHILD_SESSION_TIME_ZONE", "Invented/Nowhere");
+  const refused = await import("./config");
+  expect(() => refused.getConfig()).toThrow(
+    "Invalid environment: CHILD_SESSION_TIME_ZONE",
+  );
+});
+
+it("refuses a device cookie secret shorter than 32 characters", async () => {
+  vi.resetModules();
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  vi.stubEnv("CHILD_DEVICE_SECRET", "too-short");
+  const { getConfig } = await import("./config");
+  expect(() => getConfig()).toThrow("Invalid environment: CHILD_DEVICE_SECRET");
 });
 
 it.each([

@@ -7,8 +7,8 @@ import {
   signInParent,
 } from "./session-fixture";
 
-// The child's home, sign-out, keep-alive and error screen (design/shlf.md, supporting
-// flows). Child sign-in itself is not built yet. Invented test data only.
+// Child sign-in, the home screen, sign-out, keep-alive and the error screen
+// (design/shlf.md, supporting flows). Invented test data only.
 test.afterAll(closeE2eDb);
 
 /**
@@ -413,4 +413,89 @@ test("a parent gets a 404 on the child home", async ({ page, context }) => {
   await signInParent(context, { parentRole: "main", consentConfirmed: true });
   const response = await page.goto("/child");
   expect(response?.status()).toBe(404);
+});
+
+/** The signed-in parent adds a child on screen and reads the password shown once. */
+async function createChildAsParent(page: Page, username: string) {
+  await signInParent(page.context(), {
+    parentRole: "main",
+    consentConfirmed: true,
+  });
+  await page.goto("/parent/children/new");
+  await page
+    .getByLabel("Nickname (what your child is shown as)")
+    .fill("Starfish");
+  await page.getByLabel("Age").fill("8");
+  await page.getByRole("combobox", { name: /^Grade/ }).selectOption("3");
+  await page
+    .getByLabel("Username (your child signs in with this)")
+    .fill(username);
+  await page.getByAltText("Avatar 2", { exact: true }).click();
+  await page.getByRole("button", { name: "Create account" }).click();
+  return page.getByTestId("child-password").innerText();
+}
+
+async function fillSignIn(page: Page, username: string, password: string) {
+  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+test("a parent creates a child, who signs in, opens My Shelf and signs out", async ({
+  page,
+  context,
+}) => {
+  const password = await createChildAsParent(page, "e2e_sign_in");
+  await page.goto("/child/sign-in");
+  await expect(
+    page.getByRole("link", { name: "Privacy notice" }),
+  ).toBeVisible();
+
+  // A wrong password stays here, keeping the username only.
+  await fillSignIn(page, "e2e_sign_in", "wrong-guess-00");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "isn’t right" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Username")).toHaveValue("e2e_sign_in");
+  await expect(page.getByLabel("Password")).toHaveValue("");
+
+  // On the tablet the parent was just signed in on, typed with a capital.
+  await fillSignIn(page, "E2E_Sign_In", password);
+  await expect(page).toHaveURL(/\/child$/);
+  await expect(page.getByRole("heading", { name: "Starfish" })).toBeVisible();
+
+  const cookies = await context.cookies(`${new URL(page.url()).origin}/child`);
+  const cookie = (name: string) => cookies.find((c) => c.name === name);
+  expect(cookie("next-auth.session-token")).toMatchObject({
+    httpOnly: true,
+    sameSite: "Lax",
+  });
+  // The session cookie is Secure on https only (session-cookie.ts); this one always is.
+  expect(cookie("child_device")).toMatchObject({
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+  });
+
+  // A signed-in child has no use for the sign-in page.
+  await page.goto("/child/sign-in");
+  await expect(page).toHaveURL(/\/child$/);
+
+  await openShelf(page);
+  await backHome(page);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(SIGN_IN);
+  await page.goto("/child");
+  await expect(page).toHaveURL(SIGN_IN);
+});
+
+test("an empty sign-in form asks for the username and sends nothing", async ({
+  page,
+}) => {
+  await page.goto("/child/sign-in");
+  await page.waitForLoadState("networkidle");
+  const posts = postsFrom(page);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByText("Type your username.")).toBeVisible();
+  expect(posts).toEqual([]);
 });

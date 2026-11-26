@@ -8,7 +8,11 @@ import "server-only";
 // including the configured window.
 
 const PLACEHOLDER_NOTICE_VERSION = "2026-11-23-placeholder";
-export const CONSENT_NOTICE_VERSION = PLACEHOLDER_NOTICE_VERSION;
+// Adds what child sign-in collects: sign-in times, activity times and the trusted-device
+// cookie (design/shlf.md; COPPA-direct-notice, COPPA-notice-versioning). Every Consent
+// Record so far is invented test data, so no family consents again for it (OI-70).
+const SIGN_IN_NOTICE_VERSION = "2026-11-26-placeholder";
+export const CONSENT_NOTICE_VERSION = SIGN_IN_NOTICE_VERSION;
 
 export type ConsentNoticeSection = { heading: string; paragraphs: string[] };
 
@@ -59,9 +63,25 @@ function placeholderNotice(confirmationDays: number): ConsentNoticeSection[] {
   ];
 }
 
+const SIGN_IN_ITEMS = [
+  "The times your child signs in, to measure how much the app is used. An administrator can look up one child's sign-in times by an ID number, without seeing your child's details.",
+  "While your child is signed in, when they were last in the app and last did something there, only to sign them out. These times are deleted no more than a day after the visit ends.",
+  "A cookie on each device your child signs in on, holding a random number for that device and your child's ID number. It lasts 30 days from the last sign-in there and is used only to slow down password guessing.",
+];
+
+/** The placeholder notice with child sign-in added to what is collected. */
+function signInNotice(confirmationDays: number): ConsentNoticeSection[] {
+  return placeholderNotice(confirmationDays).map((section) =>
+    section.heading === "What we collect about your child, and why"
+      ? { ...section, paragraphs: [...section.paragraphs, ...SIGN_IN_ITEMS] }
+      : section,
+  );
+}
+
 // Retain published templates so a resend can restate the original acknowledgment.
 const noticeTemplates = {
   [PLACEHOLDER_NOTICE_VERSION]: placeholderNotice,
+  [SIGN_IN_NOTICE_VERSION]: signInNotice,
 } satisfies Record<string, (days: number) => ConsentNoticeSection[]>;
 
 export function consentNotice(

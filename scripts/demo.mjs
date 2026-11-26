@@ -136,6 +136,10 @@ try {
     MAIL_FROM:
       mail.DEMO_MAIL_FROM ?? "BookBuddies demo <no-reply@bookbuddies.test>",
     NEXT_TELEMETRY_DISABLED: "1",
+    // Child sign-in: a fresh cookie secret each run, and the zone midnight is read in.
+    CHILD_DEVICE_SECRET: randomBytes(32).toString("hex"),
+    CHILD_SESSION_TIME_ZONE:
+      process.env.CHILD_SESSION_TIME_ZONE ?? "America/Chicago",
     // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
     ALLOW_ADMIN_PARENT_SIGNIN: "1",
   };

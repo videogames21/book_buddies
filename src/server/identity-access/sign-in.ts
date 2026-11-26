@@ -14,7 +14,7 @@ export type SignInCode = "INVALID_CREDENTIALS" | "TOO_MANY_ATTEMPTS";
 // password and the response time does not reveal which emails have accounts. It is a
 // fixed hash of a discarded random password, so it cannot fail or add work on a cold
 // start. Raise it with the cost in passwords.ts; sign-in's tests compare the two.
-const DECOY_HASH =
+export const DECOY_HASH =
   "scrypt$131072$8$1$ASF4qnLVVD7atYpYJEuqrg==$qlkASV3hwmIhSA4/KhIZNxlILS69qMropx/FchDk4LL2++uZRhHATluhGXsaQVYcGUl6AkayphRjPPJ9EnVksw==";
 
 /** The TOO_MANY_ATTEMPTS message, shared by every password entry point. */

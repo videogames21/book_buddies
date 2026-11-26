@@ -327,3 +327,15 @@ export async function getChildDisplay(childId: string) {
       { projection: { _id: 0, nickname: 1, avatar: 1 } },
     );
 }
+
+/**
+ * The one place that decides whether a child account may sign in (design/shlf.md): the
+ * child exists and the family's consent is confirmed and not revoked. Sign-in calls it
+ * only after a correct password.
+ */
+export async function childMaySignIn(childId: string): Promise<boolean> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .findOne({ _id: childId }, { projection: { familyId: 1 } });
+  return child !== null && isConsentConfirmed(child.familyId.toHexString());
+}

@@ -34,12 +34,12 @@ function comparableLevels(
       value.trim(),
     );
   if (!match) return {};
-  const lexile = match[1] === undefined ? undefined : Number(match[1]);
-  const arText = match[2] ?? match[3];
-  const arAtos = arText === undefined ? undefined : Number(arText);
+  const lexile = Number(match[1]);
+  const pairedAr = Number(match[2]);
+  const arAtos = Number.isNaN(pairedAr) ? Number(match[3]) : pairedAr;
   return {
-    ...(lexile !== undefined && { lexile }),
-    ...(arAtos !== undefined && arAtos <= 13 && { arAtos }),
+    ...(Number.isFinite(lexile) && { lexile }),
+    ...(Number.isFinite(arAtos) && arAtos <= 13 && { arAtos }),
   };
 }
 

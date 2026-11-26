@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05
 **Client:** Yang Yang
-**Version:** 0.8
+**Version:** 0.9
 
 ---
 
@@ -19,6 +19,7 @@
 | 2026-10-26 | 0.6     | Recorded the flagged-content review exception to `BR-admin-limited-view` as the team's position (client to confirm, `OI-15`); marked the group rules removed until further notice instead of deferred. | Team 05 (cleanup with Claude) |
 | 2026-10-26 | 0.7     | Defined "parent account credentials" in `BR-admin-limited-view` as the parents' names, usernames and emails, never passwords. | Team 05 (cleanup with Claude) |
 | 2026-10-29 | 0.8     | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): added `BR-child-structured-responses` and `BR-parent-note`; removed `BR-notes-visible-to-parent` and `BR-24hr-review-window`; `BR-kid-data-stored` drops the real name and adds the internal child ID; `BR-admin-limited-view` allows child-level usage data by internal ID and moves the flag-review exception to parent notes; `BR-note-safety-flagging` becomes a word list with human review and no outside reporting; retention and consent are marked configurable; the dashboard and badge flags are updated; `BR-kid-data-stored` is a purpose-by-item inventory of everything stored about a child, including the username, the interest profile, shelf history and usage records, with what is never stored, checked against the COPPA Rule text in `docs/coppa/coppa-full` (16 CFR 312.2, 312.7, 312.10); `BR-admin-limited-view` points at the admin's child lookup in `UC-ADM-view-usage-stats` and `BR-kid-no-metrics` at the child dashboard `UC-SHLF-kid-dashboard`. | Team 05 (with Claude) |
+| 2026-11-19 | 0.9     | `BR-kid-data-stored` lists parent suggestions and their notes (`UC-PAR-suggest-book`, `design/par.md`), so the export and deletion use cases cover them. | Team 05 (with Claude) |
 ---
 
 ## 1. Introduction
@@ -54,6 +55,7 @@ This version covers rules that could be attributed to Yang Yang's concept brief,
 | Reading interests, favorite books already read | The recommender's starting profile (`UC-REC-kid-onboarding`) | Parent only; the child sees only the derived interest profile; admin only through the lookup. |
 | Interest profile (derived) | The strength of each interest, built from the child's choices, ratings and shelf activity; drives recommendations and the child's dashboard (`UC-SHLF-kid-dashboard`) | Child, as a chart with no numbers; parent; admin only through the lookup |
 | Recommendation batches, reactions, decline reasons | The recommender learns from them; the parent reviews them (`UC-REC-parent-review`, `UC-REC-kid-review`) | Child, parent; admin only through the lookup |
+| Parent suggestions and their optional notes (at most 250 characters) | A book a parent wants the child to see, and the parent's reason (`UC-PAR-suggest-book`, `BR-parent-rec-not-forced`) | Child (the book, the note and a label that names no parent), parent; never the admin |
 | Shelf entries and shelf history (adds, moves, confirmed finishes, with times) | The shelf and the dashboard history; parent oversight (`UC-SHLF-kid-view-shelf`, `UC-SHLF-parent-view-shelf`) | Child, parent; admin only through the lookup |
 | Ratings | The recommender and the shelf (`UC-SHLF-kid-rate-book`) | Child, parent; admin only through the lookup |
 | Parent note | Optional context for the recommender (`BR-parent-note`) | Parent; the admin only if the note is flagged (`BR-note-safety-flagging`) |

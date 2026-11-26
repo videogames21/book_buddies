@@ -970,7 +970,7 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
 - **The find-a-book message also shows when every entry's book is hidden**, since the child then sees no book.
 - **`dismissChildNotice`** also answers `NOT_A_CHILD`, and `DISMISS_FAILED` for an unexpected failure. On either session code the page goes to `/child/sign-in`.
 - **A tap on OK refreshes the shelf.** `dismissChildNotice` revalidates `/child/shelf` after saving, so the browser's Back cannot show a dismissed notice (3d, 3f). A failed refresh is logged and the saved result stands.
-- **A Close button on the selected book.** Selecting a book moves focus to its details, and Close hides them and returns focus to that book.
+- **A Close button on the selected book (added in the build; not in the use case or the earlier design; confirm).** Selecting a book moves focus to its details, and Close hides them and returns focus to that book.
 - **No new `shelf/error.tsx`:** the child area's `error.tsx` already is the 2b screen.
 - **Placeholder pages** for move, remove, rate and the dashboard, so the links lead somewhere and back. They read nothing about a child and check no session; the use case that builds each page adds both.
 - **Browser tests instead of component tests**, as for the parent view.

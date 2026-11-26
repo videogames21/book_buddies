@@ -85,7 +85,7 @@ export function BatchReview({ view }: BatchReviewProps) {
       )}
 
       {confirmed && view.state === "pending" ? (
-        <p role="status">Refreshing the released books…</p>
+        <p>Refreshing the released books…</p>
       ) : books.length === 0 ? (
         <p className={styles.none}>
           {released

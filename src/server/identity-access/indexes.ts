@@ -24,4 +24,18 @@ export async function ensureIdentityAccessIndexes(db: Db): Promise<void> {
       partialFilterExpression: { email: { $type: "string" } },
     },
   );
+  // Ending every session of a user (a deleted child, a password reset) deletes by
+  // userId; the Auth.js adapter creates no index for it.
+  await db
+    .collection("sessions")
+    .createIndex({ userId: 1 }, { name: "userId" });
+  // A child's credential is found by its child ID when the child is deleted.
+  await db.collection("users").createIndex(
+    { childId: 1 },
+    {
+      name: "childId_unique",
+      unique: true,
+      partialFilterExpression: { childId: { $type: "string" } },
+    },
+  );
 }

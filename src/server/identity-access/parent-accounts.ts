@@ -108,6 +108,32 @@ export async function replaceMainParentPassword(
   return user?.email ?? null;
 }
 
+/**
+ * The signed-in Main Parent's own credential, read by the session's user ID, for a
+ * password re-check (UC-PAR-delete-kid-account step 3): the lowercased email, which is
+ * the sign-in throttle's account key, and the hash. Neither is ever logged (§8.2.7).
+ * The read also requires the Main Parent role and the session's family, so an account
+ * whose role or family changed after the session check gets null (review of #125).
+ */
+export async function getParentCredential(
+  userId: string,
+  familyId: string,
+): Promise<{ email: string; passwordHash: string } | null> {
+  const user = await getDb()
+    .collection<ParentUser>(USERS)
+    .findOne(
+      {
+        _id: new ObjectId(userId),
+        role: "parent",
+        parentRole: "main",
+        familyId: new ObjectId(familyId),
+      },
+      { projection: { email: 1, passwordHash: 1 } },
+    );
+  if (!user?.email || !user.passwordHash) return null;
+  return { email: user.email, passwordHash: user.passwordHash };
+}
+
 /** A parent's own address, to email them; never logged (§8.2.7). */
 export async function findParentEmail(userId: string): Promise<string | null> {
   const user = await getDb()

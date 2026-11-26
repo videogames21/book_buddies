@@ -12,7 +12,7 @@ import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
-import { getDb, withTransaction } from "@/server/lib/db";
+import { getDb, withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import type { AvatarKey } from "./avatars";
 import { CONSENT_RECORDS } from "./consent-record-schema";
@@ -180,11 +180,52 @@ export async function ensureAccountsFamilyIndexes(db: Db): Promise<void> {
       nickname: { bsonType: "string", minLength: 1 },
       avatar: { bsonType: "string" },
       createdAt: { bsonType: "date" },
+      // lockChildForWrite's counter; absent means 0 (architecture §8.2.8).
+      writeVersion: { bsonType: ["int", "long"] },
     },
   });
   await db
     .collection(CHILDREN)
     .createIndex({ familyId: 1 }, { name: "familyId" });
+}
+
+/**
+ * UC-PAR-delete-kid-account step 5: deletes the child account where both its ID and the
+ * family match, inside the deletion's transaction. Returns whether one was deleted, so
+ * a double submit or another family's child finds nothing.
+ */
+export async function deleteChildForFamily(
+  tx: Tx,
+  familyId: string,
+  childId: string,
+): Promise<boolean> {
+  const { deletedCount } = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .deleteOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      { session: tx },
+    );
+  return deletedCount === 1;
+}
+
+/**
+ * UC-PAR-delete-kid-account 5b: whether the child account still exists, read at
+ * majority read concern, so a read after a failover cannot see a deletion that a
+ * majority has not acknowledged (review of #125). Callers authenticate first.
+ */
+export async function childAccountExists(
+  familyId: string,
+  childId: string,
+): Promise<boolean> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN, {
+      readConcern: { level: "majority" },
+    })
+    .findOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      { projection: { _id: 1 } },
+    );
+  return child !== null;
 }
 
 /** Whether the family has at least one child. Callers authenticate first. */
@@ -195,8 +236,15 @@ export async function familyHasChild(familyId: string): Promise<boolean> {
   return child !== null;
 }
 
-/** Family-scoped summary only. Pages authenticate before calling this function. */
-export async function getChildForFamily(familyId: string, childId: string) {
+/**
+ * Family-scoped summary only. Pages authenticate before calling this function. With `tx`
+ * the read joins that transaction's snapshot (UC-PAR-report-book).
+ */
+export async function getChildForFamily(
+  familyId: string,
+  childId: string,
+  tx?: Tx,
+) {
   return getDb()
     .collection<{
       _id: string;
@@ -207,8 +255,43 @@ export async function getChildForFamily(familyId: string, childId: string) {
     }>(CHILDREN)
     .findOne(
       { _id: childId, familyId: new ObjectId(familyId) },
-      { projection: { _id: 1, nickname: 1, avatar: 1 } },
+      { projection: { _id: 1, nickname: 1, avatar: 1 }, session: tx },
     );
+}
+
+/**
+ * The conditional write every transaction that inserts a record for a child makes first
+ * (architecture §8.2.8). It writes the document a child deletion deletes, so the two
+ * conflict and a write racing the deletion fails instead of leaving an orphan. Returns
+ * whether a child matched; callers answer `CHILD_NOT_FOUND` when it did not. Callers
+ * check the child's family first.
+ */
+export async function lockChildForWrite(
+  tx: Tx,
+  childId: string,
+): Promise<boolean> {
+  const result = await getDb()
+    .collection<{ _id: string; writeVersion?: number }>(CHILDREN)
+    .updateOne(
+      { _id: childId },
+      { $inc: { writeVersion: 1 } },
+      { session: tx },
+    );
+  return result.matchedCount === 1;
+}
+
+/** The family of the authenticated child, for the quiz's consent check. */
+export async function getFamilyIdForChild(
+  childId: string,
+  tx?: Tx,
+): Promise<string | null> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .findOne(
+      { _id: childId },
+      { projection: { _id: 0, familyId: 1 }, session: tx },
+    );
+  return child?.familyId.toHexString() ?? null;
 }
 
 /**
@@ -230,4 +313,29 @@ export async function listChildrenForFamily(familyId: string) {
     )
     .sort({ createdAt: 1, _id: 1 })
     .toArray();
+}
+
+/**
+ * The nickname and avatar of one child and nothing else, so a child's own session may
+ * read it (§8.2.11). Callers pass the child ID from that session.
+ */
+export async function getChildDisplay(childId: string) {
+  return getDb()
+    .collection<{ _id: string; nickname: string; avatar: AvatarKey }>(CHILDREN)
+    .findOne(
+      { _id: childId },
+      { projection: { _id: 0, nickname: 1, avatar: 1 } },
+    );
+}
+
+/**
+ * The one place that decides whether a child account may sign in (design/shlf.md): the
+ * child exists and the family's consent is confirmed and not revoked. Sign-in calls it
+ * only after a correct password.
+ */
+export async function childMaySignIn(childId: string): Promise<boolean> {
+  const child = await getDb()
+    .collection<{ _id: string; familyId: ObjectId }>(CHILDREN)
+    .findOne({ _id: childId }, { projection: { familyId: 1 } });
+  return child !== null && isConsentConfirmed(child.familyId.toHexString());
 }

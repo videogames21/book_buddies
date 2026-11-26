@@ -1,0 +1,82 @@
+/* Child screens: large tap targets (UC-SHLF-kid-view-shelf step 3). */
+.page {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+.nickname {
+  font-size: clamp(2rem, 8vw, 3rem);
+  margin: 0;
+  /* A nickname is up to 20 characters with no space to break at. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.primary,
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 2px solid #2f4f45;
+  border-radius: 1rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.primary {
+  min-height: 5rem;
+  font-size: 1.6rem;
+  background: #2f4f45;
+  color: #fffef9;
+}
+.secondary {
+  min-height: 3.5rem;
+  background: transparent;
+  color: inherit;
+}
+.secondary:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  text-align: left;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.form input {
+  width: 100%;
+  min-height: 3.5rem;
+  border: 2px solid #8e9a90;
+  border-radius: 0.75rem;
+  background: #fffef9;
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+  padding: 0.65rem 0.8rem;
+}
+.error {
+  border-left: 3px solid #9d3129;
+  padding-left: 1rem;
+  margin: 0;
+  color: #9d3129;
+}
+.footer {
+  text-align: center;
+  padding: 1rem 1.5rem 2rem;
+  font-size: 0.9rem;
+}

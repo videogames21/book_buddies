@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.23
+**Version:** 0.25
 
 ---
 
@@ -44,6 +44,8 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-24]_ | 0.21    | `UC-REC-parent-review`, from its design (`design/rec.md`): 6a now says release is part of the confirmation's save, so a failed release is 5a and nothing is retried separately; the data table gains the release deadline (`OI-69`); open issues cite the review window (`OI-69`) and the parent's late review of a released batch (`OI-66`). | _Claude_ |
 | _[2026-11-24]_ | 0.22    | `UC-PAR-suggest-book`, from its design (`design/par.md`): the trigger names the parent's list of active catalog books, since no use case gives a parent a book detail page or search; PRE-4 requires confirmed consent; the note is at most 250 characters (new extension 3b) and is not checked against the word list (`OI-68`); extension 4a's warning comes before the Parent confirms, and "suggest anyway" on a pending suggestion replaces its note; extension 5a and the Open Issues cite `OI-67`. Renumbered from v0.19 on merging `main`; open #118 claims v0.21 | _Cabdifataax Maxamuud_, _Claude_ |
 | _[2026-11-25]_ | 0.23    | From the review of #120 (`UC-PAR-suggest-book`): step 1 says "Suggest", since the child is chosen in 1a; 4a no longer says what the check covers until other use cases are built (that is in `design/par.md`); `UC-PAR-review-child-data` step 5 lists parent suggestions and their notes, and `UC-PAR-delete-child-data` POST-1 deletes them, matching the `BR-kid-data-stored` row; 5a says a report or a block of the book also removes the suggestion | _Cabdifataax Maxamuud_, _Claude_ |
+| _[2026-11-25]_ | 0.24    | `UC-SHLF-parent-remove-book`, from its design (`design/shlf.md`): the open issues cite `OI-71` (notice wording) and `OI-72` (recommended again), and a new one notes that "Removed by" is shown to no parent; from the review of #121, 5a now separates a failed save (the Parent is told nothing was saved) from one the system cannot confirm (the removal may have been saved, so the Parent checks the shelf before retrying), and new extension 5d refuses the removal, changing nothing, when the family's consent is not confirmed or has been revoked | _McKenzie Mitchell-Richardson_, _Claude_ |
+| _[2026-11-25]_ | 0.25    | `UC-REC-kid-review`, from its design (`design/rec.md`): step 2 shows each book's title and author, with a cover once covers exist (`OI-65`); 4a covers "Yes" and "Maybe later" for a book already on the shelf, which is neither added again nor moved, and the reaction is still recorded; 7a separates a save that saved nothing from one the system cannot confirm (check the shelf or try again; a retry finds the book already answered); the open issues cite `OI-73` (whether the parent sees decline reasons outside review and export) and `OI-2` (a declined book can be recommended again). | _McKenzie Mitchell-Richardson_, _Claude_ |
 
 ---
 
@@ -1145,7 +1147,7 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Main Success Scenario:**
 
 1. The child opens their recommendation list.
-2. The system displays each recommended book with its cover and title.
+2. The system displays each recommended book with its title and author (a cover is shown once covers exist, `OI-65`).
 3. The child chooses a reaction for a book: "Yes," "Maybe later," or "Not for me."
 4. If the reaction is "Yes," the system places the book on the shelf in "Reading Now."
 5. If the reaction is "Maybe later," the system places the book on the shelf in "Maybe Later."
@@ -1156,9 +1158,9 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Extensions:**
 
 - 3a. The child leaves the list without reacting to a book. The book stays in the recommendation list for the next visit.
-- 4a. The book is already on the child's shelf. The system does not add a duplicate and tells the child it is already on their shelf.
+- 4a. The reaction is "Yes" or "Maybe later" and the book is already on the child's shelf. The system does not add a duplicate or move the book, tells the child it is already on their shelf, records the reaction, and continues at step 7.
 - 6a. The child skips the optional reason. The decline is recorded with no reason.
-- 7a. Saving the shelf change or the reaction fails. The system shows an error and keeps the book in the list; the reaction is not recorded.
+- 7a. Saving the shelf change or the reaction fails. When the system knows nothing was saved, it shows an error and keeps the book in the list; the reaction is not recorded. When the system cannot confirm whether the save completed, it tells the child calmly that their answer may have been saved and to check their shelf or try again. If the answer was saved, a retry finds the book already answered, and the book leaves the list with no error.
 
 **Priority:** High — the child's accept/decline is the step that moves a recommendation onto the shelf.\
 **Frequency of Use:** Several times per active child per week, following each recommendation request.\
@@ -1175,8 +1177,8 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Related Use Cases:** `UC-REC-parent-review` (upstream); `UC-REC-recommend-quiz-rules` / `UC-REC-recommend-quiz-ai` (originating flows, mutually exclusive); `UC-SHLF-kid-view-shelf` (where accepted books appear)\
 **Assumptions:** The reaction options and shelf categories follow the 2026-09-25 flowchart; `FR-REC-react` in the SRS lists accept/defer/decline, which maps onto the same three choices.\
 **Open Issues:**
-- Whether a declined book, or its reason, is ever shown to the parent is not specified. The decline reason's purpose and visibility need confirming.
-- Whether a declined book can be recommended again later is not specified.
+- Whether a declined book, or its reason, is ever shown to the parent outside the parent's review and export of the child's data (`UC-PAR-review-child-data`) is `OI-73`.
+- A declined book can be recommended again in a later batch: the rules ranking proposal lowers it rather than excluding it (`OI-2`, `design/rec-field-values.md`).
 - The shelf category for an accepted book is "Reading Now" per the flowchart; `FR-SHLF-categories` in the SRS lists the four categories.
 
 ---
@@ -1681,9 +1683,10 @@ The confirmation, note, flag and alert are one save (architecture §8.2.8). Only
 
 - 3a. The Parent cancels. The system makes no change and no notice is created.
 - 3b. The book is no longer on the child's shelf, for example because the child removed it first. The system tells the Parent the book is already off the shelf. No notice is created, since nothing was removed.
-- 5a. Saving fails. The system shows an error, leaves the entry on the shelf, and creates no notice. The Parent may retry. Removal and notice are all-or-nothing.
+- 5a. Saving fails. Removal and notice are all-or-nothing. When the system knows nothing was saved, it tells the Parent that nothing was saved; the entry stays on the shelf, no notice is created, and the Parent may retry. When the system cannot confirm whether the save completed, it tells the Parent that the removal may have been saved and to check the shelf before trying again. If the removal was saved, a retry finds the book already off the shelf (3b).
 - 5b. The child is not online. The notice stays pending until the child's next session and does not expire.
 - 5c. The child's rating for the book is kept, as in `UC-SHLF-kid-remove-book` and `BR-parent-report-book`. The parent view does not show a rating whose shelf entry is gone (`UC-SHLF-parent-view-shelf` Assumptions, `OI-41`).
+- 5d. The family's consent is not confirmed or has been revoked, including by a revocation saved while the removal is being saved. The system refuses the removal and tells the Parent. Nothing changes: the entry stays on the shelf and no notice is created.
 
 **Priority:** Medium — `BR-parent-shelf-removal` is confirmed, but removal is an occasional correction rather than a routine step.\
 **Frequency of Use:** Occasional; a few times per family per month (estimate).\
@@ -1702,8 +1705,9 @@ Quality attributes: `ROB-no-data-loss` (a failed removal leaves the book on the 
 **Related Use Cases:** `UC-SHLF-parent-view-shelf` (invokes this use case from step 1); `UC-SHLF-kid-remove-book` (the child's counterpart, which does not notify anyone)\
 **Assumptions:** The parent does not have to give a reason for removal. No source requires one.\
 **Open Issues:**
-- Notice wording, and whether the child sees a reason, are not specified (`BR-parent-shelf-removal` requires only that a notice is shown).
-- Whether a removed book can be recommended again, for example by a later quiz, is not specified.
+- Notice wording, and whether the child sees a reason, are not specified (`BR-parent-shelf-removal` requires only that a notice is shown). Team proposal: no reason (`OI-71`).
+- Whether a removed book can be recommended again, for example by a later quiz, is not specified. Team proposal: yes, a removal writes no exclusion (`OI-72`).
+- The "Removed by" property is marked parent-visible, but no step shows it to a parent. The design keeps it in the audit log only (`design/shlf.md`).
 
 ---
 

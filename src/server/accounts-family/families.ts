@@ -106,6 +106,30 @@ export async function purgeExpiredUnconfirmed(): Promise<number> {
   return removed;
 }
 
+/**
+ * UC-PAR-report-book: increments `consentWriteVersion` on the family's Consent Record only
+ * while consent is confirmed and not revoked. A revocation writes the same document, so a
+ * report and a revocation conflict and MongoDB retries one of them; a snapshot read alone
+ * would not conflict. Returns whether consent matched.
+ */
+export async function lockConsentForWrite(
+  tx: Tx,
+  familyId: string,
+): Promise<boolean> {
+  const result = await getDb()
+    .collection(CONSENT_RECORDS)
+    .updateOne(
+      {
+        familyId: new ObjectId(familyId),
+        confirmedAt: { $type: "date" },
+        revokedAt: { $exists: false },
+      },
+      { $inc: { consentWriteVersion: 1 } },
+      { session: tx },
+    );
+  return result.matchedCount === 1;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type NewParent = {
@@ -347,6 +371,29 @@ export async function resendConsentEmailFor(parent: {
         "SEND_FAILED",
         "We couldn't send the email. Please try again in a few minutes.",
       );
+}
+
+/**
+ * UC-PAR-delete-kid-account POST-4: records on the family's Consent Record that the child
+ * was removed, and when, inside the deletion's transaction. Throws if the family has no
+ * Consent Record, so the deletion is not committed without it.
+ */
+export async function markChildRemoved(
+  tx: Tx,
+  familyId: string,
+  childId: string,
+): Promise<void> {
+  const { matchedCount } = await getDb()
+    .collection<{
+      familyId: ObjectId;
+      removedChildren?: { childId: string; removedAt: Date }[];
+    }>(CONSENT_RECORDS)
+    .updateOne(
+      { familyId: new ObjectId(familyId) },
+      { $push: { removedChildren: { childId, removedAt: now() } } },
+      { session: tx },
+    );
+  if (matchedCount !== 1) throw new Error("No Consent Record for the family");
 }
 
 export type OnboardingStep =

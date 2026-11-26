@@ -193,8 +193,12 @@ describe("reportBook (UC-PAR-report-book)", () => {
     expect(await count("shelfEntries", { childId: sibling, bookId })).toBe(1);
   });
 
-  it("POST-7: no exported function deletes an exclusion or changes a report's status", () => {
+  it("POST-7: no exported function changes a report's status, and only the child-deletion contract deletes an exclusion", () => {
+    // deleteChildRecords is UC-PAR-delete-kid-account's: it deletes the child's
+    // exclusions with the rest of the child's data and keeps each report, status
+    // included, without its child and comment (design/par.md, Components).
     expect(Object.keys(bookReportsModule).sort()).toEqual([
+      "deleteChildRecords",
       "isExcluded",
       "listExcludedBookIds",
       "reportBook",

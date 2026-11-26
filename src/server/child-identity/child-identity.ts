@@ -5,7 +5,8 @@ import { now } from "@/server/lib/clock";
 import { getDb, type Tx } from "@/server/lib/db";
 
 // The Child Identity Store: the only place a child's age, grade and reading
-// level are kept (KD-pii-segregation). This use case adds its write path only.
+// level are kept (KD-pii-segregation). It has a write path, a delete, and one read,
+// of the age only.
 
 const COLLECTION = "childIdentities";
 
@@ -36,6 +37,14 @@ export async function insertChildIdentity(
       },
       { session: tx },
     );
+}
+
+/** UC-PAR-delete-kid-account: the child's identity record (age, grade, reading level). */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb().collection(COLLECTION).deleteMany({ childId }, { session: tx });
 }
 
 /**

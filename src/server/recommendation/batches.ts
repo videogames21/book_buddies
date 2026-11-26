@@ -69,7 +69,10 @@ function toBatchId(batchId: string): ObjectId | null {
 /**
  * The remaining books, in `bookIds` order: minus the child's report exclusions and minus
  * any book the Catalog does not return (blocked, draft or, with `age`, out of band).
- * The 4a wording, the count on /parent and the child's `empty` all use this set.
+ * The 4a wording, the count on /parent and what the child sees all use this set. The
+ * stored `empty` status does not: `confirmBatch` sets it from the raw `bookIds`, so a
+ * batch whose only books left are blocked or excluded is stored `released` and is empty
+ * to the child by this rule (design/rec.md, `confirmBatch`).
  */
 async function remainingBooks(
   childId: string,
@@ -295,7 +298,9 @@ export async function removeBookFromBatch(
 /**
  * The removal's answer when its write failed (5a). The book removed is `ok`, whoever
  * removed it, as for a double tap. A batch no longer pending is `BATCH_ALREADY_RELEASED`.
- * The book still in the batch is `SAVE_FAILED`: the write did not apply.
+ * The book still in the batch is `OUTCOME_UNKNOWN`: the read-back can run before a write
+ * still in flight applies, so the old state does not prove nothing changed (second
+ * review of #135).
  */
 async function removalAfterLostWrite(
   _id: ObjectId,
@@ -316,9 +321,7 @@ async function removalAfterLostWrite(
   if (batchState(batch, now()) !== "pending") {
     return refuse("BATCH_ALREADY_RELEASED");
   }
-  if (batch.bookIds.includes(bookId)) {
-    return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
-  }
+  if (batch.bookIds.includes(bookId)) return unconfirmed(errorId);
   return refuse("BOOK_NOT_IN_BATCH");
 }
 
@@ -327,6 +330,9 @@ async function removalAfterLostWrite(
  * left in `bookIds` and `released` otherwise, with `releasedAt` = `now()`. That write is
  * the release; there is no hand-off after it (6a). The first of two parents, or of a
  * parent and the deadline, wins; the other gets `BATCH_ALREADY_RELEASED`.
+ * The returned `state` is the stored status, so it follows the raw `bookIds`, not the
+ * remaining books; a page shows "no books left" from the remaining books
+ * (`getBatchForReview`), never from this `state`.
  */
 export async function confirmBatch(
   session: ParentSession,
@@ -371,7 +377,8 @@ export async function confirmBatch(
  * attempt's `releasedAt` is this confirmation, applied with its response lost: `ok`. Any
  * other release (the other parent, or the deadline, whose `releasedAt` is
  * `handoffDeadline`, never `at`) is `BATCH_ALREADY_RELEASED`. A batch still pending is
- * `SAVE_FAILED`: the write did not apply, and nothing was sent to the child.
+ * `OUTCOME_UNKNOWN`: the read-back can run before a write still in flight applies, so
+ * the old state does not prove nothing was sent (second review of #135).
  */
 async function confirmationAfterLostWrite(
   _id: ObjectId,
@@ -384,6 +391,9 @@ async function confirmationAfterLostWrite(
   const { batch } = read;
   if (!batch) return refuse("BATCH_NOT_FOUND");
   if (batch.status !== "pending") {
+    // Known limit: the other parent's confirmation in the same millisecond also has
+    // `releasedAt` = `at` and is taken for this one. The answer is still true for this
+    // parent (the batch is released, as they asked), so it is left as `ok`.
     if (batch.releasedAt?.getTime() === at.getTime()) {
       return ok({ state: batch.status === "empty" ? "empty" : "released" });
     }
@@ -392,7 +402,7 @@ async function confirmationAfterLostWrite(
   if (batchState(batch, now()) !== "pending") {
     return refuse("BATCH_ALREADY_RELEASED");
   }
-  return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
+  return unconfirmed(errorId);
 }
 
 /**

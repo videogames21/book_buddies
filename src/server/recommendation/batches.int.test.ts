@@ -388,13 +388,30 @@ describe("2a, late parent", () => {
   });
 });
 
+/** Fails the first read of `collection` through `findOne`; later reads go through. */
+function failFirstRead(collection: string) {
+  const original = Reflect.get(Collection.prototype, "findOne") as (
+    this: Collection,
+    ...args: unknown[]
+  ) => Promise<unknown>;
+  let failed = false;
+  vi.spyOn(Collection.prototype, "findOne").mockImplementation(function (
+    this: Collection,
+    ...args: unknown[]
+  ) {
+    if (this.collectionName === collection && !failed) {
+      failed = true;
+      return Promise.reject(new Error("invented: secret detail"));
+    }
+    return original.apply(this, args);
+  } as never);
+}
+
 describe("5a", () => {
-  it("a failed confirmation is SAVE_FAILED with an error ID, the batch stays pending, and a retry succeeds", async () => {
+  it("an error before the write is SAVE_FAILED with an error ID, the batch stays pending, and a retry succeeds", async () => {
     const { main, childId } = await family();
     const { batchId } = await pendingBatchOfThree(childId);
-    vi.spyOn(Collection.prototype, "findOneAndUpdate").mockRejectedValueOnce(
-      new Error("network: secret detail"),
-    );
+    failFirstRead("consentRecords");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const failed = await confirmBatch(main, { childId, batchId });
@@ -413,12 +430,10 @@ describe("5a", () => {
     });
   });
 
-  it("a failed removal is SAVE_FAILED with an error ID and changes nothing", async () => {
+  it("a removal that fails before the write is SAVE_FAILED with an error ID and changes nothing", async () => {
     const { main, childId } = await family();
     const { batchId, bookIds } = await pendingBatchOfThree(childId);
-    vi.spyOn(Collection.prototype, "updateOne").mockRejectedValueOnce(
-      new Error("network"),
-    );
+    failFirstRead("consentRecords");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const failed = await removeBookFromBatch(main, {
@@ -431,6 +446,64 @@ describe("5a", () => {
       error: { code: "SAVE_FAILED", errorId: expect.any(String) as unknown },
     });
     expect((await stored(batchId))?.bookIds).toEqual(bookIds);
+  });
+
+  it("confirm: a failed write whose read-back still sees the batch pending is OUTCOME_UNKNOWN, since the write may still apply", async () => {
+    const { main, childId } = await family();
+    const { batchId } = await pendingBatchOfThree(childId);
+    // The write throws but is still in flight; it applies only after the read-back
+    // (second review of #135).
+    let inFlight: (() => Promise<unknown>) | undefined;
+    const original = Reflect.get(Collection.prototype, "findOneAndUpdate") as (
+      this: Collection,
+      ...args: unknown[]
+    ) => Promise<unknown>;
+    vi.spyOn(Collection.prototype, "findOneAndUpdate").mockImplementationOnce(
+      function (this: Collection, ...args: unknown[]) {
+        inFlight = () => original.apply(this, args);
+        return Promise.reject(new MongoNetworkError("invented: timeout"));
+      } as never,
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await confirmBatch(main, { childId, batchId });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
+    await inFlight?.();
+    expect((await stored(batchId))?.status).toBe("released");
+  });
+
+  it("remove: a failed write whose read-back still sees the book is OUTCOME_UNKNOWN, since the write may still apply", async () => {
+    const { main, childId } = await family();
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    let inFlight: (() => Promise<unknown>) | undefined;
+    const original = Reflect.get(Collection.prototype, "updateOne") as (
+      this: Collection,
+      ...args: unknown[]
+    ) => Promise<unknown>;
+    vi.spyOn(Collection.prototype, "updateOne").mockImplementationOnce(
+      function (this: Collection, ...args: unknown[]) {
+        inFlight = () => original.apply(this, args);
+        return Promise.reject(new MongoNetworkError("invented: timeout"));
+      } as never,
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await removeBookFromBatch(main, {
+      childId,
+      batchId,
+      bookId: bookIds[0],
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
+    await inFlight?.();
+    expect((await stored(batchId))?.removedBookIds).toEqual([bookIds[0]]);
   });
 });
 

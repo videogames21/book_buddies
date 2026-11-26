@@ -7,6 +7,7 @@ import {
   type Document,
 } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { insertBook } from "../../../tests/fixtures/catalog";
 import { insertConsentedMainParent } from "../../../tests/fixtures/family";
 import {
   insertFinishConfirmation,
@@ -39,6 +40,7 @@ const actualDb =
 const { screenNote } = await import("@/server/safety-flagging/screen-note");
 const { createChild } = await import("./child-accounts");
 const { deleteChild } = await import("./child-deletion");
+const { reportBook } = await import("./book-reports");
 const { getOnboardingStep } = await import("./families");
 const { saveOnboardingProfile } =
   await import("@/server/recommendation/reading-profiles");
@@ -48,7 +50,7 @@ const { claimSignInAttempt } =
   await import("@/server/identity-access/sign-in-throttle");
 const { getDb, getMongoClient, withTransaction } =
   await import("@/server/lib/db");
-const { resetClock, setClock } = await import("@/server/lib/clock");
+const { now, resetClock, setClock } = await import("@/server/lib/clock");
 
 const DELETED_AT = new Date("2026-11-24T15:00:00Z");
 
@@ -68,6 +70,10 @@ type SeededChild = {
   userId: string;
   username: string;
   sessionTokens: string[];
+  /** The child's session document IDs, which their `childSessionEnds` records hold. */
+  sessionIds: string[];
+  /** The book reported for the child, with a comment (UC-PAR-report-book). */
+  reportedBookId: string;
 };
 
 /** A Main Parent whose consent is confirmed, with a session of their own. */
@@ -81,8 +87,9 @@ async function mainParent() {
 /**
  * One child with a record in every collection that can hold one today: the child
  * account, identity, credential and a flagged note with its flag (createChild), a
- * reading profile (saveOnboardingProfile), a session (createDatabaseSession), a
- * throttle row under the child's key (claimSignInAttempt) and shelf records (fixtures).
+ * reading profile (saveOnboardingProfile), sessions with their end records
+ * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
+ * shelf records (fixtures), and a report with its exclusion and notice (reportBook).
  */
 async function seedChild(
   session: ParentSession,
@@ -115,16 +122,42 @@ async function seedChild(
     .findOne({ role: "child", childId });
   if (!user) throw new Error("seed failed: no credential");
   const userId = user._id.toHexString();
+  // Child sessions, each with its end record at the next midnight (#134).
+  const endsAt = new Date(now().getTime() + 12 * 60 * 60 * 1000);
   const sessionTokens = [
-    (await createDatabaseSession(userId)).sessionToken,
-    (await createDatabaseSession(userId)).sessionToken,
+    (await createDatabaseSession(userId, undefined, endsAt)).sessionToken,
+    (await createDatabaseSession(userId, undefined, endsAt)).sessionToken,
   ];
+  const sessionIds = (
+    await getDb()
+      .collection<{ _id: ObjectId; userId: ObjectId }>("sessions")
+      .find({ userId: user._id })
+      .toArray()
+  ).map((doc) => doc._id.toHexString());
   await claimSignInAttempt(`child:${username}:shared`);
   await claimSignInAttempt(`child:${username}:dev:invented-device-hash`);
   await insertShelfEntry(childId, BOOK_ID, "readingNow");
   await insertRating(childId, BOOK_ID, "lovedIt");
   await insertFinishConfirmation(childId, BOOK_ID);
-  return { childId, userId, username, sessionTokens };
+  // A report through the real write path: its exclusion, the report with a comment, the
+  // child's removal notice and two audit entries (UC-PAR-report-book).
+  const reportedBookId = await insertBook("active", "Reported book");
+  await insertShelfEntry(childId, reportedBookId, "readingNow");
+  const reported = await reportBook(session, {
+    childId,
+    bookId: reportedBookId,
+    reason: "other",
+    comment: "Invented comment about this book.",
+  });
+  if (!reported.ok) throw new Error(`seed failed: ${reported.error.code}`);
+  return {
+    childId,
+    userId,
+    username,
+    sessionTokens,
+    sessionIds,
+    reportedBookId,
+  };
 }
 
 /** Every document of every collection, so a test can see that nothing changed. */
@@ -144,7 +177,12 @@ async function dumpDatabase(): Promise<Record<string, Document[]>> {
 function needlesFor(child: SeededChild) {
   return {
     childId: child.childId,
-    others: [child.userId, child.username, ...child.sessionTokens],
+    others: [
+      child.userId,
+      child.username,
+      ...child.sessionTokens,
+      ...child.sessionIds,
+    ],
   };
 }
 
@@ -177,6 +215,8 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       "shelfEntries",
       "ratings",
       "finishConfirmations",
+      "childBookExclusions",
+      "childNotices",
     ]) {
       const key = name === "children" ? "_id" : "childId";
       expect(
@@ -192,6 +232,24 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
         .collection("sessions")
         .countDocuments({ userId: new ObjectId(child.userId) }),
     ).toBe(0);
+    expect(
+      await db.collection("childSessionEnds").countDocuments({
+        sessionId: { $in: child.sessionIds.map((id) => new ObjectId(id)) },
+      }),
+    ).toBe(0);
+    // The report stays for the admin's review, with its book, reason and reporting
+    // parent only: no child reference and no comment (design/par.md, Components).
+    const reports = await db
+      .collection("bookReports")
+      .find({ bookId: child.reportedBookId })
+      .toArray();
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).not.toHaveProperty("childId");
+    expect(reports[0]).not.toHaveProperty("comment");
+    expect(reports[0]).toMatchObject({
+      reason: "other",
+      reportedByUserId: new ObjectId(session.userId),
+    });
 
     const consent = await db
       .collection("consentRecords")
@@ -362,6 +420,10 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
     ["shelfEntries", "deleteMany"],
     ["ratings", "deleteMany"],
     ["finishConfirmations", "deleteMany"],
+    ["childSessionEnds", "deleteMany"],
+    ["childBookExclusions", "deleteMany"],
+    ["bookReports", "updateMany"],
+    ["childNotices", "deleteMany"],
     ["consentRecords", "updateOne"],
     ["auditLog", "insertOne"],
   ] as const)(

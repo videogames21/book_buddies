@@ -45,6 +45,16 @@ type ChildNoticeDocument = {
   seenAt?: Date;
 };
 
+/** UC-PAR-delete-kid-account: every notice to the child, seen or not (design/par.md). */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection(CHILD_NOTICES)
+    .deleteMany({ childId }, { session: tx });
+}
+
 /**
  * The child's notice that a book left their shelf, written inside the caller's
  * transaction. It holds the book ID only: no reason and no parent, so a report and a

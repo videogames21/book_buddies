@@ -7,11 +7,13 @@ import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
+import { deleteChildRecords as deleteChildNotices } from "@/server/notification/child-notices";
 import { deleteChildRecords as deleteReadingProfile } from "@/server/recommendation/reading-profiles";
 import { deleteChildRecords as deleteNoteFlags } from "@/server/safety-flagging/note-flags";
 import { deleteChildRecords as deleteShelfRecords } from "@/server/shelf/shelf-collections";
 import { childAccountExists, deleteChildForFamily } from "./child-accounts";
 import { markChildRemoved } from "./families";
+import { deleteChildRecords as deleteBookReports } from "./book-reports";
 import { deleteChildRecords as deleteParentNotes } from "./parent-notes";
 
 // UC-PAR-delete-kid-account step 5: one transaction deletes the child account and every
@@ -26,12 +28,14 @@ const DELETE_CHILD_RECORDS: readonly ((
   tx: Tx,
   childId: string,
 ) => Promise<void>)[] = [
-  deleteChildSignIn, // Identity & Access: credential, sessions, throttle rows (POST-1)
+  deleteChildSignIn, // Identity & Access: credential, sessions and their end records, throttle rows (POST-1)
   deleteChildIdentity, // Child Identity Store
   deleteParentNotes, // Accounts & Family
+  deleteBookReports, // Accounts & Family: exclusions; reports kept without child or comment
   deleteNoteFlags, // Safety Flagging, a flag of any status (5a)
   deleteReadingProfile, // Recommendation
   deleteShelfRecords, // Shelf
+  deleteChildNotices, // Notification
 ];
 
 class ChildNotFoundError extends Error {}

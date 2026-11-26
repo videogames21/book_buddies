@@ -5,13 +5,13 @@ import type { RuleCandidate } from "@/server/catalog/rule-candidates";
 type BookLength = RuleCandidate["length"];
 type ReadingScale = keyof RuleCandidate["comparableLevels"];
 
-type ChildProfile = {
+export type ChildProfile = {
   readonly age: number;
   readonly grade: Grade;
   readonly level?: { readonly scale: ReadingScale; readonly value: number };
 };
 
-type InterestWeights = {
+export type InterestWeights = {
   readonly byTag: ReadonlyMap<string, number>;
   readonly byLength: ReadonlyMap<BookLength, number>;
   readonly declinedBookIds: ReadonlySet<string>;

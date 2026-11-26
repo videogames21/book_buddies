@@ -1,18 +1,22 @@
 import { expect, it } from "vitest";
-import { rankRuleCandidates } from "./rules";
+import type { RuleCandidate } from "@/server/catalog/rule-candidates";
+import {
+  rankRuleCandidates,
+  type ChildProfile,
+  type InterestWeights,
+} from "./rules";
 
-type Candidate = Parameters<typeof rankRuleCandidates>[0][number];
-type Child = Parameters<typeof rankRuleCandidates>[1];
-type Weights = Parameters<typeof rankRuleCandidates>[2];
-
-const child = { age: 8, grade: "5" } satisfies Child;
-const neutral: Weights = {
+const child = { age: 8, grade: "5" } satisfies ChildProfile;
+const neutral: InterestWeights = {
   byTag: new Map(),
   byLength: new Map(),
   declinedBookIds: new Set(),
 };
 
-function book(id: string, overrides: Partial<Candidate> = {}): Candidate {
+function book(
+  id: string,
+  overrides: Partial<RuleCandidate> = {},
+): RuleCandidate {
   return {
     id,
     ageMin: 8,
@@ -42,6 +46,8 @@ it("orders age-fit groups ahead of interest, including the one-year boundary", (
 it.each([
   { grade: "pre-school", referenceAge: 4 },
   { grade: "kindergarten", referenceAge: 5 },
+  { grade: "1", referenceAge: 6 },
+  { grade: "4", referenceAge: 9 },
 ] as const)(
   "uses $referenceAge as the reference age for $grade",
   ({ grade, referenceAge }) => {
@@ -55,7 +61,7 @@ it.each([
     expect(
       rankRuleCandidates(
         candidates,
-        { age: 8, grade },
+        { age: referenceAge + 1, grade },
         {
           ...neutral,
           byTag: new Map([["cats", 2]]),
@@ -92,6 +98,7 @@ it.each([
     scale: "lexile",
     level: 740,
     matching: [839, 840],
+    below: 640,
     outside: 841,
     other: { arAtos: 5 },
   },
@@ -99,18 +106,20 @@ it.each([
     scale: "arAtos",
     level: 3.4,
     matching: [4.3, 4.4],
+    below: 2.4,
     outside: 4.5,
     other: { lexile: 740 },
   },
 ] as const)(
   "uses the inclusive $scale tolerance and leaves other scales neutral",
-  ({ scale, level, matching, outside, other }) => {
+  ({ scale, level, matching, below, outside, other }) => {
     const candidates = [
       book("a-outside", { comparableLevels: { [scale]: outside } }),
       book("b-other-scale", { comparableLevels: other }),
       book("c-no-level"),
       book("d-within", { comparableLevels: { [scale]: matching[0] } }),
       book("e-at-limit", { comparableLevels: { [scale]: matching[1] } }),
+      book("f-below", { comparableLevels: { [scale]: below } }),
     ];
     expect(
       rankRuleCandidates(
@@ -121,6 +130,7 @@ it.each([
     ).toEqual([
       "d-within",
       "e-at-limit",
+      "f-below",
       "a-outside",
       "b-other-scale",
       "c-no-level",

@@ -86,6 +86,8 @@ it("refuses missing or invented choices and rejects a child ID sent by the calle
 
 it("logs a missing profile for Start and Submit and keeps the readiness read silent", async () => {
   const childId = await signInFixture(false);
+  const children = getDb().collection<{ _id: string }>("children");
+  const childBefore = await children.findOne({ _id: childId });
   const form = answers();
   const log = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   const refusal = {
@@ -107,6 +109,9 @@ it("logs a missing profile for Start and Submit and keeps the readiness read sil
     expect(String(json)).not.toContain(childId);
     expect(String(json)).not.toContain(form.requestId);
   }
+  await expect(children.findOne({ _id: childId })).resolves.toEqual(
+    childBefore,
+  );
   await expect(pending().countDocuments()).resolves.toBe(0);
 });
 

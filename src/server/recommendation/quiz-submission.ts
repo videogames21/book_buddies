@@ -45,7 +45,11 @@ const messages: Record<QuizCode, string> = {
     "We couldn’t check if that saved. Try sending your choices again.",
 };
 
-class CatalogChanged extends Error {}
+class QuizRefusal extends Error {
+  constructor(readonly code: QuizCode) {
+    super(code);
+  }
+}
 
 function refuse<Code extends QuizCode>(code: Code, errorId?: string) {
   return fail(code, messages[code], errorId);
@@ -105,25 +109,25 @@ export async function submitRulesQuiz(
 
   const attempt: { stage: "load" | "save" } = { stage: "load" };
   try {
-    const result = await withTransaction(async (tx) => {
+    return await withTransaction(async (tx) => {
       attempt.stage = "load";
       if (!(await lockChildForWrite(tx, childId)))
-        return refuse("CHILD_NOT_FOUND");
+        throw new QuizRefusal("CHILD_NOT_FOUND");
       const familyId = await getFamilyIdForChild(childId, tx);
-      if (!familyId) return refuse("CHILD_NOT_FOUND");
+      if (!familyId) throw new QuizRefusal("CHILD_NOT_FOUND");
       if (!(await lockConsentForWrite(tx, familyId)))
-        return refuse("CONSENT_NOT_CONFIRMED");
+        throw new QuizRefusal("CONSENT_NOT_CONFIRMED");
       if (await hasQuizBatch(childId, tx, lookup)) return ok(null);
 
       const ranking = await rankQuizBooks(childId, submission, tx);
       if (ranking.outcome === "profileIncomplete")
-        return refuse("PROFILE_INCOMPLETE");
-      if (ranking.outcome !== "ranked") return refuse("NO_MATCHES");
+        throw new QuizRefusal("PROFILE_INCOMPLETE");
+      if (ranking.outcome !== "ranked") throw new QuizRefusal("NO_MATCHES");
 
       const { BATCH_REVIEW_WINDOW_HOURS } = getConfig();
       attempt.stage = "save";
       if (!(await catalogGuard(tx, ranking.bookIds)))
-        throw new CatalogChanged();
+        throw new QuizRefusal("SAVE_FAILED");
 
       await releaseExpiredBatchInTx(tx, childId);
       await insertQuizBatch(
@@ -135,11 +139,11 @@ export async function submitRulesQuiz(
       );
       return ok(null);
     });
-    if (!result.ok && result.error.code === "PROFILE_INCOMPLETE")
-      logProfileIncomplete();
-    return result;
   } catch (err) {
-    if (err instanceof CatalogChanged) return refuse("SAVE_FAILED");
+    if (err instanceof QuizRefusal) {
+      if (err.code === "PROFILE_INCOMPLETE") logProfileIncomplete();
+      return refuse(err.code);
+    }
     if (err instanceof MongoServerError && err.code === 11000) {
       const keys = Object.keys(
         (err.keyPattern ?? {}) as Record<string, unknown>,

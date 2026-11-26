@@ -143,12 +143,17 @@ it("releases a batch at its stored deadline and frees the slot in the same save"
   await expect(batches().countDocuments({ childId })).resolves.toBe(2);
 });
 
-it("refuses missing consent, does not broaden an empty match, and writes nothing after a failed Catalog guard", async () => {
+it("leaves child and consent records unchanged when a submission is refused", async () => {
   const { childId, familyId } = await seedChild();
   await insertBook("active");
   const input = answer();
   const allowFixtureWrite = vi.fn(() => Promise.resolve(true));
   const guarded = { ok: false, error: { code: "SAVE_FAILED" } };
+  const children = getDb().collection<{ _id: string }>("children");
+  const consentRecords = getDb().collection("consentRecords");
+  const family = { familyId: new ObjectId(familyId) };
+  const childBefore = await children.findOne({ _id: childId });
+  const consentBefore = await consentRecords.findOne(family);
 
   await expect(
     submitRulesQuiz(childId, { ...input, mood: "exciting" }, allowFixtureWrite),
@@ -158,12 +163,13 @@ it("refuses missing consent, does not broaden an empty match, and writes nothing
     submitRulesQuiz(childId, input, () => Promise.resolve(false)),
   ).resolves.toMatchObject(guarded);
 
-  await getDb()
-    .collection("consentRecords")
-    .updateOne(
-      { familyId: new ObjectId(familyId) },
-      { $set: { revokedAt: clock } },
-    );
+  await expect(children.findOne({ _id: childId })).resolves.toEqual(
+    childBefore,
+  );
+  await expect(consentRecords.findOne(family)).resolves.toEqual(consentBefore);
+
+  await consentRecords.updateOne(family, { $set: { revokedAt: clock } });
+  const revokedConsent = await consentRecords.findOne(family);
   await expect(
     submitRulesQuiz(childId, input, allowFixtureWrite),
   ).resolves.toMatchObject({
@@ -171,6 +177,10 @@ it("refuses missing consent, does not broaden an empty match, and writes nothing
     error: { code: "CONSENT_NOT_CONFIRMED" },
   });
   expect(allowFixtureWrite).not.toHaveBeenCalled();
+  await expect(children.findOne({ _id: childId })).resolves.toEqual(
+    childBefore,
+  );
+  await expect(consentRecords.findOne(family)).resolves.toEqual(revokedConsent);
   await expect(batches().countDocuments()).resolves.toBe(0);
 });
 

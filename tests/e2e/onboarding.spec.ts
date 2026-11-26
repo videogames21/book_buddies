@@ -35,7 +35,7 @@ async function recordOf(email: string) {
     .findOne({ familyId: user.familyId as ObjectId });
 }
 
-test("proving slice: confirm parent consent, add a child and save the reading profile", async ({
+test("main (steps 1-8) and proving slice: confirm parent consent, add a child and save the reading profile", async ({
   page,
 }) => {
   const email = newEmail();

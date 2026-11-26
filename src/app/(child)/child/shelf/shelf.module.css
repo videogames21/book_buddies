@@ -1,0 +1,31 @@
+.category,
+.notice {
+  width: 100%;
+  text-align: left;
+}
+.category ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.category li + li {
+  margin-top: 0.6rem;
+}
+.details,
+.notice {
+  background: #efeee5;
+  color: #253730;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+.awaiting {
+  width: 100%;
+  min-height: 3.5rem;
+  border: 2px solid #6d756c;
+  border-radius: 1rem;
+  color: #38453f;
+  background: #edf0e9;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}

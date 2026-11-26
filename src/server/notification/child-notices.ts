@@ -1,5 +1,5 @@
 import "server-only";
-import type { Db, ObjectId } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
@@ -11,25 +11,31 @@ import { getDb, type Tx } from "@/server/lib/db";
 
 export const CHILD_NOTICES = "childNotices";
 
-/** The kinds written so far; `finish-declined` joins with UC-SHLF-par-finish-book. */
-export const CHILD_NOTICE_KINDS = ["book-removed"] as const;
+export const CHILD_NOTICE_KINDS = ["book-removed", "finish-declined"] as const;
 
 export async function ensureChildNoticeIndexes(db: Db): Promise<void> {
   await ensureCollection(db, CHILD_NOTICES, {
     bsonType: "object",
-    required: ["_id", "childId", "kind", "bookId", "createdAt"],
+    required: ["_id", "childId", "kind", "createdAt"],
     additionalProperties: false,
     properties: {
       _id: { bsonType: "objectId" },
       childId: { bsonType: "string", minLength: 1 },
       kind: { enum: [...CHILD_NOTICE_KINDS] },
-      // The catalog's book IDs are UUID strings. bookId is required only because
-      // book-removed is the only kind so far; finish-declined (no book) will need a
-      // per-kind rule.
       bookId: { bsonType: "string", minLength: 1 },
       createdAt: { bsonType: "date" },
       seenAt: { bsonType: "date" },
     },
+    oneOf: [
+      {
+        properties: { kind: { enum: ["book-removed"] } },
+        required: ["bookId"],
+      },
+      {
+        properties: { kind: { enum: ["finish-declined"] } },
+        not: { required: ["bookId"] },
+      },
+    ],
   });
   await db
     .collection(CHILD_NOTICES)
@@ -40,7 +46,7 @@ type ChildNoticeDocument = {
   _id: ObjectId;
   childId: string;
   kind: (typeof CHILD_NOTICE_KINDS)[number];
-  bookId: string;
+  bookId?: string;
   createdAt: Date;
   seenAt?: Date;
 };
@@ -60,5 +66,35 @@ export async function createRemovalNoticeInTx(
     .insertOne(
       { childId, kind: "book-removed", bookId, createdAt: now() },
       { session: tx },
+    );
+}
+
+export async function peekUnseenChildNotices(childId: string) {
+  const notices = await getDb()
+    .collection<ChildNoticeDocument>(CHILD_NOTICES)
+    .find(
+      { childId, seenAt: { $exists: false } },
+      {
+        projection: { kind: 1, bookId: 1 },
+      },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
+  return notices.map(({ _id, kind, bookId }) => ({
+    id: _id.toHexString(),
+    kind,
+    bookId,
+  }));
+}
+
+export async function markNoticeSeen(
+  childId: string,
+  noticeId: string,
+): Promise<void> {
+  await getDb()
+    .collection<ChildNoticeDocument>(CHILD_NOTICES)
+    .updateOne(
+      { _id: new ObjectId(noticeId), childId, seenAt: { $exists: false } },
+      { $set: { seenAt: now() } },
     );
 }

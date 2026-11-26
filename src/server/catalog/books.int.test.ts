@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
+import { MongoServerError } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDb } from "@/server/lib/db";
+import { getDb, getMongoClient, withTransaction } from "@/server/lib/db";
 import { resetClock, setClock } from "@/server/lib/clock";
 import {
   buildNewBookSchema,
@@ -15,6 +16,7 @@ import {
   listBooksForAdmin,
   listCustomTags,
   listPickerBooks,
+  lockActiveBookForWrite,
 } from "./books";
 
 const NOW = new Date("2026-03-01T10:00:00Z");
@@ -322,6 +324,73 @@ describe("Catalog reads", () => {
     // The admin list is the one read that returns them.
     expect(JSON.stringify(await listBooksForAdmin(ADMIN))).toMatch(
       /secret.*650L|650L.*secret/,
+    );
+  });
+});
+
+describe("lockActiveBookForWrite (OI-58)", () => {
+  it("matches an active book once per call and changes nothing else", async () => {
+    const id = await insertBook("active");
+    const before = await books().findOne({ _id: id as never });
+
+    const first = await withTransaction((tx) => lockActiveBookForWrite(tx, id));
+    const second = await withTransaction((tx) =>
+      lockActiveBookForWrite(tx, id),
+    );
+
+    expect([first, second]).toEqual([true, true]);
+    expect(await books().findOne({ _id: id as never })).toEqual({
+      ...before,
+      writeVersion: 2,
+    });
+  });
+
+  it("matches no draft, blocked or unknown book, and writes nothing to them", async () => {
+    const draft = await insertBook("draft", "Draft");
+    const blocked = await insertBook("blocked", "Blocked");
+    for (const id of [draft, blocked, "no-such-book"]) {
+      expect(
+        await withTransaction((tx) => lockActiveBookForWrite(tx, id)),
+      ).toBe(false);
+    }
+    expect(
+      await books().countDocuments({ writeVersion: { $exists: true } }),
+    ).toBe(0);
+  });
+
+  it("conflicts with a block written in another open transaction", async () => {
+    const id = await insertBook("active");
+    const blocker = getMongoClient().startSession();
+    try {
+      blocker.startTransaction();
+      await books().updateOne(
+        { _id: id as never },
+        { $set: { status: "blocked" } },
+        { session: blocker },
+      );
+      // The lock in its own transaction meets the uncommitted block: a write conflict.
+      const locker = getMongoClient().startSession();
+      try {
+        locker.startTransaction();
+        const error: unknown = await lockActiveBookForWrite(locker, id).then(
+          () => null,
+          (err: unknown) => err,
+        );
+        expect(
+          error instanceof MongoServerError &&
+            error.hasErrorLabel("TransientTransactionError"),
+        ).toBe(true);
+        await locker.abortTransaction().catch(() => undefined);
+      } finally {
+        await locker.endSession();
+      }
+      await blocker.commitTransaction();
+    } finally {
+      await blocker.endSession();
+    }
+    // Once the block has committed, the lock matches nothing.
+    expect(await withTransaction((tx) => lockActiveBookForWrite(tx, id))).toBe(
+      false,
     );
   });
 });

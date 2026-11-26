@@ -14,6 +14,7 @@ const {
   isInPendingBatch,
   listPendingBatchesForFamily,
   removeBookFromBatch,
+  removeFromPendingBatchInTx,
 } = await import("./batches");
 const { getDb, withTransaction } = await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
@@ -544,5 +545,63 @@ describe("deleteChildRecords (UC-PAR-delete-kid-account)", () => {
 
     expect(await batches().countDocuments({ childId: "c1" })).toBe(0);
     expect(await batches().countDocuments({ childId: "c2" })).toBe(1);
+  });
+});
+
+describe("removeFromPendingBatchInTx (UC-PAR-report-book 7d)", () => {
+  it("removes the book from the child's pending batch, leaves it pending and returns true; false when none holds it; never a released, expired or other child's batch", async () => {
+    const { childId, familyId } = await family();
+    const sibling = await insertChild(familyId);
+    const book = await insertBook("active");
+    const kept = await insertBook("active");
+    const pending = await insertBatch({ childId, bookIds: [book, kept] });
+    const released = await insertBatch({
+      childId,
+      bookIds: [book],
+      status: "released",
+      releasedAt: NOW,
+    });
+    const siblings = await insertBatch({ childId: sibling, bookIds: [book] });
+
+    expect(
+      await withTransaction((tx) =>
+        removeFromPendingBatchInTx(tx, childId, book),
+      ),
+    ).toBe(true);
+    expect(await stored(pending)).toMatchObject({
+      status: "pending",
+      bookIds: [kept],
+      removedBookIds: [book],
+    });
+    expect((await stored(released))?.bookIds).toEqual([book]);
+    expect((await stored(siblings))?.bookIds).toEqual([book]);
+
+    expect(
+      await withTransaction((tx) =>
+        removeFromPendingBatchInTx(tx, childId, book),
+      ),
+    ).toBe(false);
+
+    setClock(() => FIXTURE_DEADLINE);
+    expect(
+      await withTransaction((tx) =>
+        removeFromPendingBatchInTx(tx, childId, kept),
+      ),
+    ).toBe(false);
+    expect((await stored(pending))?.bookIds).toEqual([kept]);
+  });
+
+  it("is undone when the caller's transaction aborts", async () => {
+    const { childId } = await family();
+    const book = await insertBook("active");
+    const pending = await insertBatch({ childId, bookIds: [book] });
+
+    await expect(
+      withTransaction(async (tx) => {
+        await removeFromPendingBatchInTx(tx, childId, book);
+        throw new Error("abort");
+      }),
+    ).rejects.toThrow("abort");
+    expect((await stored(pending))?.bookIds).toEqual([book]);
   });
 });

@@ -287,6 +287,26 @@ export async function confirmBatch(
 }
 
 /**
+ * UC-PAR-report-book 7d, on the report's transaction (the contract design/par.md names):
+ * takes the book out of every batch of the child that is pending at `now()` and holds
+ * it, as a parent's removal would, and leaves each batch pending. Returns whether any
+ * batch changed; `reportBook` counts that toward PRE-3. A released batch is untouched:
+ * its books are filtered by exclusion on the child's read.
+ */
+export async function removeFromPendingBatchInTx(
+  tx: Tx,
+  childId: string,
+  bookId: string,
+): Promise<boolean> {
+  const result = await batches().updateMany(
+    { childId, ...pendingFilter(now()), bookIds: bookId },
+    { $pull: { bookIds: bookId }, $addToSet: { removedBookIds: bookId } },
+    { session: tx },
+  );
+  return result.modifiedCount > 0;
+}
+
+/**
  * PRE-3 of the batch entry page of UC-PAR-report-book: the book is in this batch of the
  * child and the batch is still pending. Callers check the child's family first.
  */

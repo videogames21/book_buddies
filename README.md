@@ -172,6 +172,28 @@ ports were released. It also verifies the demo ignores a deliberately unusable
 external database setting. Run checks and the demo at different times or in
 separate checkouts because they share the build directory.
 
+## Observability
+
+The rules are in architecture §8.2.7.
+
+- **Logs:** one JSON object per line on standard output and error. On Vercel they are
+  the deployment's runtime logs; locally they appear in the terminal.
+- **Health check:** `GET /api/health` answers 200 with the database response time and
+  the deployed commit, or 503 when the configuration is invalid or the database does
+  not answer within 3 seconds.
+- **Metrics:** request counts, error rates and durations are in the Vercel and MongoDB
+  Atlas dashboards. Nothing notifies the team yet (`TD-no-alerting`).
+
+To make a request fail on purpose and find it, use a preview deployment, never
+production:
+
+1. Set the preview's `MONGODB_URI` to a server that does not exist, such as
+   `mongodb://127.0.0.1:1`, and redeploy it.
+2. Open `/api/health`. It answers 503 with an `errorId`.
+3. Search the preview's runtime logs in Vercel for that `errorId`. The line names where
+   it failed (`health`) and the kind of error.
+4. Restore the variable and redeploy.
+
 ## Review and release dependencies
 
 The [review notes](docs/implementation/child-account.md) list settings and test coverage. Before release, the team must approve the field values, avatar set and moderation word list, supply the privacy notice, and finish the consent notice's legal review (`OI-20`, `OI-21`). The reading-interest form (`/parent/children/[childId]/reading-profile`) is built; its book picker lists only active catalog books, so it is empty until the catalog import exists (`UC-ADM-add-content`). Its privacy notice paragraph is a placeholder that links to the same notice as the Add a child form.

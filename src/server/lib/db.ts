@@ -21,6 +21,26 @@ export function getDb(): Db {
   return getMongoClient().db(getConfig().MONGODB_DB);
 }
 
+/**
+ * Asks the database to answer, for the health check. Gives up after `timeoutMs`,
+ * because the driver alone waits 30 seconds for a server it cannot reach.
+ */
+export async function pingDatabase(timeoutMs: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error("the database did not answer in time");
+      err.name = "HealthTimeoutError";
+      reject(err);
+    }, timeoutMs);
+  });
+  try {
+    await Promise.race([getDb().command({ ping: 1 }), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** The transaction handle a component passes to another component's insert functions. */
 export type Tx = ClientSession;
 

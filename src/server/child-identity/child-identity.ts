@@ -5,7 +5,8 @@ import { now } from "@/server/lib/clock";
 import { getDb, type Tx } from "@/server/lib/db";
 
 // The Child Identity Store: the only place a child's age, grade and reading
-// level are kept (KD-pii-segregation). It has a write path and a delete, and no read.
+// level are kept (KD-pii-segregation). It has a write path, a delete, and one read,
+// of the age only.
 
 const COLLECTION = "childIdentities";
 
@@ -44,6 +45,21 @@ export async function deleteChildRecords(
   childId: string,
 ): Promise<void> {
   await getDb().collection(COLLECTION).deleteMany({ childId }, { session: tx });
+}
+
+/**
+ * The child's recorded age, for Recommendation's child-facing read of released batches
+ * (UC-REC-parent-review; design/rec.md), or null when no record exists. Age only: no
+ * grade or reading level. Callers check the child session or family first.
+ */
+export async function getChildAgeForRecommendation(
+  childId: string,
+  tx?: Tx,
+): Promise<number | null> {
+  const identity = await getDb()
+    .collection<{ childId: string; age: number }>(COLLECTION)
+    .findOne({ childId }, { projection: { _id: 0, age: 1 }, session: tx });
+  return typeof identity?.age === "number" ? identity.age : null;
 }
 
 export async function ensureChildIdentityIndexes(db: Db): Promise<void> {

@@ -106,6 +106,32 @@ it("fails closed in production when email and the app URL are not configured", a
   expect(() => config.getMailFrom()).toThrow("MAIL_FROM must be configured");
 });
 
+it("defaults the batch review window to 24 hours and accepts 1 to 168 (OI-69)", async () => {
+  vi.stubEnv("AUTH_SECRET", "invented-config-test-secret");
+  vi.stubEnv("MONGODB_URI", "mongodb://127.0.0.1:27017");
+  const defaulted = await import("./config");
+  expect(defaulted.getConfig().BATCH_REVIEW_WINDOW_HOURS).toBe(24);
+
+  for (const [value, expected] of [
+    ["1", 1],
+    ["168", 168],
+  ] as const) {
+    vi.resetModules();
+    vi.stubEnv("BATCH_REVIEW_WINDOW_HOURS", value);
+    const accepted = await import("./config");
+    expect(accepted.getConfig().BATCH_REVIEW_WINDOW_HOURS).toBe(expected);
+  }
+
+  for (const value of ["0", "169", "1.5"]) {
+    vi.resetModules();
+    vi.stubEnv("BATCH_REVIEW_WINDOW_HOURS", value);
+    const refused = await import("./config");
+    expect(() => refused.getConfig()).toThrow(
+      "Invalid environment: BATCH_REVIEW_WINDOW_HOURS",
+    );
+  }
+});
+
 it.each([
   ["CHILD_KEEPALIVE_SECONDS", 5, 300],
   ["CHILD_LEAVE_GRACE_SECONDS", 60, 3600],

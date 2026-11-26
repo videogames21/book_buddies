@@ -1,5 +1,6 @@
 import { Collection, MongoServerError, ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { insertBatch } from "../../../tests/fixtures/batches";
 import { insertBook } from "../../../tests/fixtures/catalog";
 import { insertChild } from "../../../tests/fixtures/children";
 import { insertConsentRecord } from "../../../tests/fixtures/family";
@@ -561,5 +562,117 @@ describe("reportBook (UC-PAR-report-book)", () => {
     });
     await expectNothingWritten(theirs.childId, bookId);
     expect(await count("shelfEntries", { childId: theirs.childId })).toBe(1);
+  });
+});
+
+describe("reportBook, 7d (UC-PAR-report-book with UC-REC-parent-review)", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+    // Before the fixture batch's handoffDeadline (2026-11-25T12:00Z).
+    setClock(() => new Date("2026-11-24T18:00:00Z"));
+    afterBookCheck.run = null;
+  });
+  afterEach(resetClock);
+
+  const batch = (batchId: string) =>
+    col("recommendationBatches").findOne({ _id: new ObjectId(batchId) });
+
+  it("from a pending batch only: saved, the book leaves the batch, the batch stays pending, and no notice or shelf audit is written", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    const kept = await insertBook("active");
+    const batchId = await insertBatch({ childId, bookIds: [bookId, kept] });
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toEqual({ ok: true, data: { removedFromShelf: false } });
+    expect(await batch(batchId)).toMatchObject({
+      status: "pending",
+      bookIds: [kept],
+      removedBookIds: [bookId],
+    });
+    expect(await isExcluded(childId, bookId)).toBe(true);
+    expect(await count("bookReports")).toBe(1);
+    expect(await count("childNotices")).toBe(0);
+    expect(
+      await col("auditLog")
+        .find({}, { projection: { _id: 0, event: 1 } })
+        .toArray(),
+    ).toEqual([{ event: "book.reported" }]);
+  });
+
+  it("on the shelf and in a pending batch: removed from both, with the shelf's notice", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await bookOnShelf(childId);
+    const batchId = await insertBatch({ childId, bookIds: [bookId] });
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toEqual({ ok: true, data: { removedFromShelf: true } });
+    expect(await batch(batchId)).toMatchObject({
+      status: "pending",
+      bookIds: [],
+      removedBookIds: [bookId],
+    });
+    expect(await count("shelfEntries", { childId, bookId })).toBe(0);
+    expect(await count("childNotices")).toBe(1);
+  });
+
+  it("a released batch, a batch past handoffDeadline and another child's batch do not satisfy PRE-3, and are untouched", async () => {
+    const { main, childId, familyId } = await consentedFamily();
+    const sibling = await insertChild(familyId);
+    const bookId = await insertBook("active");
+    const released = await insertBatch({
+      childId,
+      bookIds: [bookId],
+      status: "released",
+    });
+    const sibling_ = await insertBatch({ childId: sibling, bookIds: [bookId] });
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "NOT_ON_SHELF_OR_BATCH" },
+    });
+    await expectNothingWritten(childId, bookId);
+    expect((await batch(released))?.bookIds).toEqual([bookId]);
+    expect((await batch(sibling_))?.bookIds).toEqual([bookId]);
+
+    // Stored pending, but past its deadline: released on read, so not in review.
+    await col("recommendationBatches").deleteMany({});
+    const expired = await insertBatch({
+      childId,
+      bookIds: [bookId],
+      handoffDeadline: new Date("2026-11-24T18:00:00Z"),
+    });
+    expect(
+      await reportBook(main, { childId, bookId, reason: "other" }),
+    ).toMatchObject({ ok: false, error: { code: "NOT_ON_SHELF_OR_BATCH" } });
+    expect((await batch(expired))?.bookIds).toEqual([bookId]);
+  });
+
+  it("a failure after the batch step rolls the batch removal back with the rest", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    const batchId = await insertBatch({ childId, bookIds: [bookId] });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "auditLog") {
+        return Promise.reject(new Error("audit store down"));
+      }
+      return original.apply(this, args);
+    });
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "SAVE_FAILED" } });
+    expect(await batch(batchId)).toMatchObject({ bookIds: [bookId] });
+    expect(await batch(batchId)).not.toHaveProperty("removedBookIds");
   });
 });

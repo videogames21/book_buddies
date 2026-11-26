@@ -16,7 +16,7 @@ The merged design, architecture, requirements, grade table, ESLint rules and fiv
 - Notes are trimmed, limited to 250 Unicode code points, and screened locally. Offsets use UTF-16 positions in the stored text, matching JavaScript strings. Flags may record multiple categories from one note; note text is stored only once. No admin alert is created, following the merged PAR design.
 - The shared word list is still empty. Screening therefore records `check_not_run`, never `none`. Unit tests inject artificial terms; integration tests inject screening outcomes to verify clean, flagged and failed detector paths. The team must supply the real word list before release.
 - Parent summaries and completion/REC integration pages are family-scoped. Other/unknown child IDs have the same not-found result. No child/admin detail-reading endpoint is introduced.
-- The REC hand-off route is `/parent/children/[childId]/reading-profile`. It is an explicit integration placeholder, not a completed implementation of `UC-REC-kid-onboarding`. The family-scoped `/onboarding-complete` page implements PAR step 10 and deliberately does not verify REC state, as the approved design specifies.
+- The REC hand-off route is `/parent/children/[childId]/reading-profile`. The merged `UC-REC-kid-onboarding` now saves the reading profile on this route. The family-scoped `/onboarding-complete` page implements PAR step 10 and deliberately does not verify REC state, as the approved design specifies.
 
 ## Settings needing approval
 
@@ -57,7 +57,7 @@ The review's 128 MB figure describes temporary scrypt working memory per active 
 | No sensitive fields in application logs                                                                                        | `log.test.ts`; action logging integration test                                                                                          |
 | Production build; infrastructure setup idempotence                                                                             | Next build; separate infrastructure suite in `tests/infrastructure/schema-setup.int.test.ts`                                            |
 
-Tests use invented data and seeded database sessions. Parent sign-in and REC onboarding (PAR POST-6) remain unfinished. This PR requires two approvals from non-owners; the agent must not merge it.
+Tests use invented data. The [proving-slice browser test](../../tests/e2e/onboarding.spec.ts) confirms a real signup through Mailpit and verifies child creation, the REC handoff, and the saved reading profile in one session. Parent note screening remains gated by the word list (`OI-34`). This PR requires two approvals from non-owners; the agent must not merge it.
 
 ## Review follow-up
 

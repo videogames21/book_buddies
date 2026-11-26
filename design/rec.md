@@ -300,7 +300,7 @@ sequenceDiagram
     Child->>UI: Pick one answer per question (3)
     UI->>REC: Submit selections and request ID (3)
     REC->>Data: Check consent and read eligible books and child signals (4)
-    REC->>REC: Rank matches and select up to the OI-2 maximum (5)
+    REC->>REC: Step 5. Rank matches and select up to the OI-2 maximum
     REC->>REC: Commit one pending rules batch (6)
     REC-->>UI: Recommendations sent for parent review (6)
 ```

@@ -30,7 +30,7 @@ const demo = spawn(
       MONGODB_URI: "mongodb://example.invalid:1",
       MONGODB_DB: "must_not_be_used",
     },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
   },
 );
 demo.stdout.on("data", (chunk) => {
@@ -72,8 +72,13 @@ try {
   throw error;
 } finally {
   if (demo.exitCode === null && demo.signalCode === null) {
-    demo.kill("SIGINT");
     const forceStop = setTimeout(() => demo.kill("SIGKILL"), 10_000);
+    // A programmatic signal would terminate the Windows runner before cleanup.
+    if (demo.connected) {
+      demo.send("shutdown", (error) => {
+        if (error) demo.kill("SIGKILL");
+      });
+    }
     const [exitCode] = await exited;
     clearTimeout(forceStop);
     assert.equal(exitCode, 0, "The demo runner must shut down cleanly.");

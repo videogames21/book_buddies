@@ -19,7 +19,11 @@ export function logUnexpectedError(where: string, err: unknown): string {
 }
 
 type SecurityEvent =
-  "sign-in-refused" | "reauth-refused" | "cleanup-refused" | "cleanup-run";
+  | "sign-in-refused"
+  | "reauth-refused"
+  | "cleanup-refused"
+  | "cleanup-run"
+  | "recommendation-request-failed";
 
 /** A security event (§8.2.7): a fixed event name and result code, and nothing else. */
 export function logSecurityEvent(event: SecurityEvent, code: string): string {

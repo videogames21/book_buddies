@@ -3,8 +3,7 @@ import { ObjectId } from "mongodb";
 import { getDb, type Tx } from "@/server/lib/db";
 
 // Invented recommendation batches in the shape design/rec.md fixes ("Rules quiz data").
-// UC-REC-recommend-quiz-rules, which inserts them, is not built yet, so tests put them in
-// directly. By default a pending batch created at `createdAt` with a 24-hour window.
+// Tests for parent review can seed batches directly. By default a pending batch created at `createdAt` with a 24-hour window.
 
 export type FixtureBatch = {
   childId: string;

@@ -38,7 +38,7 @@ export async function recordChildSignIn(
     .insertOne({ childId, at: now() }, { session: tx });
 }
 
-/** UC-PAR-delete-kid-account: every sign-in record of the child, in its transaction. */
+/** Account deletion removes these records in the same transaction as the child. */
 export async function deleteChildSignInRecords(
   tx: Tx,
   childId: string,

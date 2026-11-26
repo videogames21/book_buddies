@@ -17,6 +17,7 @@ import {
 } from "../../../tests/fixtures/shelf";
 import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
+import { recordChildSignIn } from "@/server/identity-access/child-sign-ins";
 import type { ParentSession } from "@/server/identity-access/sessions";
 
 // UC-PAR-delete-kid-account, the deletion itself (design/par.md, Tests). The child's
@@ -48,8 +49,6 @@ const { saveOnboardingProfile } =
   await import("@/server/recommendation/reading-profiles");
 const { createDatabaseSession } =
   await import("@/server/identity-access/sessions");
-const { recordChildSignIn } =
-  await import("@/server/identity-access/child-sign-ins");
 const { claimSignInAttempt } =
   await import("@/server/identity-access/sign-in-throttle");
 const { getDb, getMongoClient, withTransaction } =
@@ -92,8 +91,7 @@ async function mainParent() {
  * One child with a record in every collection that can hold one today: the child
  * account, identity, credential and a flagged note with its flag (createChild), a
  * reading profile (saveOnboardingProfile), sessions with their end records
- * (createDatabaseSession), a sign-in record (recordChildSignIn), a throttle row under
- * the child's key (claimSignInAttempt),
+ * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
  * shelf records and a recommendation batch (fixtures), and a report with its exclusion
  * and notice (reportBook).
  */
@@ -128,6 +126,7 @@ async function seedChild(
     .findOne({ role: "child", childId });
   if (!user) throw new Error("seed failed: no credential");
   const userId = user._id.toHexString();
+  await withTransaction((tx) => recordChildSignIn(tx, childId));
   // Child sessions, each with its end record at the next midnight (#134).
   const endsAt = new Date(now().getTime() + 12 * 60 * 60 * 1000);
   const sessionTokens = [
@@ -142,7 +141,6 @@ async function seedChild(
   ).map((doc) => doc._id.toHexString());
   await claimSignInAttempt(`child:${username}:shared`);
   await claimSignInAttempt(`child:${username}:dev:invented-device-hash`);
-  await withTransaction((tx) => recordChildSignIn(tx, childId));
   await insertShelfEntry(childId, BOOK_ID, "readingNow");
   await insertRating(childId, BOOK_ID, "lovedIt");
   await insertFinishConfirmation(childId, BOOK_ID);
@@ -432,6 +430,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
     ["ratings", "deleteMany"],
     ["finishConfirmations", "deleteMany"],
     ["childSessionEnds", "deleteMany"],
+    ["childSignIns", "deleteMany"],
     ["childBookExclusions", "deleteMany"],
     ["bookReports", "updateMany"],
     ["childNotices", "deleteMany"],

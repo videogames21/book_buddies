@@ -77,17 +77,15 @@ export async function insertChildCredential(
 }
 
 /**
- * UC-PAR-delete-kid-account POST-1: deletes the child's sign-in records, credential (its
- * `users` document), every session of that user with each session's `childSessionEnds`
- * record (#134), and every sign-in throttle row under the child's username
- * (`child:<username>:...`, design/shlf.md), inside the caller's transaction. The
- * username is never logged.
+ * UC-PAR-delete-kid-account POST-1: deletes the child's credential (its `users`
+ * document), every session of that user with each session's `childSessionEnds` record
+ * (#134), the child's sign-in records, and the throttle rows under the child's
+ * username (`child:<username>:...`, design/shlf.md), in the caller's transaction.
  */
 export async function deleteChildSignIn(
   tx: Tx,
   childId: string,
 ): Promise<void> {
-  // Keyed by the child ID, so they go whether or not a credential is still there.
   await deleteChildSignInRecords(tx, childId);
   const user = await getDb()
     .collection<{ _id: ObjectId; username?: string }>("users")

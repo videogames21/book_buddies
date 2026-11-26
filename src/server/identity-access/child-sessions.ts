@@ -107,21 +107,58 @@ export async function continueChildSession(
 async function endUnlessRunning(
   sessionId: ObjectId,
   running: Filter<ChildSessionEndDocument>,
-): Promise<void> {
-  await withTransaction(async (tx) => {
+): Promise<boolean> {
+  return withTransaction(async (tx) => {
     // Checked again in the transaction: a request that refreshed the record since the
     // check above keeps its session, and one doing so now conflicts with the delete.
     const refreshed = await records().findOne(
       { sessionId, ...running },
       { projection: { _id: 1 }, session: tx },
     );
-    if (refreshed) return;
+    if (refreshed) return false;
     await records().deleteOne({ sessionId }, { session: tx });
     // The Auth.js session collection, which Identity & Access also writes (sessions.ts).
     await getDb()
       .collection("sessions")
       .deleteOne({ _id: sessionId }, { session: tx });
+    return true;
   });
+}
+
+/**
+ * Scheduled Cleanup: ends every session that is over, which a slid `expires` would
+ * otherwise keep, and deletes each record whose session is already gone, so no activity
+ * time outlives its session by more than a day. Returns how many records it removed.
+ */
+export async function purgeEndedChildSessions(): Promise<number> {
+  const running = runningAt(now());
+  let purged = 0;
+  const over = records().find(
+    { $nor: [running] },
+    { projection: { sessionId: 1 } },
+  );
+  for await (const { sessionId } of over) {
+    if (await endUnlessRunning(sessionId, running)) purged++;
+  }
+
+  const orphans = await records()
+    .aggregate<{ _id: ObjectId }>([
+      {
+        $lookup: {
+          from: "sessions",
+          localField: "sessionId",
+          foreignField: "_id",
+          as: "session",
+        },
+      },
+      { $match: { session: { $size: 0 } } },
+      { $project: { _id: 1 } },
+    ])
+    .toArray();
+  const { deletedCount } = await records().deleteMany({
+    _id: { $in: orphans.map((orphan) => orphan._id) },
+  });
+  return purged + deletedCount;
 }
 
 /** For a session ended some other way, such as sign-out. */

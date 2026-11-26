@@ -1145,7 +1145,7 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Main Success Scenario:**
 
 1. The child opens their recommendation list.
-2. The system displays each recommended book with its cover and title.
+2. The system displays each recommended book with its title and author (a cover is shown once covers exist, `OI-65`).
 3. The child chooses a reaction for a book: "Yes," "Maybe later," or "Not for me."
 4. If the reaction is "Yes," the system places the book on the shelf in "Reading Now."
 5. If the reaction is "Maybe later," the system places the book on the shelf in "Maybe Later."
@@ -1156,7 +1156,7 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Extensions:**
 
 - 3a. The child leaves the list without reacting to a book. The book stays in the recommendation list for the next visit.
-- 4a. The book is already on the child's shelf. The system does not add a duplicate and tells the child it is already on their shelf.
+- 4a. The reaction is "Yes" or "Maybe later" and the book is already on the child's shelf. The system does not add a duplicate or move the book, tells the child it is already on their shelf, records the reaction, and continues at step 7.
 - 6a. The child skips the optional reason. The decline is recorded with no reason.
 - 7a. Saving the shelf change or the reaction fails. The system shows an error and keeps the book in the list; the reaction is not recorded.
 
@@ -1175,8 +1175,8 @@ Quality attributes: the batch should return quickly for the 134-book seed catalo
 **Related Use Cases:** `UC-REC-parent-review` (upstream); `UC-REC-recommend-quiz-rules` / `UC-REC-recommend-quiz-ai` (originating flows, mutually exclusive); `UC-SHLF-kid-view-shelf` (where accepted books appear)\
 **Assumptions:** The reaction options and shelf categories follow the 2026-09-25 flowchart; `FR-REC-react` in the SRS lists accept/defer/decline, which maps onto the same three choices.\
 **Open Issues:**
-- Whether a declined book, or its reason, is ever shown to the parent is not specified. The decline reason's purpose and visibility need confirming.
-- Whether a declined book can be recommended again later is not specified.
+- Whether a declined book, or its reason, is ever shown to the parent outside the parent's review and export of the child's data (`UC-PAR-review-child-data`) is `OI-71`.
+- A declined book can be recommended again in a later batch: the rules ranking proposal lowers it rather than excluding it (`OI-2`, `design/rec-field-values.md`).
 - The shelf category for an accepted book is "Reading Now" per the flowchart; `FR-SHLF-categories` in the SRS lists the four categories.
 
 ---

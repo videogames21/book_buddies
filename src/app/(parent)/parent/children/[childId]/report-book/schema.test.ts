@@ -41,8 +41,10 @@ describe("reportBookSchema (UC-PAR-report-book)", () => {
   });
 
   it("comment: the limit counts characters, not UTF-16 units, as the validator does", () => {
+    // 250 emoji are 500 UTF-16 units; the schema is the one limit (review of #136).
     const emoji = "📚".repeat(REPORT_COMMENT_MAX_LENGTH);
     expect(codeOf({ ...base, comment: emoji })).toBe("ok");
+    expect(codeOf({ ...base, comment: `${emoji}📚` })).toBe("COMMENT_TOO_LONG");
   });
 
   it("comment: trimmed once, and a blank comment is no comment", () => {

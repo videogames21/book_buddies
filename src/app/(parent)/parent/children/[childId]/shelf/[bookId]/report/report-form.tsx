@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useReducer, useRef, useState } from "react";
 import {
-  REPORT_COMMENT_MAX_LENGTH,
   REPORT_REASON_LABELS,
   REPORT_REASONS,
 } from "@/shared/accounts-family/book-report";
@@ -182,7 +181,6 @@ export function ReportForm({
         </span>
         <textarea
           rows={4}
-          maxLength={REPORT_COMMENT_MAX_LENGTH}
           value={draft.comment}
           onChange={(event) => {
             dispatch({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { REPORT_COMMENT_MAX_LENGTH } from "@/shared/accounts-family/book-report";
+import { REPORT_BOOK_INPUT_MESSAGES } from "../../../report-book/schema";
 import {
   confirmedInput,
   INITIAL_REPORT_FORM,
@@ -62,6 +63,28 @@ describe("reportFormReducer (UC-PAR-report-book)", () => {
       error: null,
     };
     expect(reduce(long, { type: "continue" }).screen).toBe("form");
+  });
+
+  it("the comment limit counts emoji as one character each, so the textarea sets no cap of its own", () => {
+    const emoji = "📚".repeat(REPORT_COMMENT_MAX_LENGTH);
+    const atLimit: ReportFormState = {
+      screen: "form",
+      draft: { reason: "other", comment: emoji },
+      error: null,
+    };
+    expect(reduce(atLimit, { type: "continue" })).toEqual({
+      ...atLimit,
+      screen: "confirm",
+    });
+    const over: ReportFormState = {
+      screen: "form",
+      draft: { reason: "other", comment: `${emoji}📚` },
+      error: null,
+    };
+    expect(reduce(over, { type: "continue" })).toEqual({
+      ...over,
+      error: { message: REPORT_BOOK_INPUT_MESSAGES.COMMENT_TOO_LONG },
+    });
   });
 
   it("editing clears an earlier error", () => {

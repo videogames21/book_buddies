@@ -1,5 +1,5 @@
 import "server-only";
-import { ObjectId } from "mongodb";
+import { ObjectId, type UpdateResult, type WithId } from "mongodb";
 import { listExcludedBookIds } from "@/server/accounts-family/book-reports";
 import {
   getChildForFamily,
@@ -44,6 +44,16 @@ type BatchDocument = {
 };
 
 const batches = () => getDb().collection<BatchDocument>(RECOMMENDATION_BATCHES);
+
+/**
+ * The batches read at majority read concern, for reading back a write whose response
+ * was lost (5a): a read after a failover cannot see a write a majority has not
+ * acknowledged, nor miss one it has (review of #135).
+ */
+const majorityBatches = () =>
+  getDb().collection<BatchDocument>(RECOMMENDATION_BATCHES, {
+    readConcern: { level: "majority" },
+  });
 
 /**
  * A batch ID is the 24-hex form of an ObjectId. Anything else is answered like an
@@ -162,7 +172,8 @@ export type BatchActionCode =
   | "CONSENT_NOT_CONFIRMED"
   | "BATCH_NOT_FOUND"
   | "BATCH_ALREADY_RELEASED"
-  | "SAVE_FAILED";
+  | "SAVE_FAILED"
+  | "SAVE_UNCONFIRMED";
 
 export type RemoveBookCode = BatchActionCode | "BOOK_NOT_IN_BATCH";
 
@@ -176,6 +187,8 @@ const MESSAGES: Record<RemoveBookCode, string> = {
   BOOK_NOT_IN_BATCH: "That book isn't in these recommendations.",
   SAVE_FAILED:
     "We couldn't save that. Nothing changed, and nothing was sent to your child. Please try again.",
+  SAVE_UNCONFIRMED:
+    "We couldn't confirm whether that was saved. Reload the page to check before trying again.",
 };
 
 const refuse = <Code extends RemoveBookCode>(code: Code) =>
@@ -210,6 +223,27 @@ async function whyNotPending(
   return batch;
 }
 
+/**
+ * 5a, when the write itself failed: its response can be lost after MongoDB applied it,
+ * so "nothing changed" may be false (review of #135). Reads the batch back at majority
+ * read concern so the answer says what is stored. Null when even that read fails; the
+ * caller then says the outcome is unknown rather than claim nothing changed.
+ */
+async function readBack(
+  _id: ObjectId,
+  childId: string,
+): Promise<{ batch: BatchDocument | null } | null> {
+  try {
+    return { batch: await majorityBatches().findOne({ _id, childId }) };
+  } catch (readErr) {
+    logUnexpectedError("readBackBatch", readErr);
+    return null;
+  }
+}
+
+const unconfirmed = (errorId: string) =>
+  fail("SAVE_UNCONFIRMED", MESSAGES.SAVE_UNCONFIRMED, errorId);
+
 export type BatchInput = { childId: string; batchId: string };
 export type RemoveBookInput = BatchInput & { bookId: string };
 
@@ -230,10 +264,16 @@ export async function removeBookFromBatch(
     const _id = toBatchId(batchId);
     if (!_id) return refuse("BATCH_NOT_FOUND");
 
-    const result = await batches().updateOne(
-      { _id, childId, ...pendingFilter(now()), bookIds: bookId },
-      { $pull: { bookIds: bookId }, $addToSet: { removedBookIds: bookId } },
-    );
+    let result: UpdateResult<BatchDocument>;
+    try {
+      result = await batches().updateOne(
+        { _id, childId, ...pendingFilter(now()), bookIds: bookId },
+        { $pull: { bookIds: bookId }, $addToSet: { removedBookIds: bookId } },
+      );
+    } catch (err) {
+      const errorId = logUnexpectedError("removeBookFromBatch", err);
+      return removalAfterLostWrite(_id, childId, bookId, errorId);
+    }
     if (result.matchedCount === 1) return ok(null);
 
     const why = await whyNotPending(_id, childId);
@@ -247,6 +287,36 @@ export async function removeBookFromBatch(
       logUnexpectedError("removeBookFromBatch", err),
     );
   }
+}
+
+/**
+ * The removal's answer when its write failed (5a). The book removed is `ok`, whoever
+ * removed it, as for a double tap. A batch no longer pending is `BATCH_ALREADY_RELEASED`.
+ * The book still in the batch is `SAVE_FAILED`: the write did not apply.
+ */
+async function removalAfterLostWrite(
+  _id: ObjectId,
+  childId: string,
+  bookId: string,
+  errorId: string,
+): Promise<ActionResult<null, RemoveBookCode>> {
+  const read = await readBack(_id, childId);
+  if (!read) return unconfirmed(errorId);
+  const { batch } = read;
+  if (!batch) return refuse("BATCH_NOT_FOUND");
+  if (
+    batch.removedBookIds?.includes(bookId) &&
+    !batch.bookIds.includes(bookId)
+  ) {
+    return ok(null);
+  }
+  if (batchState(batch, now()) !== "pending") {
+    return refuse("BATCH_ALREADY_RELEASED");
+  }
+  if (batch.bookIds.includes(bookId)) {
+    return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
+  }
+  return refuse("BOOK_NOT_IN_BATCH");
 }
 
 /**
@@ -267,11 +337,17 @@ export async function confirmBatch(
     if (!_id) return refuse("BATCH_NOT_FOUND");
 
     const at = now();
-    const released = await batches().findOneAndUpdate(
-      { _id, childId, ...pendingFilter(at) },
-      releasePipeline(at),
-      { returnDocument: "after", projection: { status: 1 } },
-    );
+    let released: WithId<BatchDocument> | null;
+    try {
+      released = await batches().findOneAndUpdate(
+        { _id, childId, ...pendingFilter(at) },
+        releasePipeline(at),
+        { returnDocument: "after", projection: { status: 1 } },
+      );
+    } catch (err) {
+      const errorId = logUnexpectedError("confirmBatch", err);
+      return confirmationAfterLostWrite(_id, childId, at, errorId);
+    }
     if (released) {
       return ok({ state: released.status === "empty" ? "empty" : "released" });
     }
@@ -285,6 +361,35 @@ export async function confirmBatch(
       logUnexpectedError("confirmBatch", err),
     );
   }
+}
+
+/**
+ * The confirmation's answer when its write failed (5a). A stored release carrying this
+ * attempt's `releasedAt` is this confirmation, applied with its response lost: `ok`. Any
+ * other release (the other parent, or the deadline, whose `releasedAt` is
+ * `handoffDeadline`, never `at`) is `BATCH_ALREADY_RELEASED`. A batch still pending is
+ * `SAVE_FAILED`: the write did not apply, and nothing was sent to the child.
+ */
+async function confirmationAfterLostWrite(
+  _id: ObjectId,
+  childId: string,
+  at: Date,
+  errorId: string,
+): Promise<ActionResult<{ state: "released" | "empty" }, BatchActionCode>> {
+  const read = await readBack(_id, childId);
+  if (!read) return unconfirmed(errorId);
+  const { batch } = read;
+  if (!batch) return refuse("BATCH_NOT_FOUND");
+  if (batch.status !== "pending") {
+    if (batch.releasedAt?.getTime() === at.getTime()) {
+      return ok({ state: batch.status === "empty" ? "empty" : "released" });
+    }
+    return refuse("BATCH_ALREADY_RELEASED");
+  }
+  if (batchState(batch, now()) !== "pending") {
+    return refuse("BATCH_ALREADY_RELEASED");
+  }
+  return fail("SAVE_FAILED", MESSAGES.SAVE_FAILED, errorId);
 }
 
 /**

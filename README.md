@@ -185,6 +185,9 @@ The [review notes](docs/implementation/child-account.md) list settings and test 
 | `noteFlags`                 | Note/child IDs, categories, character offsets, detector method/version, state, time | Safety Flagging insert only; no duplicated note text               |
 | `auditLog`                  | Actor/record/child IDs, event/role, time                                            | Append only; no child details or note text                         |
 | `readingProfiles`           | Child UUID, reading interests (fixed list), favorite catalog book IDs, save time    | Recommendation only; parent-entered; never returned to child/admin |
+| `bookReports`               | Child UUID, book ID, reporting parent's user ID, reason (fixed list), optional comment (at most 250 characters, `OI-55`), status, report time | Accounts & Family; admin sees open reports by opaque reference only (`UC-ADM-block-content`); never returned to the child; comment never logged |
+| `childBookExclusions`       | Child UUID, book ID, report ID, creation time                                       | Accounts & Family; Recommendation and search read book IDs only (`KD-book-exclusion`); no undo |
+| `childNotices`              | Child UUID, notice kind, book ID, creation and seen times                           | Notification; shown to the child; no reason and no parent (§8.2.11) |
 | `childSessionEnds`          | Session record ID, next-midnight end time, last-seen time, last-activity time       | Identity & Access only, to end a child's session; never logged     |
 
 A `childSessionEnds` record holds no name, username or child ID, and links to the child only through its session. It is deleted with the session: at sign-out, or when a session that is over is refused. The daily cleanup deletes ended sessions and any record whose session is already gone. Child sign-in is not built yet, so the application creates none.

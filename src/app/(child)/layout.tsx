@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { getPrivacyNoticeUrl } from "@/server/lib/config";
+import { getConfig, getPrivacyNoticeUrl } from "@/server/lib/config";
 import styles from "./child/child.module.css";
+import { KeepAlive } from "./keep-alive";
 
 // Every child page. The privacy notice is linked from the child's home screen and from
 // every place information is collected from a child (BR-coppa-notice, 16 CFR 312.4(d)).
@@ -12,6 +13,7 @@ export default function ChildLayout({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
+      <KeepAlive seconds={getConfig().CHILD_KEEPALIVE_SECONDS} />
       <footer className={styles.footer}>
         <a
           href={getPrivacyNoticeUrl()}

@@ -37,8 +37,13 @@ const configSchema = z.object({
   ),
   // The only accepted method for V1 (OI-21, client answers 2026-10-28, Q13).
   CONSENT_METHOD: blankAsUnset(z.enum(["email-plus"]).default("email-plus")),
-  // Child sessions (design/shlf.md, Data model). How long after the last keep-alive or
-  // request a visit still counts as open once midnight has passed.
+  // Child sessions (design/shlf.md, Data model). How often an open child page sends
+  // its keep-alive.
+  CHILD_KEEPALIVE_SECONDS: blankAsUnset(
+    z.coerce.number().int().min(5).max(300).default(30),
+  ),
+  // How long after the last keep-alive or request a visit still counts as open once
+  // midnight has passed.
   CHILD_LEAVE_GRACE_SECONDS: blankAsUnset(
     z.coerce.number().int().min(60).max(3600).default(600),
   ),

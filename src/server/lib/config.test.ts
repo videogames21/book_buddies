@@ -107,6 +107,7 @@ it("defaults the child session times and leaves the time zone to be set (OI-48)"
   vi.stubEnv("CHILD_SESSION_TIME_ZONE", "");
   const config = await import("./config");
   expect(config.getConfig()).toMatchObject({
+    CHILD_KEEPALIVE_SECONDS: 30,
     CHILD_LEAVE_GRACE_SECONDS: 600,
     CHILD_IDLE_MINUTES: 30,
   });

@@ -446,11 +446,13 @@ function loseResponseAfterWrite(method: "findOneAndUpdate" | "updateOne") {
 }
 
 /**
- * Records the read concern of every read of `recommendationBatches`, and with `fail`
- * makes each of those reads fail.
+ * Records the read concern of every read of `recommendationBatches`. With `fail`, the
+ * first of those reads (the action's read-back) fails; later ones, such as the test's
+ * own check of the stored batch, succeed.
  */
 function batchReads(options: { fail?: boolean } = {}) {
   const concerns: (string | undefined)[] = [];
+  let failed = false;
   const original = Reflect.get(Collection.prototype, "findOne") as (
     this: Collection,
     ...args: unknown[]
@@ -463,7 +465,8 @@ function batchReads(options: { fail?: boolean } = {}) {
       return original.apply(this, args);
     }
     concerns.push(this.readConcern?.level);
-    if (options.fail) {
+    if (options.fail && !failed) {
+      failed = true;
       return Promise.reject(new Error("invented: database unreachable"));
     }
     return original.apply(this, args);

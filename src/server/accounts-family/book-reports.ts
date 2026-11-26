@@ -196,6 +196,7 @@ export async function isExcluded(
 /**
  * The child's excluded book IDs: the one read Recommendation and manual search use to
  * apply `KD-book-exclusion`, as a `$nin` beside the blocked-book filter. No caller yet.
+ * Callers check the child's family first.
  */
 export async function listExcludedBookIds(childId: string): Promise<string[]> {
   const exclusions = await getDb()

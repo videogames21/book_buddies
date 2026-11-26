@@ -483,8 +483,9 @@ describe("reportBook (UC-PAR-report-book)", () => {
     expect(await count("shelfEntries", { childId, bookId })).toBe(1);
   });
 
-  it("blocked mid-report: BOOK_NOT_FOUND or NOT_ON_SHELF_OR_BATCH, and nothing is written", async () => {
+  it("blocked mid-report: BOOK_NOT_FOUND before the book check, NOT_ON_SHELF_OR_BATCH after it, and nothing is written", async () => {
     const { main, childId } = await consentedFamily();
+    // The block commits before findActiveBookIds, which reads active books only.
     const blockedBefore = await bookOnShelf(childId);
     await col("books").updateOne(
       { _id: blockedBefore as never },
@@ -497,11 +498,7 @@ describe("reportBook (UC-PAR-report-book)", () => {
     });
     expect(before).toMatchObject({
       ok: false,
-      error: {
-        code: expect.stringMatching(
-          /^(BOOK_NOT_FOUND|NOT_ON_SHELF_OR_BATCH)$/,
-        ) as unknown,
-      },
+      error: { code: "BOOK_NOT_FOUND" },
     });
 
     const blockedAfter = await bookOnShelf(childId);
@@ -521,11 +518,7 @@ describe("reportBook (UC-PAR-report-book)", () => {
     });
     expect(after).toMatchObject({
       ok: false,
-      error: {
-        code: expect.stringMatching(
-          /^(BOOK_NOT_FOUND|NOT_ON_SHELF_OR_BATCH)$/,
-        ) as unknown,
-      },
+      error: { code: "NOT_ON_SHELF_OR_BATCH" },
     });
     await expectNothingWritten(childId, blockedAfter);
   });

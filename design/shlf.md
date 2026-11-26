@@ -710,6 +710,11 @@ Built as `UC-SHLF-parent-view-shelf` and checked against this design. Deliberate
 - **A new file**, `src/server/shelf/shelf-collections.ts`, names the three collections.
 - **Browser tests instead of component tests** for the "no request on selection" and "links out" rows, because the repository has no component-testing library and adding one needs the team's approval.
 
+**Built so far for child sign-in (first pull request):** the child session rules, `requireChild()`, the child home, sign-out, the keep-alive, the cleanup of ended sessions and the series name in the Catalog read. Differences from the design are written into the sections above. Two things are temporary:
+
+- `/child/sign-in` and `/child/shelf` are placeholder pages that read nothing about a child, so no child can sign in yet.
+- Sign-in, its throttle and device cookie, and the child's shelf and notices follow, after the open pull requests that create the files they share (#124, #125, #130).
+
 **Added for `UC-SHLF-kid-view-shelf` and child sign-in:**
 
 - §8.1 Authentication: a new paragraph after the Authentication paragraph says a child signs in at their own page, with the parent's throttle and the child's numbers (`SEC-signin-throttling`, no lockout), a session that ends at the next midnight (`OI-48`), and that a suspended parent's children are suspended (`OI-47`). It is a separate paragraph so it does not collide with the sentence edits of pull request #98.

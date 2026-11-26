@@ -96,6 +96,9 @@ export async function deleteChildAccount(
     const deleted = await deleteChild(parent, childId);
     return deleted.ok ? ok(null) : deleted;
   } catch (err) {
+    // Only a failure before deleteChild reaches here: deleteChild returns every outcome
+    // of the deletion itself, including an unknown commit (DELETE_UNCONFIRMED), and
+    // never throws. So nothing has been deleted at this point.
     return fail(
       "DELETE_FAILED",
       "We couldn't delete the account. Nothing was deleted; please try again.",

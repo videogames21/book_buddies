@@ -1,5 +1,11 @@
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import { Collection, ObjectId, type Document } from "mongodb";
+import {
+  Collection,
+  MongoErrorLabel,
+  MongoServerError,
+  ObjectId,
+  type Document,
+} from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertConsentedMainParent } from "../../../tests/fixtures/family";
 import {
@@ -22,6 +28,14 @@ vi.mock("@/server/safety-flagging/screen-note", async (importOriginal) => {
     >();
   return { ...actual, screenNote: vi.fn(actual.screenNote) };
 });
+// The transaction helper, wrapped so a test can make MongoDB report an unknown commit
+// result (5b). It runs the real helper unless a test says otherwise.
+vi.mock("@/server/lib/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/lib/db")>();
+  return { ...actual, withTransaction: vi.fn(actual.withTransaction) };
+});
+const actualDb =
+  await vi.importActual<typeof import("@/server/lib/db")>("@/server/lib/db");
 const { screenNote } = await import("@/server/safety-flagging/screen-note");
 const { createChild } = await import("./child-accounts");
 const { deleteChild } = await import("./child-deletion");
@@ -32,10 +46,21 @@ const { createDatabaseSession } =
   await import("@/server/identity-access/sessions");
 const { claimSignInAttempt } =
   await import("@/server/identity-access/sign-in-throttle");
-const { getDb, getMongoClient } = await import("@/server/lib/db");
+const { getDb, getMongoClient, withTransaction } =
+  await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
 
 const DELETED_AT = new Date("2026-11-24T15:00:00Z");
+
+/** What the driver throws when it cannot tell whether a commit happened. */
+function unknownCommitResult(): MongoServerError {
+  const err = new MongoServerError({
+    message: "invented: commit result unknown",
+    code: 50,
+  });
+  err.addErrorLabel(MongoErrorLabel.UnknownTransactionCommitResult);
+  return err;
+}
 const BOOK_ID = "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7b01";
 
 type SeededChild = {
@@ -504,5 +529,81 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
         await getDb().collection("readingProfiles").countDocuments({ childId }),
       ).toBe(0);
     }
+  });
+
+  it("5b, commit result unknown but committed: the read finds the child gone and the result is ok", async () => {
+    const { session } = await mainParent();
+    const child = await seedChild(session, "Starfish", "star_reader");
+    // The real transaction commits, then the driver reports the outcome as unknown.
+    vi.mocked(withTransaction).mockImplementationOnce(async (work, options) => {
+      await actualDb.withTransaction(work, options);
+      throw unknownCommitResult();
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await deleteChild(session, child.childId)).toEqual({
+      ok: true,
+      data: null,
+    });
+    expect(
+      await getDb()
+        .collection<{ _id: string }>("children")
+        .countDocuments({ _id: child.childId }),
+    ).toBe(0);
+    expect(
+      await getDb()
+        .collection("auditLog")
+        .countDocuments({ event: "child-account-deleted" }),
+    ).toBe(1);
+  });
+
+  it("5b, commit result unknown and not committed: the read finds the child and the result is DELETE_FAILED; nothing changed", async () => {
+    const { session } = await mainParent();
+    const child = await seedChild(session, "Starfish", "star_reader");
+    const before = await dumpDatabase();
+    vi.mocked(withTransaction).mockImplementationOnce(() =>
+      Promise.reject(unknownCommitResult()),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await deleteChild(session, child.childId)).toMatchObject({
+      ok: false,
+      error: { code: "DELETE_FAILED", errorId: expect.any(String) as unknown },
+    });
+    expect(await dumpDatabase()).toEqual(before);
+  });
+
+  it("5b, commit result unknown and the confirming read fails: DELETE_UNCONFIRMED, which does not claim a rollback", async () => {
+    const { session } = await mainParent();
+    const child = await seedChild(session, "Starfish", "star_reader");
+    vi.mocked(withTransaction).mockImplementationOnce(() =>
+      Promise.reject(unknownCommitResult()),
+    );
+    const originalFindOne = Reflect.get(
+      Collection.prototype,
+      "findOne",
+    ) as Collection["findOne"];
+    vi.spyOn(Collection.prototype, "findOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["findOne"]>
+    ) {
+      if (this.collectionName === "children") {
+        return Promise.reject(new Error("invented: database unreachable"));
+      }
+      return originalFindOne.apply(this, args);
+    } as Collection["findOne"]);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await deleteChild(session, child.childId);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "DELETE_UNCONFIRMED",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (result.ok) return;
+    expect(result.error.message).not.toContain("Nothing was deleted");
   });
 });

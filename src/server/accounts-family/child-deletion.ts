@@ -1,4 +1,5 @@
 import "server-only";
+import { MongoError, MongoErrorLabel } from "mongodb";
 import { appendChildDeletedAudit } from "@/server/audit/audit-log";
 import { deleteChildRecords as deleteChildIdentity } from "@/server/child-identity/child-identity";
 import { deleteChildSignIn } from "@/server/identity-access/child-credentials";
@@ -9,7 +10,7 @@ import { logUnexpectedError } from "@/server/lib/log";
 import { deleteChildRecords as deleteReadingProfile } from "@/server/recommendation/reading-profiles";
 import { deleteChildRecords as deleteNoteFlags } from "@/server/safety-flagging/note-flags";
 import { deleteChildRecords as deleteShelfRecords } from "@/server/shelf/shelf-collections";
-import { deleteChildForFamily } from "./child-accounts";
+import { deleteChildForFamily, getChildForFamily } from "./child-accounts";
 import { markChildRemoved } from "./families";
 import { deleteChildRecords as deleteParentNotes } from "./parent-notes";
 
@@ -33,7 +34,13 @@ const DELETE_CHILD_RECORDS: readonly ((
 class ChildNotFoundError extends Error {}
 
 export type DeleteChildCode =
-  "NOT_MAIN_PARENT" | "CHILD_NOT_FOUND" | "DELETE_FAILED";
+  | "NOT_MAIN_PARENT"
+  | "CHILD_NOT_FOUND"
+  | "DELETE_FAILED"
+  | "DELETE_UNCONFIRMED";
+
+const DELETE_FAILED_MESSAGE =
+  "We couldn't delete the account. Nothing was deleted; please try again.";
 
 /**
  * Deletes one child of the session's family and everything held about them, all or
@@ -70,10 +77,37 @@ export async function deleteChild(
     if (err instanceof ChildNotFoundError) {
       return fail("CHILD_NOT_FOUND", "We couldn't find that child.");
     }
+    const errorId = logUnexpectedError("deleteChild", err);
+    if (
+      err instanceof MongoError &&
+      err.hasErrorLabel(MongoErrorLabel.UnknownTransactionCommitResult)
+    ) {
+      return confirmOutcome(parent.familyId, childId, errorId);
+    }
+    return fail("DELETE_FAILED", DELETE_FAILED_MESSAGE, errorId);
+  }
+}
+
+/**
+ * 5b, when MongoDB cannot say whether the commit happened (the driver has already
+ * retried it). The transaction is all or nothing, so the child account tells which:
+ * gone means the deletion committed, present means nothing was deleted. If even that
+ * read fails, the result says the outcome is unknown rather than claim a rollback.
+ */
+async function confirmOutcome(
+  familyId: string,
+  childId: string,
+  errorId: string,
+): Promise<ActionResult<null, DeleteChildCode>> {
+  try {
+    if (!(await getChildForFamily(familyId, childId))) return ok(null);
+    return fail("DELETE_FAILED", DELETE_FAILED_MESSAGE, errorId);
+  } catch (readErr) {
+    logUnexpectedError("deleteChild.confirmOutcome", readErr);
     return fail(
-      "DELETE_FAILED",
-      "We couldn't delete the account. Nothing was deleted; please try again.",
-      logUnexpectedError("deleteChild", err),
+      "DELETE_UNCONFIRMED",
+      "We couldn't confirm whether the account was deleted. Reload the page to check before trying again.",
+      errorId,
     );
   }
 }

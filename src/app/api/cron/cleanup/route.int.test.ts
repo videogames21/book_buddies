@@ -1,5 +1,9 @@
 import { ObjectId } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  FIXTURE_DEADLINE,
+  insertBatch,
+} from "../../../../../tests/fixtures/batches";
 import { insertConsentRecord } from "../../../../../tests/fixtures/family";
 import { insertParent } from "../../../../../tests/fixtures/users";
 import { resetDatabase } from "../../../../../tests/integration/db";
@@ -79,7 +83,10 @@ describe("GET /api/cron/cleanup", () => {
     await insertAttempts();
     const response = await call(`Bearer ${SECRET}`);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, data: { purged: 1 } });
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { purged: 1, released: 0 },
+    });
     const left = await getDb()
       .collection<{ accountKey: string }>("signInAttempts")
       .find()
@@ -112,7 +119,10 @@ describe("GET /api/cron/cleanup", () => {
       );
 
     const response = await call(`Bearer ${SECRET}`);
-    expect(await response.json()).toEqual({ ok: true, data: { purged: 1 } });
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { purged: 1, released: 0 },
+    });
 
     const users = getDb().collection("users");
     expect(
@@ -156,13 +166,84 @@ describe("GET /api/cron/cleanup", () => {
       ]);
     expect(await (await call(`Bearer ${SECRET}`)).json()).toEqual({
       ok: true,
-      data: { purged: 1 },
+      data: { purged: 1, released: 0 },
     });
     expect(
       await getDb()
         .collection("passwordResets")
         .countDocuments({ tokenHash: "f".repeat(64) }),
     ).toBe(1);
+  });
+
+  it("2a, no page opened: records each batch past handoffDeadline as released or empty at that deadline, and a second run changes nothing", async () => {
+    setClock(() => FIXTURE_DEADLINE);
+    const batches = getDb().collection<{ bookIds: string[] }>(
+      "recommendationBatches",
+    );
+    const expired = await insertBatch({ childId: "c1", bookIds: ["b1", "b2"] });
+    // The parent removed every book and never confirmed (4a, then 2a).
+    const emptied = await insertBatch({
+      childId: "c2",
+      bookIds: [],
+      removedBookIds: ["b1"],
+    });
+    const live = await insertBatch({
+      childId: "c3",
+      bookIds: ["b1"],
+      handoffDeadline: new Date(FIXTURE_DEADLINE.getTime() + 1),
+    });
+    const before = await batches.find().sort({ childId: 1 }).toArray();
+
+    const response = await call(`Bearer ${SECRET}`);
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { purged: 0, released: 2 },
+    });
+    const byId = async (id: string) =>
+      batches.findOne({ _id: new ObjectId(id) });
+    expect(await byId(expired)).toMatchObject({
+      status: "released",
+      releasedAt: FIXTURE_DEADLINE,
+      bookIds: ["b1", "b2"],
+    });
+    expect(await byId(emptied)).toMatchObject({
+      status: "empty",
+      releasedAt: FIXTURE_DEADLINE,
+    });
+    expect(await byId(live)).toMatchObject({ status: "pending" });
+    expect(await byId(live)).not.toHaveProperty("releasedAt");
+
+    const after = await batches.find().sort({ childId: 1 }).toArray();
+    expect(after.map((batch) => batch.bookIds)).toEqual(
+      before.map((batch) => batch.bookIds),
+    );
+    // The child's one pending slot is free: a new pending batch can be stored.
+    await expect(
+      insertBatch({
+        childId: "c1",
+        bookIds: ["b3"],
+        createdAt: FIXTURE_DEADLINE,
+        handoffDeadline: new Date(FIXTURE_DEADLINE.getTime() + 86_400_000),
+      }),
+    ).resolves.toEqual(expect.any(String));
+
+    const second = await call(`Bearer ${SECRET}`);
+    expect(await second.json()).toEqual({
+      ok: true,
+      data: { purged: 0, released: 0 },
+    });
+  });
+
+  it("refuses to release batches without the cron secret", async () => {
+    setClock(() => FIXTURE_DEADLINE);
+    const id = await insertBatch({ childId: "c1", bookIds: ["b1"] });
+    const response = await call("Bearer wrong");
+    expect(response.status).toBe(401);
+    expect(
+      await getDb()
+        .collection("recommendationBatches")
+        .findOne({ _id: new ObjectId(id) }),
+    ).toMatchObject({ status: "pending" });
   });
 
   it("runs the other purges when one fails, then reports the failure", async () => {

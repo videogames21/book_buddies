@@ -19,6 +19,7 @@ import {
 } from "./batch-schema";
 import {
   batchState,
+  expiredPendingFilter,
   pendingFilter,
   releasePipeline,
   type EffectiveBatchState,
@@ -304,6 +305,38 @@ export async function removeFromPendingBatchInTx(
     { session: tx },
   );
   return result.modifiedCount > 0;
+}
+
+/**
+ * 2a in stored state, for one child, on the quiz save's transaction before its insert
+ * (design/rec.md, "Retry the same request"): every batch of the child stored `pending`
+ * past its `handoffDeadline` becomes `released` or `empty`, with `releasedAt` set to that
+ * deadline, the moment reads already treated it as released. That frees the child's one
+ * pending slot. Idempotent; returns the number of batches changed. UC-REC-recommend-
+ * quiz-rules calls it when it is built.
+ */
+export async function releaseExpiredBatchInTx(
+  tx: Tx,
+  childId: string,
+): Promise<number> {
+  const result = await batches().updateMany(
+    { childId, ...expiredPendingFilter(now()) },
+    releasePipeline("handoffDeadline"),
+    { session: tx },
+  );
+  return result.modifiedCount;
+}
+
+/**
+ * The same release over every child, for the daily Scheduled Cleanup. It changes what no
+ * read returns; it makes the stored status match it (KD-time-rules-on-read).
+ */
+export async function releaseExpiredBatches(): Promise<number> {
+  const result = await batches().updateMany(
+    expiredPendingFilter(now()),
+    releasePipeline("handoffDeadline"),
+  );
+  return result.modifiedCount;
 }
 
 /**

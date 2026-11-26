@@ -14,6 +14,8 @@ const {
   isInPendingBatch,
   listPendingBatchesForFamily,
   removeBookFromBatch,
+  releaseExpiredBatchInTx,
+  releaseExpiredBatches,
   removeFromPendingBatchInTx,
 } = await import("./batches");
 const { getDb, withTransaction } = await import("@/server/lib/db");
@@ -603,5 +605,133 @@ describe("removeFromPendingBatchInTx (UC-PAR-report-book 7d)", () => {
       }),
     ).rejects.toThrow("abort");
     expect((await stored(pending))?.bookIds).toEqual([book]);
+  });
+});
+
+describe("2a, the timeout release in stored state", () => {
+  it("matches a pending batch at and after handoffDeadline and none before it, the opposite of confirmBatch's match", async () => {
+    const { main, childId, familyId } = await family();
+    const before = await insertChild(familyId);
+    const at = await insertChild(familyId);
+    const after = await insertChild(familyId);
+    const book = await insertBook("active");
+    const ms = (offset: number) => new Date(NOW.getTime() + offset);
+    const ids = {
+      before: await insertBatch({
+        childId: before,
+        bookIds: [book],
+        handoffDeadline: ms(1),
+      }),
+      at: await insertBatch({
+        childId: at,
+        bookIds: [book],
+        handoffDeadline: NOW,
+      }),
+      after: await insertBatch({
+        childId: after,
+        bookIds: [book],
+        handoffDeadline: ms(-1),
+      }),
+      confirmed: await insertBatch({ childId, bookIds: [book] }),
+    };
+    await confirmBatch(main, { childId, batchId: ids.confirmed });
+    const confirmedBefore = await stored(ids.confirmed);
+
+    expect(await releaseExpiredBatches()).toBe(2);
+    expect((await stored(ids.before))?.status).toBe("pending");
+    expect(await stored(ids.at)).toMatchObject({
+      status: "released",
+      releasedAt: NOW,
+    });
+    expect(await stored(ids.after)).toMatchObject({
+      status: "released",
+      releasedAt: ms(-1),
+    });
+    expect(await stored(ids.confirmed)).toEqual(confirmedBefore);
+    // The parent's write matches exactly the batch the release did not.
+    expect(
+      await confirmBatch(main, { childId: before, batchId: ids.before }),
+    ).toEqual({
+      ok: true,
+      data: { state: "released" },
+    });
+    expect(
+      await confirmBatch(main, { childId: at, batchId: ids.at }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "BATCH_ALREADY_RELEASED" },
+    });
+  });
+
+  it("4, saved at once: a removal made before the deadline is not in the batch the release records", async () => {
+    const { main, childId } = await family();
+    const { batchId, bookIds } = await pendingBatchOfThree(childId);
+    await removeBookFromBatch(main, { childId, batchId, bookId: bookIds[0] });
+
+    setClock(() => FIXTURE_DEADLINE);
+    await releaseExpiredBatches();
+
+    expect(await stored(batchId)).toMatchObject({
+      status: "released",
+      bookIds: [bookIds[1], bookIds[2]],
+      removedBookIds: [bookIds[0]],
+      releasedAt: FIXTURE_DEADLINE,
+    });
+  });
+
+  it("next quiz first: in one transaction, the child's expired batch is recorded and a new pending batch saved; exactly one is pending", async () => {
+    const { childId, familyId } = await family();
+    const sibling = await insertChild(familyId);
+    const book = await insertBook("active");
+    const expired = await insertBatch({ childId, bookIds: [book] });
+    const siblings = await insertBatch({ childId: sibling, bookIds: [book] });
+    setClock(() => FIXTURE_DEADLINE);
+
+    // Stands in for the quiz's save transaction (UC-REC-recommend-quiz-rules, not built).
+    await withTransaction(async (tx) => {
+      expect(await releaseExpiredBatchInTx(tx, childId)).toBe(1);
+      await batches().insertOne(
+        {
+          _id: new ObjectId(),
+          requestId: "44444444-4444-4444-8444-444444444444",
+          childId,
+          source: "rules",
+          status: "pending",
+          bookIds: [book],
+          createdAt: FIXTURE_DEADLINE,
+          handoffDeadline: new Date(FIXTURE_DEADLINE.getTime() + 86_400_000),
+        },
+        { session: tx },
+      );
+    });
+
+    expect(await stored(expired)).toMatchObject({
+      status: "released",
+      releasedAt: FIXTURE_DEADLINE,
+    });
+    expect(await batches().countDocuments({ childId, status: "pending" })).toBe(
+      1,
+    );
+    // Only that child's batch: the sibling's waits for its own save or the cleanup.
+    expect((await stored(siblings))?.status).toBe("pending");
+  });
+
+  it("next quiz first, insert fails: the expired batch is still pending in storage and still released on read", async () => {
+    const { childId, familyId } = await family();
+    const book = await insertBook("active");
+    const expired = await insertBatch({ childId, bookIds: [book] });
+    setClock(() => FIXTURE_DEADLINE);
+
+    await expect(
+      withTransaction(async (tx) => {
+        await releaseExpiredBatchInTx(tx, childId);
+        throw new Error("insert failed");
+      }),
+    ).rejects.toThrow("insert failed");
+
+    expect((await stored(expired))?.status).toBe("pending");
+    expect((await getBatchForReview(familyId, childId, expired))?.state).toBe(
+      "released",
+    );
   });
 });

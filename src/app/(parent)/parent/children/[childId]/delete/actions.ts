@@ -12,10 +12,7 @@ import {
   type SessionErrorCode,
 } from "@/server/identity-access/sessions";
 import { waitMessage } from "@/server/identity-access/sign-in";
-import {
-  claimSignInAttempt,
-  clearSignInAttempts,
-} from "@/server/identity-access/sign-in-throttle";
+import { checkPasswordAttempt } from "@/server/identity-access/sign-in-throttle";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { logSecurityEvent, logUnexpectedError } from "@/server/lib/log";
 import {
@@ -40,8 +37,10 @@ const WRONG_PASSWORD_MESSAGE = "That password is incorrect.";
  * UC-PAR-delete-kid-account steps 4–5. In order (§8.2.3, design/par.md): the session;
  * a Sub Parent refused (1a); validation; the child checked against the session's family,
  * so another family's child is not found before anything else is revealed; the password
- * re-check through the sign-in throttle, counted before the check and sharing sign-in's
- * account key (4a, SEC-signin-throttling); the nickname (4a); then Accounts & Family.
+ * re-check through `checkPasswordAttempt`, the one operation every password entry point
+ * uses, so the attempt is claimed, checked and settled atomically and shares sign-in's
+ * account key (4a, SEC-signin-throttling; review of #125); the nickname (4a); then
+ * Accounts & Family.
  * The family comes from the session and never from the request. Consent need not be
  * active (UC-PAR-revoke-consent 2a). No password, nickname or email is logged (§8.2.7).
  */
@@ -79,16 +78,17 @@ export async function deleteChildAccount(
       logSecurityEvent("reauth-refused", "WRONG_PASSWORD");
       return fail("WRONG_PASSWORD", WRONG_PASSWORD_MESSAGE);
     }
-    const claim = await claimSignInAttempt(credential.email);
-    if (!claim.allowed) {
+    const attempt = await checkPasswordAttempt(credential.email, () =>
+      verifyPassword(password, credential.passwordHash),
+    );
+    if (attempt.outcome === "wait") {
       logSecurityEvent("reauth-refused", "TOO_MANY_ATTEMPTS");
-      return fail("TOO_MANY_ATTEMPTS", waitMessage(claim.waitSeconds));
+      return fail("TOO_MANY_ATTEMPTS", waitMessage(attempt.waitSeconds));
     }
-    if (!(await verifyPassword(password, credential.passwordHash))) {
+    if (attempt.outcome === "refused") {
       logSecurityEvent("reauth-refused", "WRONG_PASSWORD");
       return fail("WRONG_PASSWORD", WRONG_PASSWORD_MESSAGE);
     }
-    await clearSignInAttempts(credential.email);
 
     if (!nicknameMatches(nickname, child.nickname)) {
       return fail(

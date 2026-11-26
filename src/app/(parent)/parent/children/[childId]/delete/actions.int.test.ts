@@ -20,11 +20,22 @@ import { resetDatabase } from "../../../../../../../tests/integration/db";
 // child-deletion.int.test.ts. Invented data only.
 
 vi.mock("@/server/identity-access/auth", () => ({ auth: vi.fn() }));
+// The real password check, wrapped so a test can hold one check open while another
+// finishes (the mixed-outcome rows). It runs the real check unless a test says otherwise.
+vi.mock("@/server/identity-access/passwords", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/server/identity-access/passwords")>();
+  return { ...actual, verifyPassword: vi.fn(actual.verifyPassword) };
+});
 const { auth } = await import("@/server/identity-access/auth");
 const { createChild } = await import("@/server/accounts-family/child-accounts");
-const { hashPassword } = await import("@/server/identity-access/passwords");
+const { hashPassword, verifyPassword } =
+  await import("@/server/identity-access/passwords");
+const realPasswords = await vi.importActual<
+  typeof import("@/server/identity-access/passwords")
+>("@/server/identity-access/passwords");
 const { signInMainParent } = await import("@/server/identity-access/sign-in");
-const { claimSignInAttempt } =
+const { checkPasswordAttempt } =
   await import("@/server/identity-access/sign-in-throttle");
 const { getDb } = await import("@/server/lib/db");
 const { resetClock, setClock } = await import("@/server/lib/clock");
@@ -211,6 +222,55 @@ describe("deleteChildAccount (UC-PAR-delete-kid-account)", () => {
     expect(await childExists(childId)).toBe(true);
   });
 
+  it("4a, mixed outcomes: a correct password that settles while a wrong one is still being checked keeps that failure (review of #125)", async () => {
+    const { childId, email } = await familyWithChild();
+    // The right password with the wrong nickname, so nothing is deleted.
+    const releaseRight = holdNextCheck();
+    const right = deleteChildAccount(request(childId, { nickname: "Not it" }));
+    await untilPending(email, 1);
+    const releaseWrong = holdNextCheck();
+    const wrong = deleteChildAccount(request(childId, { password: "wrong" }));
+    await untilPending(email, 2);
+
+    releaseRight();
+    expect(await right).toMatchObject({
+      ok: false,
+      error: { code: "NICKNAME_MISMATCH" },
+    });
+    releaseWrong();
+    expect(await wrong).toMatchObject({
+      ok: false,
+      error: { code: "WRONG_PASSWORD" },
+    });
+
+    expect(await failuresFor(email)).toBe(1);
+    expect(await childExists(childId)).toBe(true);
+  });
+
+  it("4a, mixed outcomes: a wrong password that settled before a correct one is cleared by it", async () => {
+    const { childId, email } = await familyWithChild();
+    const releaseWrong = holdNextCheck();
+    const wrong = deleteChildAccount(request(childId, { password: "wrong" }));
+    await untilPending(email, 1);
+    const releaseRight = holdNextCheck();
+    const right = deleteChildAccount(request(childId, { nickname: "Not it" }));
+    await untilPending(email, 2);
+
+    releaseWrong();
+    expect(await wrong).toMatchObject({
+      ok: false,
+      error: { code: "WRONG_PASSWORD" },
+    });
+    releaseRight();
+    expect(await right).toMatchObject({
+      ok: false,
+      error: { code: "NICKNAME_MISMATCH" },
+    });
+
+    expect(await failuresFor(email)).toBe(0);
+    expect(await childExists(childId)).toBe(true);
+  });
+
   it("authorization: another family's child is CHILD_NOT_FOUND, uncounted; no session, a child and an admin are refused", async () => {
     const { childId } = await familyWithChild();
     const stranger = await insertConsentedMainParent();
@@ -293,7 +353,34 @@ describe("deleteChildAccount (UC-PAR-delete-kid-account)", () => {
   });
 });
 
-/** Records `count` failed attempts for the account key, as wrong passwords would. */
+/** `count` wrong passwords, each checked and settled, as at the sign-in page. */
 async function claimWrong(email: string, count: number) {
-  for (let i = 0; i < count; i++) await claimSignInAttempt(email);
+  for (let i = 0; i < count; i++) {
+    await checkPasswordAttempt(email, () => Promise.resolve(false));
+  }
+}
+
+/** Makes the next password check wait until the returned function is called. */
+function holdNextCheck(): () => void {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.mocked(verifyPassword).mockImplementationOnce(async (password, hash) => {
+    await gate;
+    return realPasswords.verifyPassword(password, hash);
+  });
+  return () => {
+    release();
+  };
+}
+
+/** Waits until `count` claimed checks are still running for the account. */
+async function untilPending(email: string, count: number) {
+  await vi.waitFor(async () => {
+    const row = await getDb()
+      .collection<{ accountKey: string; pending?: number }>("signInAttempts")
+      .findOne({ accountKey: email });
+    expect(row?.pending).toBe(count);
+  });
 }

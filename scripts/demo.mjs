@@ -98,6 +98,12 @@ async function shutdown(code = 0) {
 }
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
+// The automated smoke check asks the runner to clean up through its private IPC channel.
+if (process.connected) {
+  process.on("message", (message) => {
+    if (message === "shutdown") void shutdown();
+  });
+}
 
 try {
   // Fail before downloading/starting MongoDB if the requested port is busy.

@@ -373,6 +373,29 @@ export async function resendConsentEmailFor(parent: {
       );
 }
 
+/**
+ * UC-PAR-delete-kid-account POST-4: records on the family's Consent Record that the child
+ * was removed, and when, inside the deletion's transaction. Throws if the family has no
+ * Consent Record, so the deletion is not committed without it.
+ */
+export async function markChildRemoved(
+  tx: Tx,
+  familyId: string,
+  childId: string,
+): Promise<void> {
+  const { matchedCount } = await getDb()
+    .collection<{
+      familyId: ObjectId;
+      removedChildren?: { childId: string; removedAt: Date }[];
+    }>(CONSENT_RECORDS)
+    .updateOne(
+      { familyId: new ObjectId(familyId) },
+      { $push: { removedChildren: { childId, removedAt: now() } } },
+      { session: tx },
+    );
+  if (matchedCount !== 1) throw new Error("No Consent Record for the family");
+}
+
 export type OnboardingStep =
   "awaiting" | "expired" | "needs-first-child" | "complete";
 

@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../../../tests/integration/db";
 import { resetClock, setClock } from "@/server/lib/clock";
 import { getDb } from "@/server/lib/db";
-import { checkPasswordAttempt, clearSignInAttempts } from "./sign-in-throttle";
+import {
+  CHILD_THROTTLE,
+  checkPasswordAttempt,
+  clearSignInAttempts,
+  purgeExpiredSignInAttempts,
+} from "./sign-in-throttle";
 
 // checkPasswordAttempt, the one way every password entry point checks a password
 // (SEC-signin-throttling; design/par.md, Child-data review dependencies). Each check
@@ -205,5 +210,138 @@ describe("checkPasswordAttempt (§8.2.8)", () => {
     expect(await wrongAttempt).toEqual({ outcome: "refused" });
 
     expect(await row()).toMatchObject({ failures: 1, pending: 0 });
+  });
+});
+
+// The child's numbers (design/shlf.md, Data model): 3 free attempts, a wait of 30 seconds
+// doubling to at most 2 minutes, and one attempt forgiven every 30 minutes.
+describe("checkPasswordAttempt with the child's numbers", () => {
+  const CHILD_KEY = "child:invented_reader:shared";
+  const MINUTE_MS = 60 * 1000;
+  const after = (ms: number) => new Date(AT.getTime() + ms);
+  const childRow = () =>
+    getDb()
+      .collection<Row & { accountKey: string }>("signInAttempts")
+      .findOne({ accountKey: CHILD_KEY });
+  const attempt = (matched: boolean) =>
+    checkPasswordAttempt(
+      CHILD_KEY,
+      () => Promise.resolve(matched),
+      CHILD_THROTTLE,
+    );
+  const refused = { outcome: "refused" };
+  const wait = (waitSeconds: number) => ({ outcome: "wait", waitSeconds });
+
+  /** Three wrong attempts at AT, which start the first 30 second wait. */
+  async function threeWrong() {
+    for (let i = 0; i < 3; i++) expect(await attempt(false)).toEqual(refused);
+  }
+
+  beforeEach(async () => {
+    await resetDatabase();
+    clock = AT;
+    setClock(() => clock);
+  });
+  afterEach(() => {
+    resetClock();
+  });
+
+  it("answers three wrong attempts at once, then waits 30, 60 and 120 seconds and no longer", async () => {
+    await threeWrong();
+    for (const seconds of [30, 60, 120, 120, 120]) {
+      expect(await attempt(false)).toEqual(wait(seconds));
+      clock = new Date(clock.getTime() + seconds * 1000);
+      expect(await attempt(false)).toEqual(refused);
+    }
+  });
+
+  it("refuses an attempt during a wait without checking, counting or lengthening it", async () => {
+    await threeWrong();
+    const before = await childRow();
+    clock = after(10 * 1000);
+    const verify = vi.fn(() => Promise.resolve(true));
+    expect(
+      await checkPasswordAttempt(CHILD_KEY, verify, CHILD_THROTTLE),
+    ).toEqual(wait(20));
+    expect(verify).not.toHaveBeenCalled();
+    expect(await childRow()).toEqual(before);
+  });
+
+  it.each([
+    // The wait ends 30 seconds after AT, and the 30 minutes start there.
+    ["not before 30 minutes", 30 * MINUTE_MS + 30 * 1000 - 1, 4, 60],
+    ["after 30 minutes", 30 * MINUTE_MS + 30 * 1000, 3, 30],
+    // 30 minutes after the attempt, but only 29.5 after the wait.
+    ["none of the wait", 30 * MINUTE_MS, 4, 60],
+  ])("forgives an attempt %s", async (_label, later, failures, nextWait) => {
+    await threeWrong();
+    clock = after(later);
+    expect(await attempt(false)).toEqual(refused);
+    expect(await childRow()).toMatchObject({ failures });
+    expect(await attempt(false)).toEqual(wait(nextWait));
+  });
+
+  it("is gone once every attempt is forgiven, and the cleanup keeps it until then", async () => {
+    await threeWrong();
+    const gone = 30 * 1000 + 90 * MINUTE_MS;
+    expect((await childRow())?.expiresAt).toEqual(after(gone));
+    clock = after(gone - 1);
+    expect(await purgeExpiredSignInAttempts()).toBe(0);
+    clock = after(gone);
+    expect(await purgeExpiredSignInAttempts()).toBe(1);
+    expect(await childRow()).toBeNull();
+  });
+
+  it("starts from one again on a forgiven row the cleanup has not reached", async () => {
+    await threeWrong();
+    clock = after(24 * 60 * MINUTE_MS);
+    await attempt(false);
+    expect(await childRow()).toMatchObject({ failures: 1 });
+  });
+
+  it("lets at most three of ten guesses sent at once be checked", async () => {
+    const verify = vi.fn(() => Promise.resolve(false));
+    const outcomes = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        checkPasswordAttempt(CHILD_KEY, verify, CHILD_THROTTLE),
+      ),
+    );
+    expect(verify).toHaveBeenCalledTimes(3);
+    expect(outcomes.filter((o) => o.outcome === "wait")).toHaveLength(7);
+    expect(await childRow()).toMatchObject({
+      failures: 3,
+      pending: 0,
+      allowedAt: after(30 * 1000),
+    });
+  });
+
+  it("never locks: the right password signs in after any wait and clears the count", async () => {
+    await threeWrong();
+    for (let i = 0; i < 10; i++) {
+      clock = new Date(clock.getTime() + 2 * MINUTE_MS);
+      await attempt(false);
+    }
+    clock = new Date(clock.getTime() + 2 * MINUTE_MS);
+    expect(await attempt(true)).toEqual({ outcome: "matched" });
+    expect(await childRow()).toBeNull();
+  });
+
+  it("keeps a failure still in flight after a success, and expires it with that count", async () => {
+    const wrong = heldCheck();
+    const wrongAttempt = checkPasswordAttempt(
+      CHILD_KEY,
+      wrong.verify,
+      CHILD_THROTTLE,
+    );
+    await vi.waitFor(async () => {
+      expect((await childRow())?.pending).toBe(1);
+    });
+    await attempt(true);
+    wrong.finish(false);
+    await wrongAttempt;
+    expect(await childRow()).toMatchObject({
+      failures: 1,
+      expiresAt: after(30 * MINUTE_MS),
+    });
   });
 });

@@ -6,7 +6,8 @@ import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { resetClock, setClock } from "@/server/lib/clock";
-import { getDb } from "@/server/lib/db";
+import { getDb, getMongoClient, withTransaction } from "@/server/lib/db";
+import { lockChildForWrite } from "@/server/accounts-family/child-accounts";
 import * as readingProfiles from "./reading-profiles";
 
 const { saveOnboardingProfile, isOnboardingComplete } = readingProfiles;
@@ -225,9 +226,103 @@ describe("saveOnboardingProfile (UC-REC-kid-onboarding)", () => {
     // Admin totals and the parent's export arrive with their own use cases (design/rec.md).
     expect(Object.keys(readingProfiles).sort()).toEqual([
       "READING_PROFILES",
+      "deleteChildRecords",
       "ensureReadingProfileIndexes",
       "isOnboardingComplete",
       "saveOnboardingProfile",
     ]);
+  });
+});
+
+// The child write lock (architecture §8.2.8, as amended by UC-PAR-delete-kid-account):
+// every inserting child write first makes a conditional write to the child account, so
+// it conflicts with the child's deletion instead of leaving an orphan record.
+describe("saveOnboardingProfile and the child write lock (§8.2.8)", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+    setClock(() => SAVED_AT);
+  });
+  afterEach(() => {
+    resetClock();
+    vi.restoreAllMocks();
+  });
+
+  const children = () =>
+    getDb().collection<{ _id: string; writeVersion?: number }>("children");
+
+  it("a save takes the lock: the child account's writeVersion goes up by one", async () => {
+    const { session, childId } = await family();
+
+    await saveOnboardingProfile(session, childId, {
+      interests: [],
+      favoriteBookIds: [],
+    });
+
+    expect((await children().findOne({ _id: childId }))?.writeVersion).toBe(1);
+  });
+
+  it("lockChildForWrite matches nothing, and writes nothing, for a child with no account", async () => {
+    const matched = await withTransaction((tx) =>
+      lockChildForWrite(tx, "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a99"),
+    );
+
+    expect(matched).toBe(false);
+    expect(await children().countDocuments()).toBe(0);
+  });
+
+  it("a child deleted after the family check: CHILD_NOT_FOUND and nothing is saved", async () => {
+    const { session, childId } = await family();
+    const originalFindOne = Reflect.get(
+      Collection.prototype,
+      "findOne",
+    ) as Collection["findOne"];
+    // The family check finds the child; the account is gone before the transaction.
+    vi.spyOn(Collection.prototype, "findOne").mockImplementationOnce(
+      async function (
+        this: Collection,
+        ...args: Parameters<Collection["findOne"]>
+      ) {
+        const found: unknown = await originalFindOne.apply(this, args);
+        await getDb()
+          .collection<{ _id: string }>("children")
+          .deleteOne({ _id: childId });
+        return found;
+      } as Collection["findOne"],
+    );
+
+    const result = await saveOnboardingProfile(session, childId, {
+      interests: ["fantasy"],
+      favoriteBookIds: [],
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "CHILD_NOT_FOUND" },
+    });
+    expect(await profiles().countDocuments()).toBe(0);
+  });
+
+  it("a transaction holding the lock conflicts with a deletion of that child", async () => {
+    const { childId } = await family();
+    const client = getMongoClient();
+    const writer = client.startSession();
+    const deleter = client.startSession();
+    try {
+      writer.startTransaction();
+      expect(await lockChildForWrite(writer, childId)).toBe(true);
+
+      deleter.startTransaction();
+      // A snapshot read would not conflict; the conditional write does (WriteConflict).
+      await expect(
+        getDb()
+          .collection<{ _id: string }>("children")
+          .deleteOne({ _id: childId }, { session: deleter }),
+      ).rejects.toMatchObject({ code: 112 });
+    } finally {
+      await writer.abortTransaction().catch(() => undefined);
+      await deleter.abortTransaction().catch(() => undefined);
+      await writer.endSession();
+      await deleter.endSession();
+    }
   });
 });

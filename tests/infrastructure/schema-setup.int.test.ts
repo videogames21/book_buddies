@@ -450,6 +450,24 @@ it("accepts exactly the audit shapes §8.2.9 allows, IDs only", async () => {
       occurredAt,
     }),
   ).rejects.toThrow();
+  // A child deletion (UC-PAR-delete-kid-account POST-5): the parent and the child ID,
+  // with no record and nothing else.
+  const deletion = {
+    actorId: new ObjectId(),
+    actorRole: "parent",
+    event: "child-account-deleted",
+    childId: "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a22",
+    occurredAt,
+  };
+  await expect(audit.insertOne({ ...deletion })).resolves.toBeTruthy();
+  const { childId: _noChild, ...deletionWithoutChild } = deletion;
+  await expect(audit.insertOne(deletionWithoutChild)).rejects.toThrow();
+  await expect(
+    audit.insertOne({ ...deletion, nickname: "Starfish" }),
+  ).rejects.toThrow();
+  await expect(
+    audit.insertOne({ ...deletion, actorRole: "admin" }),
+  ).rejects.toThrow();
   await audit.deleteMany({});
 });
 
@@ -684,6 +702,72 @@ it("lets children and consentRecords carry their write-lock counters only as int
   await expect(consent.insertOne(record(1))).resolves.toBeTruthy();
   await expect(consent.insertOne(record("1"))).rejects.toThrow();
   await consent.deleteMany({});
+});
+
+it("accepts the child-deletion fields on children and consentRecords, and indexes what deletion looks up (UC-PAR-delete-kid-account)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const children = getDb().collection<{
+    _id: string;
+    [field: string]: unknown;
+  }>("children");
+  const child = {
+    _id: "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a33",
+    familyId: new ObjectId(),
+    nickname: "Starfish",
+    avatar: "1-1",
+    createdAt: new Date(),
+  };
+  await children.insertOne({ ...child, writeVersion: 3 });
+  await expect(
+    children.insertOne({
+      ...child,
+      _id: "6b0f2c6e-0f3c-4b5e-9d51-0c2d5e1a7a34",
+      writeVersion: "3",
+    }),
+  ).rejects.toThrow();
+
+  const records = getDb().collection("consentRecords");
+  const record = {
+    familyId: new ObjectId(),
+    parentUserId: new ObjectId(),
+    noticeVersion: "v1",
+    method: "email-plus",
+    acknowledgedAt: new Date(),
+    confirmBy: new Date(),
+    confirmationTokenHash: "d".repeat(64),
+  };
+  await records.insertOne({
+    ...record,
+    removedChildren: [{ childId: child._id, removedAt: new Date() }],
+  });
+  // A removed-child entry holds the ID and the date only, never the nickname.
+  await expect(
+    records.insertOne({
+      ...record,
+      familyId: new ObjectId(),
+      confirmationTokenHash: "e".repeat(64),
+      removedChildren: [
+        { childId: child._id, removedAt: new Date(), nickname: "Starfish" },
+      ],
+    }),
+  ).rejects.toThrow();
+
+  expect(
+    (await getDb().collection("sessions").indexes()).find(
+      (index) => index.name === "userId",
+    ),
+  ).toMatchObject({ key: { userId: 1 } });
+  expect(
+    (await getDb().collection("users").indexes()).find(
+      (index) => index.name === "childId_unique",
+    ),
+  ).toMatchObject({ key: { childId: 1 }, unique: true });
+
+  await children.deleteMany({});
+  await records.deleteMany({});
 });
 
 it("creates recommendationBatches with its validator and three indexes (UC-REC-parent-review)", async () => {

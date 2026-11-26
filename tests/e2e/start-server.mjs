@@ -34,6 +34,8 @@ const server = spawn(
       PARENT_SUGGESTIONS_ENABLED: "1", // UC-PAR-suggest-book release gate; invented data only
       // Not the default of 30, so the child spec can tell the setting is used.
       CHILD_KEEPALIVE_SECONDS: "45",
+      CHILD_DEVICE_SECRET: randomBytes(32).toString("hex"),
+      CHILD_SESSION_TIME_ZONE: "America/Chicago",
       APP_URL: `http://localhost:${port}`,
       // Mailpit, which CI runs as a service and tests/e2e/mailpit.ts reads back.
       SMTP_URL: process.env.E2E_SMTP_URL ?? "smtp://127.0.0.1:1025",

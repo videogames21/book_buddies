@@ -8,10 +8,15 @@ import "server-only";
 // including the configured window.
 
 const PLACEHOLDER_NOTICE_VERSION = "2026-11-23-placeholder";
+// Adds what child sign-in collects: sign-in times, activity times and the trusted-device
+// cookie (design/shlf.md; COPPA-direct-notice, COPPA-notice-versioning). Every Consent
+// Record so far is invented test data, so no family consents again for it (OI-70).
+const SIGN_IN_NOTICE_VERSION = "2026-11-26-placeholder";
 // Adds parent suggestions to what is collected (UC-PAR-suggest-book; COPPA-direct-notice,
-// COPPA-notice-versioning). Every Consent Record so far is invented test data, so no
-// family consents again for this change (design/par.md, the notice key decision; OI-70).
-const SUGGESTIONS_NOTICE_VERSION = "2026-11-25-placeholder";
+// COPPA-notice-versioning), after child sign-in. Every Consent Record so far is invented
+// test data, so no family consents again for this change (design/par.md, the notice key
+// decision; OI-70).
+const SUGGESTIONS_NOTICE_VERSION = "2026-11-26-suggestions-placeholder";
 export const CONSENT_NOTICE_VERSION = SUGGESTIONS_NOTICE_VERSION;
 
 export type ConsentNoticeSection = { heading: string; paragraphs: string[] };
@@ -63,12 +68,27 @@ function placeholderNotice(confirmationDays: number): ConsentNoticeSection[] {
   ];
 }
 
+const SIGN_IN_ITEMS = [
+  "The times your child signs in, to measure how much the app is used. An administrator can look up one child's sign-in times by an ID number, without seeing your child's details.",
+  "While your child is signed in, when they were last in the app and last did something there, only to sign them out. These times are deleted no more than a day after the visit ends.",
+  "A cookie on each device your child signs in on, holding a random number for that device and your child's ID number. It lasts 30 days from the last sign-in there and is used only to slow down password guessing.",
+];
+
+/** The placeholder notice with child sign-in added to what is collected. */
+function signInNotice(confirmationDays: number): ConsentNoticeSection[] {
+  return placeholderNotice(confirmationDays).map((section) =>
+    section.heading === "What we collect about your child, and why"
+      ? { ...section, paragraphs: [...section.paragraphs, ...SIGN_IN_ITEMS] }
+      : section,
+  );
+}
+
 const SUGGESTIONS_ITEM =
   'Books you suggest to your child, with a short note if you write one. Your child sees the book and your note, labelled "From your grown-up". The note is not checked or read by BookBuddies staff.';
 
-/** The placeholder notice with parent suggestions added to what is collected. */
+/** The sign-in notice with parent suggestions added to what is collected. */
 function suggestionsNotice(confirmationDays: number): ConsentNoticeSection[] {
-  return placeholderNotice(confirmationDays).map((section) =>
+  return signInNotice(confirmationDays).map((section) =>
     section.heading === "What we collect about your child, and why"
       ? { ...section, paragraphs: [...section.paragraphs, SUGGESTIONS_ITEM] }
       : section,
@@ -78,6 +98,7 @@ function suggestionsNotice(confirmationDays: number): ConsentNoticeSection[] {
 // Retain published templates so a resend can restate the original acknowledgment.
 const noticeTemplates = {
   [PLACEHOLDER_NOTICE_VERSION]: placeholderNotice,
+  [SIGN_IN_NOTICE_VERSION]: signInNotice,
   [SUGGESTIONS_NOTICE_VERSION]: suggestionsNotice,
 } satisfies Record<string, (days: number) => ConsentNoticeSection[]>;
 

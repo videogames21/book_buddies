@@ -65,6 +65,26 @@ export async function appendPasswordResetAudit(
     );
 }
 
+/** UC-PAR-delete-kid-account POST-5: the Main Parent and the deleted child's ID only. */
+export async function appendChildDeletedAudit(
+  tx: Tx,
+  parentUserId: string,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection("auditLog")
+    .insertOne(
+      {
+        actorId: new ObjectId(parentUserId),
+        actorRole: "parent",
+        event: "child-account-deleted",
+        childId,
+        occurredAt: now(),
+      },
+      { session: tx },
+    );
+}
+
 // One member per event, matching its validator branch below. `recordId` is the record the
 // event is about: IDs only, never a title, name, reason or text (§8.2.9).
 export type AuditEntry =
@@ -109,6 +129,8 @@ export async function appendAudit(tx: Tx, entry: AuditEntry): Promise<void> {
 // own act on their own account (OI-44).
 // A catalog entry names a book and an admin, and has no child. A book report and a
 // parent's shelf removal name the parent, the child and the record (UC-PAR-report-book).
+// A child deletion names the Main Parent and the deleted child, and has no record of its
+// own (UC-PAR-delete-kid-account).
 export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
@@ -167,6 +189,19 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
           event: { enum: ["catalog.book_added"] },
           // The book's UUID string.
           recordId: { bsonType: "string" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+      // UC-PAR-delete-kid-account POST-5: the Main Parent and the deleted child's ID only.
+      {
+        required: ["actorId", "actorRole", "event", "childId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["child-account-deleted"] },
+          childId: { bsonType: "string" },
           occurredAt: { bsonType: "date" },
         },
       },

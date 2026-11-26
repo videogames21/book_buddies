@@ -29,7 +29,7 @@ it("keeps the published placeholder template under its original version", () => 
 });
 
 it("names suggested books and their notes as shown to the child (UC-PAR-suggest-book, COPPA-direct-notice)", () => {
-  expect(CONSENT_NOTICE_VERSION).toBe("2026-11-25-placeholder");
+  expect(CONSENT_NOTICE_VERSION).toBe("2026-11-26-suggestions-placeholder");
   const collected = consentNotice(14).find(
     (section) =>
       section.heading === "What we collect about your child, and why",
@@ -40,8 +40,27 @@ it("names suggested books and their notes as shown to the child (UC-PAR-suggest-
   expect(item).toContain("short note");
   expect(item).toContain('"From your grown-up"');
   expect(item).toContain("not checked or read by BookBuddies staff");
-  // The earlier version is still the text those parents saw, without the new item.
+  // The earlier versions are still the text those parents saw, without the new item.
+  for (const version of ["2026-11-23-placeholder", "2026-11-26-placeholder"]) {
+    expect(
+      JSON.stringify(consentNoticeForVersion(`${version}-14d`)),
+    ).not.toContain("Books you suggest");
+  }
+});
+
+it("names what child sign-in collects, and why (COPPA-direct-notice)", () => {
+  const text = JSON.stringify(consentNotice(14));
+  for (const item of [
+    "times your child signs in, to measure how much the app is used",
+    "look up one child's sign-in times",
+    "last did something there, only to sign them out",
+    "A cookie on each device your child signs in on",
+    "30 days",
+    "only to slow down password guessing",
+  ]) {
+    expect(text).toContain(item);
+  }
   expect(
     JSON.stringify(consentNoticeForVersion("2026-11-23-placeholder-14d")),
-  ).not.toContain("Books you suggest");
+  ).not.toContain("signs in");
 });

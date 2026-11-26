@@ -224,3 +224,25 @@ export async function listExcludedBookIds(
     .toArray();
   return exclusions.map((exclusion) => exclusion.bookId);
 }
+
+/**
+ * UC-PAR-delete-kid-account (design/par.md, Components): the child's exclusions are
+ * deleted, and each report made for the child is kept with only its book, its reason and
+ * the reporting parent's reference. Its `childId` and its comment, free text about the
+ * child, are removed. The `bookReports` validator allows that shape.
+ */
+export async function deleteChildRecords(
+  tx: Tx,
+  childId: string,
+): Promise<void> {
+  await getDb()
+    .collection(CHILD_BOOK_EXCLUSIONS)
+    .deleteMany({ childId }, { session: tx });
+  await getDb()
+    .collection(BOOK_REPORTS)
+    .updateMany(
+      { childId },
+      { $unset: { childId: "", comment: "" } },
+      { session: tx },
+    );
+}

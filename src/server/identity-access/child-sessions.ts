@@ -165,6 +165,22 @@ export async function purgeEndedChildSessions(): Promise<number> {
 }
 
 /**
+ * UC-PAR-delete-kid-account POST-1: the end records of a deleted child's sessions,
+ * inside the deletion's transaction. They hold no child ID, only each session's `_id`,
+ * so the caller passes the IDs of the sessions it deletes.
+ */
+export async function deleteChildSessionEndsInTx(
+  tx: Tx,
+  sessionIds: readonly ObjectId[],
+): Promise<void> {
+  if (sessionIds.length === 0) return;
+  await records().deleteMany(
+    { sessionId: { $in: [...sessionIds] } },
+    { session: tx },
+  );
+}
+
+/**
  * For a session ended some other way, such as sign-out. Pass the transaction that
  * deletes the session.
  */

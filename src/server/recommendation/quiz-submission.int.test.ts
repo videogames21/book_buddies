@@ -54,6 +54,7 @@ async function seedChild() {
 }
 
 it("keeps the normal quiz entry unavailable without the Catalog guard and saves nothing", async () => {
+  vi.spyOn(catalog, "getQuizCatalogGuard").mockReturnValue(undefined);
   const { childId } = await seedChild();
   await insertBook("active");
   const refusal = { ok: false, error: { code: "RULES_UNAVAILABLE" } };
@@ -397,4 +398,82 @@ it("leaves no batch when child deletion races a quiz submission", async () => {
     ok: false,
     error: { code: "CHILD_NOT_FOUND" },
   });
+});
+
+// OI-58 (team decision 2026-11-26): the production guard is the Catalog's same-book
+// conditional write, so a block or a return to draft cannot commit unseen by the quiz.
+
+const writeVersion = async (bookId: string) =>
+  (
+    await getDb()
+      .collection<{ _id: string; writeVersion?: number }>("books")
+      .findOne({ _id: bookId })
+  )?.writeVersion;
+
+/** A block or a return to draft, committed in its own transaction, as ADM will write it. */
+const setStatus = (bookId: string, status: "blocked" | "draft") =>
+  withTransaction(async (tx) => {
+    await getDb()
+      .collection<{ _id: string; status: string }>("books")
+      .updateOne({ _id: bookId }, { $set: { status } }, { session: tx });
+  });
+
+it("opens the quiz with the production guard, which writes each ranked book as it saves", async () => {
+  const { childId } = await seedChild();
+  const first = await insertBook("active", "First pick");
+  const second = await insertBook("active", "Second pick");
+  await expect(startRulesQuiz(childId)).resolves.toEqual({
+    ok: true,
+    data: "open",
+  });
+  await expect(submitRulesQuiz(childId, answer())).resolves.toEqual({
+    ok: true,
+    data: null,
+  });
+  const saved = await batches().findOne({ childId, status: "pending" });
+  expect([...(saved?.bookIds as string[])].sort()).toEqual(
+    [first, second].sort(),
+  );
+  await expect(writeVersion(first)).resolves.toBe(1);
+  await expect(writeVersion(second)).resolves.toBe(1);
+});
+
+it.each(["blocked", "draft"] as const)(
+  "block race: a book %s after the quiz ranked it is not saved in the batch",
+  async (status) => {
+    const { childId } = await seedChild();
+    const raced = await insertBook("active", "Raced pick");
+    const kept = await insertBook("active", "Kept pick");
+    let calls = 0;
+    // Commits the status change after the ranking read its snapshot and before the
+    // guard's write, the interleaving a status read alone would miss.
+    const result = await submitRulesQuiz(
+      childId,
+      answer(),
+      async (tx, bookIds) => {
+        calls += 1;
+        if (calls === 1) await setStatus(raced, status);
+        return catalog.lockActiveBooksForQuiz(tx, bookIds);
+      },
+    );
+    expect(result).toEqual({ ok: true, data: null });
+    // The write conflict reran the transaction, whose ranking no longer saw the book.
+    expect(calls).toBe(2);
+    await expect(
+      batches().findOne({ childId, status: "pending" }),
+    ).resolves.toMatchObject({ bookIds: [kept] });
+  },
+);
+
+it("block race: a block that commits first leaves the only ranked book out, and nothing is saved", async () => {
+  const { childId } = await seedChild();
+  const only = await insertBook("active", "Only pick");
+  let calls = 0;
+  const result = await submitRulesQuiz(childId, answer(), async (tx, ids) => {
+    calls += 1;
+    if (calls === 1) await setStatus(only, "blocked");
+    return catalog.lockActiveBooksForQuiz(tx, ids);
+  });
+  expect(result).toMatchObject({ ok: false, error: { code: "NO_MATCHES" } });
+  await expect(batches().countDocuments({ childId })).resolves.toBe(0);
 });

@@ -462,7 +462,7 @@ Added for `UC-PAR-delete-kid-account` (new unless marked reused or extended):
 
 _Changed at `/implement` (2026-11-24, #66):_
 - _Shelf's `deleteChildRecords` is built now, in [`shelf-collections.ts`](../src/server/shelf/shelf-collections.ts), because its entries, ratings and finish confirmations are on `main` (developer decision). The completeness test seeds them from fixtures, since no Shelf write path exists yet._
-- _`deleteChildSignIn` deletes the credential, the sessions and the `child:<username>:` throttle rows. It has no `childSignIns` or `childSessionEnds` delete yet: those collections are not built and their fields are not fixed. Child sign-in adds them here._
+- _After #134 and #144, `deleteChildSignIn` also removes the child’s session end records and sign-in records in the same transaction._
 - _`deleteChild` also refuses a Sub Parent (`NOT_MAIN_PARENT`), as a second check next to the data; the action checks first._
 - _The schema adds `PASSWORD_REQUIRED`, `NICKNAME_REQUIRED` and `INVALID_INPUT` (a malformed child ID or an over-long field). `TOO_MANY_ATTEMPTS` carries the wait in its message, worded by sign-in's `waitMessage`, because §8.2.1 has no data slot on an error. A refused re-check is logged as the `reauth-refused` security event (§8.2.7), the event the child-data review also names._
 - _Two indexes are added for the deletion's lookups: `users.childId` (unique where set) and `noteFlags.childId`._

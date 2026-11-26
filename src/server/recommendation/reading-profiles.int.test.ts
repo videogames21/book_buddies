@@ -222,15 +222,36 @@ describe("saveOnboardingProfile (UC-REC-kid-onboarding)", () => {
     }
   });
 
-  it("admin boundary: the module offers no function that returns a profile", () => {
+  it("data boundary: the quiz can read derived weights and no export returns a raw profile", async () => {
     // Admin totals and the parent's export arrive with their own use cases (design/rec.md).
     expect(Object.keys(readingProfiles).sort()).toEqual([
       "READING_PROFILES",
       "deleteChildRecords",
       "ensureReadingProfileIndexes",
+      "getQuizOnboardingWeights",
       "isOnboardingComplete",
       "saveOnboardingProfile",
     ]);
+
+    const { session, childId } = await family();
+    const favorite = await insertBook("active");
+    await expect(
+      saveOnboardingProfile(session, childId, {
+        interests: ["animals"],
+        favoriteBookIds: [favorite],
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      withTransaction((tx) =>
+        readingProfiles.getQuizOnboardingWeights(childId, tx),
+      ),
+    ).resolves.toEqual(
+      new Map([
+        ["animal story", 2],
+        ["animals", 2],
+        ["fantasy", 1],
+      ]),
+    );
   });
 });
 

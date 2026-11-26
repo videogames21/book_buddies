@@ -962,9 +962,10 @@ describe("listReleasedBatchesForChild (step 6, POST-2; for UC-REC-kid-review)", 
         {
           childId,
           bookId: bookIds[0],
+          reportId: new ObjectId(),
           createdAt: NOW,
         },
-        { session: tx, bypassDocumentValidation: true },
+        { session: tx },
       );
       expect(ids(await listReleasedBatchesForChild(childId, tx))).toEqual([
         [bookIds[1], bookIds[2]],

@@ -1,5 +1,6 @@
 import "server-only";
 import type { ObjectId } from "mongodb";
+import { now } from "@/server/lib/clock";
 import { getDb, type Tx } from "@/server/lib/db";
 import {
   FINISH_CONFIRMATIONS,
@@ -115,4 +116,27 @@ export async function removeShelfEntryInTx(
       { projection: { _id: 1 }, session: tx },
     );
   return deleted?._id ?? null;
+}
+
+/**
+ * UC-REC-kid-review steps 4–5 and 4a (design/rec.md): puts the book on the child's shelf
+ * in `category` inside the caller's transaction, unless it is already there in any
+ * category. One upsert that only inserts, so 4a is found without a duplicate-key error
+ * that would abort the caller's transaction, and an existing entry is never moved
+ * (that is UC-SHLF-kid-move-book's job). The caller holds the child lock.
+ */
+export async function addShelfEntryInTx(
+  tx: Tx,
+  childId: string,
+  bookId: string,
+  category: ShelfCategory,
+): Promise<"added" | "alreadyOnShelf"> {
+  const result = await getDb()
+    .collection<ShelfEntryDocument>(SHELF_ENTRIES)
+    .updateOne(
+      { childId, bookId },
+      { $setOnInsert: { category, movedAt: now() } },
+      { upsert: true, session: tx },
+    );
+  return result.upsertedCount === 1 ? "added" : "alreadyOnShelf";
 }

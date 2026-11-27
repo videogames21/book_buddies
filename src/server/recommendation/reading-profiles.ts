@@ -132,8 +132,8 @@ export async function saveOnboardingProfile(
 }
 
 /**
- * UC-PAR-delete-kid-account: the child's reading profile. The interest profile, batches,
- * reactions and decline reasons are added here as Recommendation builds them.
+ * UC-PAR-delete-kid-account: the child's reading profile. Batches and reactions have
+ * their own deleteChildRecords in batches.ts and reactions.ts.
  */
 export async function deleteChildRecords(
   tx: Tx,

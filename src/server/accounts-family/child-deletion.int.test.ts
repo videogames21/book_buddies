@@ -327,6 +327,8 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
         "per family; gains the child ID only on deletion (POST-4)",
       auditLog: "append-only, IDs only; it may keep the child ID (§8.2.9)",
       passwordResets: "parents' reset links only",
+      parentWarnings:
+        "indexed by recipient parent; holds no child or report references",
     };
     const before = await dumpDatabase();
     for (const [name, rows] of Object.entries(before)) {

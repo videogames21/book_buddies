@@ -1,4 +1,5 @@
 import "server-only";
+import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import { createHash, randomBytes } from "node:crypto";
 import { ObjectId } from "mongodb";
 import { appendUnconfirmedPurgeAudit } from "@/server/audit/audit-log";
@@ -397,12 +398,12 @@ export async function markChildRemoved(
 }
 
 export type OnboardingStep =
-  "awaiting" | "expired" | "needs-first-child" | "complete";
+  "awaiting" | "expired" | "needs-first-child" | "complete" | "revoked";
 
 /**
  * Where a Main Parent is in onboarding, read from the Consent Record and the family's
  * children (UC-PAR-onboarding 8a). The deadline is checked here, on read. A missing or
- * revoked record is not confirmed, the same answer isConsentConfirmed gives.
+ * revoked record routes to settings so a parent can review retained data.
  */
 export async function getOnboardingStep(
   familyId: string,
@@ -415,9 +416,35 @@ export async function getOnboardingStep(
       { familyId: new ObjectId(familyId) },
       { projection: { confirmBy: 1, confirmedAt: 1, revokedAt: 1 } },
     );
-  if (!record || record.revokedAt) return "awaiting";
+  if (!record) return "awaiting";
+  if (record.revokedAt) return "revoked";
   if (!record.confirmedAt) {
     return record.confirmBy > now() ? "awaiting" : "expired";
   }
   return (await familyHasChild(familyId)) ? "complete" : "needs-first-child";
+}
+
+export async function readConsentForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx))) return null;
+  return getDb()
+    .collection(CONSENT_RECORDS)
+    .findOne(
+      { familyId: new ObjectId(familyId) },
+      {
+        session: tx,
+        projection: {
+          _id: 0,
+          method: 1,
+          noticeVersion: 1,
+          acknowledgedAt: 1,
+          confirmBy: 1,
+          confirmedAt: 1,
+          revokedAt: 1,
+        },
+      },
+    );
 }

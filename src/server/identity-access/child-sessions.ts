@@ -190,3 +190,27 @@ export async function deleteChildSessionEnd(
 ): Promise<void> {
   await records().deleteOne({ sessionId }, { session: tx });
 }
+
+export async function readChildSessionTimes(userId: ObjectId, tx: Tx) {
+  const db = getDb();
+  const sessions = await db
+    .collection("sessions")
+    .find(
+      { userId, expires: { $gt: now() } },
+      { session: tx, projection: { _id: 1 } },
+    )
+    .toArray();
+  return db
+    .collection<ChildSessionEndDocument>(CHILD_SESSION_ENDS)
+    .find(
+      {
+        sessionId: { $in: sessions.map(({ _id }) => _id) },
+        ...runningAt(now()),
+      },
+      {
+        session: tx,
+        projection: { _id: 0, endsAt: 1, lastSeenAt: 1, lastActiveAt: 1 },
+      },
+    )
+    .toArray();
+}

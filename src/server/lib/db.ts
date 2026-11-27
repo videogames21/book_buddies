@@ -1,5 +1,10 @@
 import "server-only";
-import { MongoClient, type ClientSession, type Db } from "mongodb";
+import {
+  MongoClient,
+  type ClientSession,
+  type Db,
+  type TransactionOptions,
+} from "mongodb";
 import { getConfig } from "./config";
 
 // One client per server instance, reused across requests (architecture §8.2.8).
@@ -31,7 +36,7 @@ export type Tx = ClientSession;
  */
 export async function withTransaction<T>(
   work: (tx: Tx) => Promise<T>,
-  options: { timeoutMS?: number } = {},
+  options: TransactionOptions & { timeoutMS?: number } = {},
 ): Promise<T> {
   const session = getMongoClient().startSession();
   try {

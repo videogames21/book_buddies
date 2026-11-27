@@ -1,4 +1,5 @@
 import "server-only";
+import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import type { Db } from "mongodb";
 import { GRADES, type Grade } from "@/server/accounts-family/grades";
 import { ensureCollection } from "@/server/lib/collections";
@@ -133,4 +134,30 @@ export async function ensureChildIdentityIndexes(db: Db): Promise<void> {
   await db
     .collection(COLLECTION)
     .createIndex({ childId: 1 }, { name: "childId_unique", unique: true });
+}
+
+/** The stored fields used by the parent data review, inside its snapshot. */
+export async function readChildIdentityForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx))) return [];
+  return getDb()
+    .collection(COLLECTION)
+    .find(
+      { childId },
+      {
+        session: tx,
+        projection: {
+          _id: 0,
+          age: 1,
+          grade: 1,
+          readingLevelScale: 1,
+          readingLevelValue: 1,
+          createdAt: 1,
+        },
+      },
+    )
+    .toArray();
 }

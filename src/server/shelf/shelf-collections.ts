@@ -1,4 +1,5 @@
 import "server-only";
+import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import type { Db, ObjectId } from "mongodb";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
@@ -116,4 +117,39 @@ export async function deleteChildRecords(
   for (const name of [SHELF_ENTRIES, RATINGS, FINISH_CONFIRMATIONS]) {
     await getDb().collection(name).deleteMany({ childId }, { session: tx });
   }
+}
+
+export async function readShelfForParentData(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx)))
+    return { entries: [], finishes: [], ratings: [] };
+  const db = getDb();
+  const entries = await db
+    .collection(SHELF_ENTRIES)
+    .find(
+      { childId },
+      {
+        session: tx,
+        projection: { _id: 0, bookId: 1, category: 1, movedAt: 1 },
+      },
+    )
+    .toArray();
+  const finishes = await db
+    .collection(FINISH_CONFIRMATIONS)
+    .find(
+      { childId },
+      { session: tx, projection: { _id: 0, bookId: 1, confirmedAt: 1 } },
+    )
+    .toArray();
+  const ratings = await db
+    .collection(RATINGS)
+    .find(
+      { childId },
+      { session: tx, projection: { _id: 0, bookId: 1, value: 1, ratedAt: 1 } },
+    )
+    .toArray();
+  return { entries, finishes, ratings };
 }

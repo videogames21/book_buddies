@@ -2,6 +2,7 @@ import "server-only";
 import { listExcludedBookIds } from "@/server/accounts-family/book-reports";
 import { listLatestNoteInterestKeys } from "@/server/accounts-family/parent-notes";
 import {
+  interestKeys,
   listRuleCandidates,
   listRuleHistoryTags,
 } from "@/server/catalog/rule-candidates";
@@ -61,9 +62,9 @@ export async function rankQuizBooks(
     for (const key of keys) byTag.set(key, (byTag.get(key) ?? 0) + weight);
   }
   add(noteKeys, 1);
-  for (const id of shelfBookIds) add(history.get(id) ?? [], 1);
+  for (const id of shelfBookIds) add(interestKeys(history.get(id)), 1);
   for (const { bookId, value } of ratings) {
-    add(history.get(bookId) ?? [], ratingWeights[value]);
+    add(interestKeys(history.get(bookId)), ratingWeights[value]);
   }
 
   // The child-reaction owner is not implemented yet. No inference is made

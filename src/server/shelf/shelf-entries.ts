@@ -116,3 +116,15 @@ export async function removeShelfEntryInTx(
     );
   return deleted?._id ?? null;
 }
+
+export function countShelfEntriesForBook(bookId: string): Promise<number> {
+  return getDb()
+    .collection<ShelfEntryDocument>(SHELF_ENTRIES)
+    .countDocuments({ bookId });
+}
+
+export async function removeShelfEntriesForBookInTx(tx: Tx, bookId: string) {
+  await getDb()
+    .collection<ShelfEntryDocument>(SHELF_ENTRIES)
+    .deleteMany({ bookId }, { session: tx });
+}

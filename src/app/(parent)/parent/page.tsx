@@ -40,6 +40,9 @@ export default async function ParentHomePage() {
       <p>
         <Link href={NEW_CHILD_PATH}>Add a Child</Link>
       </p>
+      <p>
+        <Link href="/parent/notifications">Notifications</Link>
+      </p>
     </main>
   );
 }

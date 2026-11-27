@@ -134,6 +134,20 @@ export async function getParentCredential(
   return { email: user.email, passwordHash: user.passwordHash };
 }
 
+/** Used by notifications, which must never be sent to a removed or different role. */
+export async function parentRecipientExists(
+  tx: Tx,
+  recipientId: ObjectId,
+): Promise<boolean> {
+  const user = await getDb()
+    .collection(USERS)
+    .findOne(
+      { _id: recipientId, role: "parent" },
+      { session: tx, projection: { _id: 1 } },
+    );
+  return user !== null;
+}
+
 /** A parent's own address, to email them; never logged (§8.2.7). */
 export async function findParentEmail(userId: string): Promise<string | null> {
   const user = await getDb()

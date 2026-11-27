@@ -256,7 +256,30 @@ export async function getChildForFamily(
     .findOne(
       { _id: childId, familyId: new ObjectId(familyId) },
       {
-        projection: { _id: 1, nickname: 1, avatar: 1, createdAt: 1 },
+        projection: { _id: 1, nickname: 1, avatar: 1 },
+        session: tx,
+      },
+    );
+}
+
+/** The data-rights view includes creation time, which the general child summary omits. */
+export async function readChildAccountForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  return getDb()
+    .collection<{
+      _id: string;
+      nickname: string;
+      avatar: AvatarKey;
+      familyId: ObjectId;
+      createdAt: Date;
+    }>(CHILDREN)
+    .findOne(
+      { _id: childId, familyId: new ObjectId(familyId) },
+      {
+        projection: { _id: 0, nickname: 1, avatar: 1, createdAt: 1 },
         session: tx,
       },
     );

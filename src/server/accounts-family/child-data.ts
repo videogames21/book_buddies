@@ -13,8 +13,8 @@ import { readBatchesForParent } from "@/server/recommendation/batches";
 import { readReadingProfileForParent } from "@/server/recommendation/reading-profiles";
 import { readShelfForParentData } from "@/server/shelf/shelf-collections";
 import type { ChildDataSnapshot } from "@/shared/accounts-family/child-data";
-import { readReportsForParent } from "./book-reports";
-import { getChildForFamily } from "./child-accounts";
+import { readReportsForParent } from "./child-report-data";
+import { readChildAccountForParent } from "./child-accounts";
 import { readConsentForParent } from "./families";
 import { readParentNotesForParent } from "./parent-notes";
 import { listSuggestionsForExport } from "./suggestions";
@@ -28,7 +28,7 @@ export async function readChildData(
   try {
     return await withTransaction(
       async (tx) => {
-        const child = await getChildForFamily(familyId, childId, tx);
+        const child = await readChildAccountForParent(familyId, childId, tx);
         if (!child)
           return fail("CHILD_NOT_FOUND", "We couldn't find that child.");
 

@@ -854,3 +854,60 @@ it("creates recommendationBatches with its validator and three indexes (UC-REC-p
   ).rejects.toThrow();
   await batches.deleteMany({});
 });
+
+it("creates recommendationReactions with its two indexes and a validator (UC-REC-kid-review)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const reactions = getDb().collection("recommendationReactions");
+  const indexes = await reactions.indexes();
+  expect(indexes.find((i) => i.name === "childId_reactedAt")).toMatchObject({
+    key: { childId: 1, reactedAt: 1 },
+  });
+  expect(indexes.find((i) => i.name === "childId_batchIds")).toMatchObject({
+    key: { childId: 1, batchIds: 1 },
+  });
+  // No unique index: the child lock serializes reactions (design/rec.md).
+  expect(indexes.filter((i) => i.unique)).toEqual([]);
+
+  const reaction = {
+    childId: "child-1",
+    bookId: "book-1",
+    reaction: "notForMe",
+    declineReason: "tooHard",
+    batchIds: [new ObjectId()],
+    reactedAt: new Date(),
+  };
+  await expect(reactions.insertOne({ ...reaction })).resolves.toBeTruthy();
+  // A second reaction to the same book is allowed: a dated history (Key decisions).
+  await expect(reactions.insertOne({ ...reaction })).resolves.toBeTruthy();
+  const { declineReason: _r, ...noReason } = reaction;
+  await expect(
+    reactions.insertOne({ ...noReason, reaction: "yes", batchIds: [] }),
+  ).resolves.toBeTruthy();
+  for (const bad of [
+    { reaction: "love" },
+    { declineReason: "boring" },
+    { batchIds: ["not-an-object-id"] },
+    { title: "copied book data" },
+    { nickname: "Starfish" },
+  ]) {
+    await expect(
+      reactions.insertOne({ ...reaction, ...bad }),
+    ).rejects.toThrow();
+  }
+  for (const field of [
+    "childId",
+    "bookId",
+    "reaction",
+    "batchIds",
+    "reactedAt",
+  ]) {
+    const missing = Object.fromEntries(
+      Object.entries(reaction).filter(([key]) => key !== field),
+    );
+    await expect(reactions.insertOne(missing)).rejects.toThrow();
+  }
+  await reactions.deleteMany({});
+});

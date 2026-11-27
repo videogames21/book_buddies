@@ -183,3 +183,19 @@ export async function getQuizOnboardingWeights(
   }
   return weights;
 }
+
+/** The stored fields used by the parent data review, inside its snapshot. */
+export async function readReadingProfileForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx))) return [];
+  return getDb()
+    .collection("readingProfiles")
+    .find(
+      { childId },
+      { session: tx, projection: { _id: 0, interests: 1, favoriteBookIds: 1 } },
+    )
+    .toArray();
+}

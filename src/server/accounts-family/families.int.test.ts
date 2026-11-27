@@ -71,12 +71,12 @@ describe("getOnboardingStep", () => {
         { familyId: new ObjectId(parent.familyId) },
         { $set: { revokedAt: new Date() } },
       );
-    expect(await getOnboardingStep(parent.familyId)).toBe("awaiting");
+    expect(await getOnboardingStep(parent.familyId)).toBe("revoked");
   });
 });
 
 describe("admin boundary (DI-consent-record)", () => {
-  it("no export returns a Consent Record's fields; reads answer a step or a result code", async () => {
+  it("has only the expected consent operations, including the scoped parent review", async () => {
     const families = await import("./families");
     // createFamily and resendConsentEmailFor return whether an email was sent;
     // confirmConsentByToken the family ID; getOnboardingStep a step name; lockConsentForWrite
@@ -91,6 +91,7 @@ describe("admin boundary (DI-consent-record)", () => {
       "markChildRemoved",
       "newConfirmationToken",
       "purgeExpiredUnconfirmed",
+      "readConsentForParent",
       "removeExpiredUnconfirmedFamily",
       "resendConsentEmailFor",
     ]);

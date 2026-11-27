@@ -587,3 +587,31 @@ export async function deleteChildRecords(
 ): Promise<void> {
   await batches().deleteMany({ childId }, { session: tx });
 }
+
+/** The stored fields used by the parent data review, inside its snapshot. */
+export async function readBatchesForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx))) return [];
+  return getDb()
+    .collection(RECOMMENDATION_BATCHES)
+    .find(
+      { childId },
+      {
+        session: tx,
+        projection: {
+          _id: 0,
+          bookIds: 1,
+          source: 1,
+          status: 1,
+          createdAt: 1,
+          handoffDeadline: 1,
+          removedBookIds: 1,
+          releasedAt: 1,
+        },
+      },
+    )
+    .toArray();
+}

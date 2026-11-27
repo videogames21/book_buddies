@@ -89,6 +89,13 @@ export async function appendChildDeletedAudit(
 // event is about: IDs only, never a title, name, reason or text (§8.2.9).
 export type AuditEntry =
   | {
+      event: "child-data-viewed" | "child-data-exported";
+      actorId: string;
+      actorRole: "parent";
+      childId: string;
+      recordId: string;
+    }
+  | {
       event: "catalog.book_added";
       actorId: string;
       actorRole: "admin";
@@ -135,6 +142,27 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
     oneOf: [
+      {
+        required: [
+          "actorId",
+          "actorRole",
+          "event",
+          "childId",
+          "recordId",
+          "occurredAt",
+        ],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["parent"] },
+          event: { enum: ["child-data-viewed", "child-data-exported"] },
+          childId: { bsonType: "string" },
+          recordId: { bsonType: "string" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
+
       {
         required: [
           "actorId",

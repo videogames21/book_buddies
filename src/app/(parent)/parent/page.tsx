@@ -29,6 +29,7 @@ export default async function ParentHomePage() {
   if (session.data.parentRole === "main") {
     const step = await getOnboardingStep(session.data.familyId);
     if (step === "awaiting" || step === "expired") redirect(CHECK_EMAIL_PATH);
+    if (step === "revoked") redirect("/parent/settings");
     if (step === "needs-first-child") redirect(NEW_CHILD_PATH);
   }
 
@@ -37,6 +38,9 @@ export default async function ParentHomePage() {
     <main className={styles.page}>
       <h1>Welcome to BookBuddies</h1>
       <PendingBatches batches={pending} />
+      <p>
+        <Link href="/parent/settings">Account settings</Link>
+      </p>
       <p>
         <Link href={NEW_CHILD_PATH}>Add a Child</Link>
       </p>

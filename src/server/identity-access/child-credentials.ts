@@ -1,4 +1,5 @@
 import "server-only";
+import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import { randomInt } from "node:crypto";
 import { MongoServerError, type ObjectId } from "mongodb";
 import { now } from "@/server/lib/clock";
@@ -119,4 +120,19 @@ export async function deleteChildSignIn(
 
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export async function readChildUsernameForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx))) return null;
+  const child = await getDb()
+    .collection<{ username: string }>("users")
+    .findOne(
+      { role: "child", childId },
+      { session: tx, projection: { _id: 0, username: 1 } },
+    );
+  return child?.username ?? null;
 }

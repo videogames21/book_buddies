@@ -190,3 +190,25 @@ function isDuplicateEmail(err: unknown): boolean {
     "email" in ((err as { keyPattern?: object }).keyPattern ?? {})
   );
 }
+
+export async function getSubParentReauthCredential(
+  userId: string,
+  familyId: string,
+) {
+  const user = await getDb()
+    .collection<{ username?: string; passwordHash?: string }>(USERS)
+    .findOne(
+      {
+        _id: new ObjectId(userId),
+        role: "parent",
+        parentRole: "sub",
+        familyId: new ObjectId(familyId),
+      },
+      { projection: { _id: 0, username: 1, passwordHash: 1 } },
+    );
+  if (!user?.username || !user.passwordHash) return null;
+  return {
+    key: `username:${user.username.toLowerCase()}`,
+    passwordHash: user.passwordHash,
+  };
+}

@@ -1,4 +1,6 @@
 import "server-only";
+import { readChildSessionTimes } from "./child-sessions";
+import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import type { Db } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
@@ -46,4 +48,25 @@ export async function deleteChildSignInRecords(
   await getDb()
     .collection<ChildSignInDocument>(CHILD_SIGN_INS)
     .deleteMany({ childId }, { session: tx });
+}
+
+export async function readChildUsageForParent(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+) {
+  if (!(await getChildForFamily(familyId, childId, tx))) return [];
+  const db = getDb();
+  const signIns = await db
+    .collection(CHILD_SIGN_INS)
+    .find({ childId }, { session: tx, projection: { _id: 0, at: 1 } })
+    .toArray();
+  const child = await db
+    .collection("users")
+    .findOne(
+      { role: "child", childId },
+      { session: tx, projection: { _id: 1 } },
+    );
+  if (!child) return signIns;
+  return [...signIns, ...(await readChildSessionTimes(child._id, tx))];
 }

@@ -255,7 +255,10 @@ export async function getChildForFamily(
     }>(CHILDREN)
     .findOne(
       { _id: childId, familyId: new ObjectId(familyId) },
-      { projection: { _id: 1, nickname: 1, avatar: 1 }, session: tx },
+      {
+        projection: { _id: 1, nickname: 1, avatar: 1, createdAt: 1 },
+        session: tx,
+      },
     );
 }
 

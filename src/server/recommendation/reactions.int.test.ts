@@ -7,6 +7,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { insertBatch } from "../../../tests/fixtures/batches";
 import { insertBook } from "../../../tests/fixtures/catalog";
+import { insertReaction } from "../../../tests/fixtures/reactions";
 import { insertChild } from "../../../tests/fixtures/children";
 import { insertConsentedMainParent } from "../../../tests/fixtures/family";
 import { insertShelfEntry } from "../../../tests/fixtures/shelf";
@@ -28,8 +29,11 @@ vi.mock("@/server/lib/config", async (importOriginal) => {
   return { ...actual, areParentSuggestionsEnabled: () => gate.enabled };
 });
 
-const { getRecommendationListForChild, recordReaction } =
-  await import("./reactions");
+const {
+  getRecommendationListForChild,
+  listReactionsForSignals,
+  recordReaction,
+} = await import("./reactions");
 const { reportBook } = await import("@/server/accounts-family/book-reports");
 const { deleteChild } = await import("@/server/accounts-family/child-deletion");
 const { insertChildIdentity } =
@@ -734,5 +738,65 @@ describe("recordReaction (UC-REC-kid-review steps 3–7)", () => {
 
     const result = await react(child, bookId, "notForMe", "other");
     expect(result).toEqual({ ok: true, data: { shelf: "none" } });
+  });
+});
+
+describe("listReactionsForSignals (UC-REC-kid-review signals)", () => {
+  it("returns the latest reaction per book for at most 20 distinct books, newest first, only the given child's", async () => {
+    const day = (n: number) =>
+      new Date(Date.UTC(2026, 10, 1, 12) + n * 86400000);
+    // 22 books, one reaction each on days 0–21; book-05 is answered again on day 30.
+    for (let n = 0; n < 22; n++) {
+      await insertReaction({
+        childId: "child-1",
+        bookId: `book-${String(n).padStart(2, "0")}`,
+        reaction: "yes",
+        reactedAt: day(n),
+      });
+    }
+    await insertReaction({
+      childId: "child-1",
+      bookId: "book-05",
+      reaction: "notForMe",
+      declineReason: "tooHard",
+      reactedAt: day(30),
+    });
+    // Two books at the same time: book ID ascending.
+    await insertReaction({
+      childId: "child-1",
+      bookId: "book-tie-b",
+      reaction: "maybeLater",
+      reactedAt: day(29),
+    });
+    await insertReaction({
+      childId: "child-1",
+      bookId: "book-tie-a",
+      reaction: "maybeLater",
+      reactedAt: day(29),
+    });
+    await insertReaction({
+      childId: "child-2",
+      bookId: "book-other",
+      reaction: "yes",
+      reactedAt: day(40),
+    });
+
+    const signals = await withTransaction((tx) =>
+      listReactionsForSignals("child-1", tx),
+    );
+
+    expect(signals).toHaveLength(20);
+    expect(signals.slice(0, 3)).toEqual([
+      { bookId: "book-05", reaction: "notForMe", declineReason: "tooHard" },
+      { bookId: "book-tie-a", reaction: "maybeLater" },
+      { bookId: "book-tie-b", reaction: "maybeLater" },
+    ]);
+    // Then days 21 down to 5 without book-05 again: 17 more books, so 20 in all.
+    expect(signals.slice(3).map((s) => s.bookId)).toEqual(
+      [21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 4].map(
+        (n) => `book-${String(n).padStart(2, "0")}`,
+      ),
+    );
+    expect(signals.map((s) => s.bookId)).not.toContain("book-other");
   });
 });

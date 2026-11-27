@@ -250,6 +250,47 @@ export async function recordReaction(
   }
 }
 
+/** The most recent distinct books the quiz reads reactions for (design/rec-field-values.md). */
+const SIGNAL_BOOK_LIMIT = 20;
+
+export type ReactionSignal = Pick<
+  ReactionDocument,
+  "bookId" | "reaction" | "declineReason"
+>;
+
+/**
+ * The quiz's reaction reader (UC-REC-recommend-quiz-rules; design/rec-field-values.md):
+ * the latest reaction per book, by `reactedAt` descending then reaction ID ascending,
+ * for the 20 most recent distinct books, newest first, then book ID ascending. Only the
+ * given child's, on the quiz's transaction. A failed read throws.
+ */
+export async function listReactionsForSignals(
+  childId: string,
+  tx: Tx,
+): Promise<ReactionSignal[]> {
+  return reactions()
+    .aggregate<ReactionSignal>(
+      [
+        { $match: { childId } },
+        { $sort: { reactedAt: -1, _id: 1 } },
+        { $group: { _id: "$bookId", latest: { $first: "$$ROOT" } } },
+        { $sort: { "latest.reactedAt": -1, _id: 1 } },
+        { $limit: SIGNAL_BOOK_LIMIT },
+        // A path to a missing field leaves it out, so a decline with no reason has none.
+        {
+          $project: {
+            _id: 0,
+            bookId: "$_id",
+            reaction: "$latest.reaction",
+            declineReason: "$latest.declineReason",
+          },
+        },
+      ],
+      { session: tx },
+    )
+    .toArray();
+}
+
 /**
  * This file's part of the §8.2.8 deletion contract: every reaction of the child. It is
  * in `child-deletion.ts`'s list (UC-PAR-delete-kid-account), and UC-PAR-delete-child-data

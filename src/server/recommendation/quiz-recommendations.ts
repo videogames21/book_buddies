@@ -12,13 +12,24 @@ import {
   listRecentRatingSignals,
   listRecentShelfSignalBookIds,
 } from "@/server/shelf/recommendation-signals";
+import type { LENGTHS } from "@/shared/catalog/tags";
 import type { QuizAnswers } from "@/shared/recommendation/quiz";
+import type { DeclineReason } from "@/shared/recommendation/reactions";
+import { listReactionsForSignals } from "./reactions";
 import { getQuizOnboardingWeights } from "./reading-profiles";
 import { rankRuleCandidates } from "./rules";
+
+type BookLength = (typeof LENGTHS)[number];
 
 type QuizRanking =
   | { outcome: "ranked"; bookIds: string[] }
   | { outcome: "profileIncomplete" | "noMatches" };
+
+/** A difficulty or length decline gives +1 to the opposite length only. */
+const declineLengths: Partial<Record<DeclineReason, BookLength>> = {
+  tooEasy: "longer story",
+  tooHard: "quick read",
+};
 
 const ratingWeights = {
   lovedIt: 1,
@@ -53,8 +64,13 @@ export async function rankQuizBooks(
   const noteKeys = await listLatestNoteInterestKeys(childId, tx);
   const shelfBookIds = await listRecentShelfSignalBookIds(childId, tx);
   const ratings = await listRecentRatingSignals(childId, tx);
+  const reactions = await listReactionsForSignals(childId, tx);
   const history = await listRuleHistoryTags(
-    [...shelfBookIds, ...ratings.map(({ bookId }) => bookId)],
+    [
+      ...shelfBookIds,
+      ...ratings.map(({ bookId }) => bookId),
+      ...reactions.map(({ bookId }) => bookId),
+    ],
     tx,
   );
 
@@ -67,12 +83,27 @@ export async function rankQuizBooks(
     add(interestKeys(history.get(bookId)), ratingWeights[value]);
   }
 
-  // The child-reaction owner is not implemented yet. No inference is made
-  // from other records in its place.
+  // The latest reaction per book (design/rec-field-values.md, ranking signals).
+  const byLength = new Map<BookLength, number>();
+  const declinedBookIds = new Set<string>();
+  for (const { bookId, reaction, declineReason } of reactions) {
+    const tags = history.get(bookId);
+    if (reaction === "yes") add(interestKeys(tags), 2);
+    if (reaction === "maybeLater") add(interestKeys(tags), 1);
+    if (reaction !== "notForMe") continue;
+    declinedBookIds.add(bookId);
+    if (declineReason === "notInterested" && tags) {
+      add(tags.subjects.length > 0 ? tags.subjects : tags.genres, -2);
+    }
+    if (declineReason === "notMyStyle" && tags) add(tags.genres, -2);
+    const length = declineReason && declineLengths[declineReason];
+    if (length) byLength.set(length, (byLength.get(length) ?? 0) + 1);
+  }
+
   const bookIds = rankRuleCandidates(candidates, profile, {
     byTag,
-    byLength: new Map(),
-    declinedBookIds: new Set(),
+    byLength,
+    declinedBookIds,
   });
   return { outcome: "ranked", bookIds };
 }

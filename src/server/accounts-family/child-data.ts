@@ -10,7 +10,7 @@ import { withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { readChildNoticesForParent } from "@/server/notification/child-notices";
 import { readBatchesForParent } from "@/server/recommendation/batches";
-import { readReadingProfileForParent } from "@/server/recommendation/reading-profiles";
+import { readReadingProfileForParent } from "@/server/recommendation/child-reading-profile";
 import { readShelfForParentData } from "@/server/shelf/shelf-collections";
 import type { ChildDataSnapshot } from "@/shared/accounts-family/child-data";
 import { readReportsForParent } from "./child-report-data";

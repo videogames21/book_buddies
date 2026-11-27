@@ -70,9 +70,9 @@ test("a parent confirms their password to review and download the selected child
   await expect(page.getByText(/Likes stories/)).toHaveCount(0);
   await page.getByLabel("Your password").fill("wrong");
   await page.getByRole("button", { name: "Review data" }).click();
-  await expect(page.getByRole("alert")).toContainText(
-    "That password is incorrect.",
-  );
+  await expect(
+    page.getByRole("alert").filter({ hasText: "That password is incorrect." }),
+  ).toBeVisible();
 
   await page.getByLabel("Your password").fill(password);
   await page.getByRole("button", { name: "Review data" }).click();

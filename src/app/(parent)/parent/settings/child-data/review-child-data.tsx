@@ -37,7 +37,7 @@ export function ReviewChildData({
     inFlight.current = true;
     setBusy(true);
     setMessage("");
-    setSnapshot(null);
+    if (intent === "review") setSnapshot(null);
     const request = selection.current;
     const form = event.currentTarget;
     const entry = new FormData(form).get("password");
@@ -49,6 +49,12 @@ export function ReviewChildData({
       )({ childId, password });
       if (request !== selection.current) return;
       if (!result.ok) {
+        if (
+          result.error.code !== "EXPORT_FAILED" &&
+          result.error.code !== "EXPORT_UNAVAILABLE"
+        ) {
+          setSnapshot(null);
+        }
         setMessage(result.error.message);
         return;
       }
@@ -60,7 +66,9 @@ export function ReviewChildData({
         const link = document.createElement("a");
         link.href = url;
         link.download = "bookbuddies-child-data.json";
+        document.body.append(link);
         link.click();
+        link.remove();
         setTimeout(() => {
           URL.revokeObjectURL(url);
         }, 0);

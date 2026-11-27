@@ -6,6 +6,7 @@
 
 > **Realizes:** `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-move-book`, `UC-SHLF-parent-remove-book`, `FR-SHLF-parent-remove`, `FR-PAR-review`, `FR-ACCT-credentials` (the child's sign-in half, a supporting flow with no use case, `OI-46`), `DI-usage-records` (the sign-in record)
 > **Depends on:** `UC-ADM-block-content` (extension 5b: a block removes the shelf entries), `BR-parent-account-linked`, `BR-kid-no-metrics`, `BR-kid-anonymous-profile`, `BR-parent-shelf-removal`, `FR-SHLF-categories`, `FR-SHLF-finish-confirm`, `UI-kid-no-metrics`, `USE-child-first-run`, `DI-child-credentials`, `SEC-auth`, `SEC-signin-throttling`, `SEC-role-authorization`, `USE-parent-light`; for `UC-SHLF-parent-remove-book`: `BR-parent-ultimate-say`, `ROB-no-data-loss`, `OI-25`, `OI-41`, and from [`design/par.md`](par.md) (`UC-PAR-report-book`): `removeShelfEntryInTx`, `createRemovalNoticeInTx`, `lockConsentForWrite`, `getChildForFamily` with a transaction handle, and the `shelf.parent-removed` audit shape; from [`design/par.md`](par.md) (`UC-PAR-delete-kid-account`): `lockChildForWrite`, its §8.2.8 rule and `children.writeVersion`
+> **Move-book also depends on:** `BR-coppa-parental-consent`, `UC-PAR-revoke-consent` POST-3
 > **Related, designed separately:** `UC-SHLF-par-finish-book`, `UC-PAR-report-book`
 > **See:** [use cases, SHLF area](../docs/requirements/use-cases.md#shlf-shelf-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [architecture-of-record](architectural-design.md), [PAR design](par.md)
 > **Designed against:** use cases v0.24 (updated in this PR), business rules v0.8, SRS v0.12 (updated in this PR), the PAR design, and the code on `main` and the merged `design/rec.md` as of 2026-11-18 (`requireParent()` in `sessions.ts` and `getChildForFamily` in `child-accounts.ts`, both used by the add-a-child pages). The Shelf and Catalog components have no code yet, and there is no shared parent layout guard: each parent page calls `requireParent()` itself.
@@ -291,11 +292,11 @@ classDiagram
 
 | Component | Responsibility |
 | --- | --- |
-| `src/app/(child)/child/shelf/[bookId]/move/page.tsx` | Replace the placeholder. Require the child session, read the route parameter, load the active Catalog book and **the session child's** entry, and render the four-category form or a friendly unavailable/off-shelf state. A read snapshot is never authorization for the later write. |
+| `src/app/(child)/child/shelf/[bookId]/move/page.tsx` | Replace the placeholder. Require the child session and confirmed consent for its family, read the route parameter, load the active Catalog book and **the session child's** entry, and render the four-category form or a friendly unavailable/off-shelf state. The save rechecks consent under a write lock. |
 | `move-form.tsx`, `schema.ts`, `actions.ts` beside that page | Accessible progressively enhanced form; validate the bound `bookId` and submitted `category`; call `requireChild()` before validation; pass the returned `ChildSession`, never a client child ID, to the domain action; translate safe results and fixed redirect states. |
-| `src/server/shelf/move-book.ts` | Validate the active book, take the child/book write locks, apply the state rules below in `withTransaction`, and map storage failures. Own shelf documents only. |
+| `src/server/shelf/move-book.ts` | Validate the active book, take the child, consent and book write locks, apply the state rules below in `withTransaction`, and map storage failures. Own shelf documents only. |
 | `shelf-collections.ts`, `shelf-entries.ts` | Add only the optional `previousCategory` field/validator and small session-scoped entry read/update helpers. `getShelfForChild` and `getShelfForParent` keep their existing projection and derived awaiting rule. |
-| Existing `requireChild`, `lockChildForWrite`, `lockActiveBookForWrite`, `withTransaction`, `now`, `findActiveBookIds` | Reused unchanged. `requireChild` is the only route/action identity check; locks and the Catalog check make deletion, removal and block races explicit. |
+| Existing `requireChild`, `getFamilyIdForChild`, `isConsentConfirmed`, `lockChildForWrite`, `lockConsentForWrite`, `lockActiveBookForWrite`, `withTransaction`, `now`, `findActiveBookIds` | Reused unchanged. `requireChild` supplies the acting identity. The consent read guards page and action reads, and the write locks serialize saves with removal, deletion, revocation and blocking. |
 | Existing `child-shelf.ts`, `parent-shelf.ts`, `child-notices.ts` | Reused read/notice conventions. Move-book writes no child notice and no parent notification; parent removal and the future parent decline remain the only flows here that create their respective child notices. |
 | Planned `move-book.int.test.ts`, move-page/action integration tests and `child-move-book.spec.ts` | Execute the state, authorization, race, failure and browser matrix in [Tests](#tests). Parent confirm/decline races use transactional contract fixtures until that separate use case is built. |
 
@@ -487,8 +488,8 @@ sequenceDiagram
   actor Parent
 
   Kid->>Page: 1. Open a shelf book's category control
-  Page->>Action: requireChild() (PRE-1)
-  Action->>Shelf: Read active book and entry for session.childId
+  Page->>AF: 1. requireChild() and check confirmed consent
+  Page->>Shelf: 2. Read active book and entry for session.childId
   Shelf->>Catalog: getBooksForShelf([bookId])
   alt unknown, draft or blocked book
     Page-->>Kid: Book unavailable; Back to shelf
@@ -500,7 +501,7 @@ sequenceDiagram
   Kid->>Action: 3. Choose a different category and submit
   Note over Kid,Page: 3b: Cancel/close without selecting returns to the shelf;<br/>no action or write. Radio selection alone never saves.
   Action->>Action: requireChild(); validate inputs (4a rejects category before storage)
-  Action->>Shelf: moveBook(childSession, input)
+  Action->>Shelf: 4. moveBook(childSession, input); check confirmed consent
   Shelf->>Catalog: 4. findActiveBookIds([bookId])
   Shelf->>Shelf: withTransaction: read own entry and confirmation (4)
   alt 2a. Entry is gone
@@ -513,6 +514,7 @@ sequenceDiagram
     Kid->>Action: Confirm retraction (second POST), or Cancel with no write
   else 4–5. A permitted real move
     Shelf->>AF: lockChildForWrite(tx, session.childId)
+    Shelf->>AF: Resolve family in tx and lockConsentForWrite(tx, familyId)
     Shelf->>Catalog: lockActiveBookForWrite(tx, bookId)
     Shelf->>Shelf: Apply category/movedAt/previousCategory transition; commit
     Shelf-->>Action: moved + derived awaitingConfirmation
@@ -649,7 +651,7 @@ No response says which parent removed a book or why. The child's notice holds th
 
 | Name | Kind | Request | Response |
 | --- | --- | --- | --- |
-| `/child/shelf/[bookId]/move` | Child page, GET | Decoded `bookId`; session from `requireChild()` | Active book title, current category and all four radio options. Missing/inactive book and off-shelf states each have a **Back to shelf** link. |
+| `/child/shelf/[bookId]/move` | Child page, GET | Decoded `bookId`; session from `requireChild()` and confirmed consent for its family | Active book title, current category and all four radio options. Missing/inactive book and off-shelf states each have a **Back to shelf** link. An unavailable account gets no shelf data. |
 | `moveBook(childSession, input)` | Shelf domain action, called by the page's POST server action | `ChildSession` obtained inside the action; canonical string `bookId`, exact `ShelfCategory`, and optional `retractConfirmed` boolean from the explicit 3c confirmation (absent means false). No `childId`, title, confirmation, previous category, timestamp or version is accepted from the client. | `ActionResult<MoveBookOutcome, MoveBookErrorCode>` below. No dates, counters, previous category, parent identity or child identity are returned. |
 | `getShelfEntryForMove(childId, bookId, tx?)` | Internal Shelf read | Session-derived `childId`, route `bookId`, optional transaction | The internal entry including `previousCategory`, or `null`; always scoped by both keys. Not a new HTTP route. |
 | Existing `/parent/children/[childId]/shelf` | Parent page, unchanged | Existing parent/family authorization | An unconfirmed Finished entry shows **Confirm finished**. Ordinary moves, confirmed books and retracted requests show no finish prompt. No notification resource is added. |
@@ -684,7 +686,8 @@ guard rather than exposing those messages as shelf validation.
 | Code | Condition and child-safe message | Write/UI contract |
 | --- | --- | --- |
 | `NOT_SIGNED_IN` | Existing `requireChild` failure: **"Please sign in."** Also used if the child lock reports that a deleted account vanished mid-request. | No move. Page goes to the existing sign-in flow; the session/action boundary stays authoritative. |
-| `NOT_A_CHILD` | Existing `requireChild` failure: **"Only child accounts can do this."** | No move or cross-role access. |
+| `NOT_A_CHILD` | Existing `requireChild` failure: **"This page is for children."** | No move or cross-role access. |
+| `CONSENT_NOT_CONFIRMED` | The child's family has no confirmed consent or it has been revoked. **"Ask a parent for help with your account."** | Do not return shelf details. Abort the move and any lock updates. |
 | `INVALID_INPUT` | Body is not a plain object or contains unknown fields, `bookId` is missing/not a string/not canonical UUID form, the route parameter is malformed, or a supplied `retractConfirmed` is not boolean after form decoding. **"That move couldn't be read. Go back to your shelf and try again."** | No storage call that writes; no raw parser/database detail. |
 | `INVALID_CATEGORY` | 4a: `category` is missing, not a string, or is not exactly `readingNow`, `wantToRead`, `maybeLater` or `finished`. **"Choose Reading Now, Want to Read, Maybe Later, or Finished."** | No write. All four values are legal; Finished is not disabled. |
 | `BOOK_NOT_FOUND` | Canonical ID is unknown, draft or blocked, including losing the active-book lock race. **"That book isn't available. Go back to your shelf."** | No move/prompt. The existing shelf read already hides blocked books. |
@@ -703,7 +706,8 @@ redirect. A no-op is success, not an `ALREADY_IN_CATEGORY` error.
 
 **Parent finish interface needed by this design, not its UI.** `UC-SHLF-par-finish-book`
 must implement confirm and decline against fresh state in the same transaction as
-`lockChildForWrite(tx, childId)` and `lockActiveBookForWrite(tx, bookId)`, after its existing
+`lockChildForWrite(tx, childId)`, `lockConsentForWrite(tx, familyId)` and
+`lockActiveBookForWrite(tx, bookId)`, in that order after its existing
 parent/family checks. Both must re-read the entry and confirmation and continue only for
 `category === "finished"` with no confirmation. Otherwise they return
 `FINISH_REQUEST_CANCELLED` and create no confirmation, decline notice, content flag or audit
@@ -877,7 +881,10 @@ implementation.
 **Write algorithm and atomicity.** The server action authenticates first and validates the
 closed input shape second. The domain action then:
 
-1. Calls `findActiveBookIds([bookId])`; an empty result is `BOOK_NOT_FOUND`.
+1. Resolves the session child's family and checks `isConsentConfirmed(familyId)` before
+   reading shelf data, as on the move page. A missing child returns `NOT_SIGNED_IN`;
+   missing or revoked consent returns `CONSENT_NOT_CONFIRMED`. Then calls
+   `findActiveBookIds([bookId])`; an empty result is `BOOK_NOT_FOUND`.
 2. Starts `withTransaction` and reads `(session.childId, bookId)` in that transaction. A
    missing entry is `NOT_ON_SHELF`. Read the matching confirmation in the same snapshot.
 3. If the target equals the entry's current category, returns success with the derived
@@ -888,9 +895,10 @@ closed input shape second. The domain action then:
    is not `true`, returns `retraction-required` before either lock. The entry, versions and
    prompt remain unchanged. The exact warning's Cancel does no action/write; its confirmation
    is a new POST that reruns this entire algorithm against fresh state.
-5. For a real move, calls `lockChildForWrite(tx, session.childId)`, then
-   `lockActiveBookForWrite(tx, bookId)`, in that order. A missing child maps to
-   `NOT_SIGNED_IN`; an inactive book maps to `BOOK_NOT_FOUND`. Re-reads the own entry and
+5. For a real move, calls `lockChildForWrite(tx, session.childId)`, gets the family again
+   with `getFamilyIdForChild(session.childId, tx)`, then calls `lockConsentForWrite(tx, familyId)`
+   and `lockActiveBookForWrite(tx, bookId)` in that order. Missing child, refused consent
+   and inactive book use the same codes as the reads. Re-reads the own entry and
    confirmation after locking. The driver reruns the whole callback on transient conflicts,
    so every retry re-reads, revalidates and computes a fresh `now()` rather than reusing a
    stale source category or timestamp.
@@ -900,13 +908,13 @@ closed input shape second. The domain action then:
    returns only the outcome kind and `awaitingConfirmation`, derived from the committed target
    and confirmation existence.
 
-A domain refusal before the locks writes nothing at all. As with the existing suggestion and
-parent-removal flows, a refusal discovered after a lock may commit that lock's internal
-`writeVersion`; this is not a shelf move and is never returned to a child. Tests of the
-no-op path assert even those versions stay unchanged; tests of other refusals assert the
-entry/confirmation/rating/notice state, not an impossible global "no document changed"
-claim. Any thrown update/known commit failure aborts the logical move and maps to
-`SAVE_FAILED`. An `UnknownTransactionCommitResult` is mapped separately as specified above.
+A domain refusal before the locks writes nothing. Throw a typed refusal from the transaction
+after taking a lock and map it to the documented code outside the transaction, as the parent
+removal and quiz saves do. This rolls back the child, consent and Catalog lock increments.
+A session alone can outlive the point at which an in-flight move read consent. The conditional
+write shares the Consent Record with revocation, so a revocation that wins the race prevents
+the move. A known storage failure aborts and maps to `SAVE_FAILED`.
+An `UnknownTransactionCommitResult` is mapped separately as specified above.
 
 There is no second parent-prompt write to fail. The entry commit is exactly what makes the
 existing parent shelf read render the prompt in main 6. If the transaction fails, neither the
@@ -926,6 +934,7 @@ transient retry, with the complete callback rerun.
 | Concurrent submissions, different targets | Child lock serializes real moves. The later lock order wins and stores its own server timestamp; a later unconfirmed move into Finished records the then-current non-Finished source. No lost update or mixed category/previous pair. |
 | Parent removal vs move | If removal commits first, move returns `NOT_ON_SHELF`, with no prompt. If move commits first, it may return success, then removal deletes the entry and writes exactly its one normal `book-removed` notice; final shelf/prompt has no entry. Existing rating/confirmation retention is unchanged. |
 | Child deletion vs move | A session checked after deletion fails `NOT_SIGNED_IN`; a vanished child at the lock also does. A move ordered before deletion may succeed, but the existing deletion transaction then removes the child and its shelf/confirmation state. No late retry can recreate an entry or confirmation. A read/no-op ordered before deletion need not pretend it saw the later deletion. |
+| Consent revocation vs move | If revocation commits first, the move returns `CONSENT_NOT_CONFIRMED` or the session check refuses. Neither the shelf nor its derived finish prompt changes. If the move commits first, it is saved and revocation subsequently takes effect. |
 | Catalog block vs move | If block/active status wins, move returns `BOOK_NOT_FOUND` and writes no entry state. If move wins first, it may return success, then the block's existing delete-by-book operation removes the entry; final child and parent shelves hide it and show no prompt. Block writes no move/decline notice and retains confirmation/rating under its own rules. |
 | Pending retraction vs parent confirm | If retraction commits first, confirm's conditional read returns `FINISH_REQUEST_CANCELLED`: no confirmation, notice, flag or audit. If confirm commits first, its confirmation is valid; the child's later move retains it in any target category and creates no new prompt (3d). |
 | Pending retraction vs parent decline | If retraction commits first, decline is cancelled with no decline effects. If decline commits first, it restores/clears its state and writes its one specified decline notice; the later child move applies its chosen non-Finished target without deleting that historical notice or creating a confirmation. |
@@ -1104,8 +1113,8 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - **Shelf:** `ShelfEntryDocument`, `getShelfForChild`, `getShelfForParent`, `peekUnseenChildNotices`
   and the existing unique `(childId, bookId)` index. Awaiting remains a lookup of
   `finishConfirmations`, not a second status write.
-- **Atomic writes:** `withTransaction`, `lockChildForWrite`, `lockActiveBookForWrite`,
-  `findActiveBookIds` and server `now()`, including full callback retries and fresh timestamps.
+- **Atomic writes:** `withTransaction`, the child, consent and active-book locks in that
+  order, `findActiveBookIds` and server `now()`, including callback retries and fresh timestamps.
   The action catches `error.hasErrorLabel("UnknownTransactionCommitResult")` exactly as the
   current parent-suggestion action does.
 - **Notifications:** no new parent-notification or child-notice record. The existing parent
@@ -1113,7 +1122,7 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
   decline-notice writer exists on current main), and `createRemovalNoticeInTx` remains
   parent removal's notice path. Move-book adds neither.
 - **Cross-component ownership:** Shelf alone updates `shelfEntries`; Catalog alone validates/
-  locks active books; Accounts & Family alone locks child existence. No direct table access
+  locks active books; Accounts & Family owns child existence and consent. No direct table access
   from the page and no cascade into owned Catalog or Accounts documents.
 - **Privacy/metrics/audit:** no Child Identity Store, Safety Flagging, usage or analytics write,
   and no audit event because a child changing a category is not an architecture §8.2.9 event.
@@ -1209,7 +1218,7 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 
 Planned homes are `src/server/shelf/move-book.int.test.ts`, the move page's colocated
 `schema.test.ts`/`actions.int.test.ts`, the existing schema-setup integration test and
-`e2e/child-move-book.spec.ts`. Integration tests use the real MongoDB memory replica set;
+`tests/e2e/child-move-book.spec.ts`. Integration tests use the real MongoDB memory replica set;
 races are coordinated at a lock/update boundary, not made deterministic with sleeps. Until
 `UC-SHLF-par-finish-book` and the Catalog block action are built, their race fixtures execute
 the documented lock/conditional/delete contract against real collections and are labelled as
@@ -1220,7 +1229,7 @@ contract fixtures, not end-to-end coverage of those other use cases.
 | Main 1–2, PRE-1 | integration + E2E | A signed-in child opening Move sees the active book, current category and exactly four labelled options in fixed order; no parent/admin or other child's entry is accepted. |
 | Main 3–5; every category | integration | For each legal target, a different-category submission updates only that entry's category/server `movedAt`, refreshes shelf ordering and returns the right fixed success; table-driven source/target pairs cover all four targets. |
 | Main 5 and 6 | integration + E2E | An ordinary move returns `move=moved`, a pending Finished move returns `move=waiting` with the exact waiting confirmation, and both return to the shelf. Unknown query text renders no message. |
-| 3a, current category | integration | Every current category returns `move=unchanged`; entry bytes, `movedAt`, `previousCategory`, confirmation, rating, notices and both lock versions are unchanged. Pending Finished keeps its original previous category and one derived prompt; confirmed Finished stays confirmed. |
+| 3a, current category | integration | Every current category returns `move=unchanged`; the shelf entry, confirmation, rating, notices and all three lock versions are unchanged. Pending Finished keeps its original previous category and one derived prompt; confirmed Finished stays confirmed. |
 | 3b, close without choosing | unit + E2E | Cancel/close and browser Back from the initial category control perform no server action or write and return to the shelf. Merely focusing or changing a radio does not save. |
 | 2a, off shelf | integration + E2E | No own entry at initial load and entry removed after the form was rendered both produce only `NOT_ON_SHELF`/the exact stale-shelf message, with no write or prompt and a Back to shelf route. Another child's entry does not count. |
 | Invalid/missing/inactive book | unit + integration | Missing/malformed/non-string IDs and a non-boolean `retractConfirmed` are `INVALID_INPUT`; well-formed unknown, draft and blocked IDs are `BOOK_NOT_FOUND`; malformed route parameters are safe. None reveals Catalog detail or changes state. |
@@ -1238,6 +1247,7 @@ contract fixtures, not end-to-end coverage of those other use cases.
 | Double/repeated submission | integration concurrency | Two real same-target actions (including simultaneous confirmed retractions) complete with one actual `movedAt`/previous update and no duplicates; two unconfirmed retraction attempts only produce the warning. Different targets have a valid last-lock-order winner and never a mixed category/previous pair. |
 | Parent removal race | integration concurrency | Barrier-test both orders with the real removal action and locks: removal-first gives `NOT_ON_SHELF`; move-first can succeed then be removed. Final entry/prompt is absent and exactly the one valid removal notice exists; no late move recreates the entry. |
 | Child deletion race | integration concurrency | Barrier-test both orders with the real deletion transaction: no orphan entry/confirmation/notice or late write; deletion-first refuses via session/lock, and move-first is subsequently removed by deletion. |
+| Revoked consent and revocation race | integration | Missing or revoked consent hides the move form and refuses POST, even with an otherwise valid child session. A contract fixture updates the same Consent Record: revocation-first aborts the move and rolls back any lock versions; move-first saves the move before revocation. |
 | Book block race | integration concurrency | Barrier-test both orders using the real active-book lock and the block contract's same-transaction delete: block-first gives `BOOK_NOT_FOUND`; move-first can succeed then disappears. Final shelf/prompt hides the book and no move/decline notice is invented. |
 | Parent confirm/retraction race | integration concurrency contract | Both orders: retraction-first cancels confirm with zero confirmation/notice/flag/audit; confirm-first remains confirmed and the later child move preserves that confirmation and rating in its target. |
 | Parent decline/retraction race | integration concurrency contract | Both orders: retraction-first cancels decline with zero effects; decline-first writes its specified notice/restoration, then the child target applies without deleting the historical notice or creating a confirmation. A double parent decision applies only the first valid one. |
@@ -1366,7 +1376,7 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
   path before deploying a writer that can set it. Old documents need no migration. There is
   no index or data backfill dependency.
 - `UC-SHLF-par-finish-book` remains a separate, unbuilt implementation. It must adopt the
-  fresh conditional read, same-child/active-book locks, `FINISH_REQUEST_CANCELLED`, previous-
+  fresh conditional read, child, consent and active-book locks, `FINISH_REQUEST_CANCELLED`, previous-
   category cleanup and legacy `readingNow` fallback contracts above. Until then, the existing
   parent **Confirm finished** link is only the prompt interface, not working confirmation
   coverage. Move-book race tests must label their parent-action fixtures accordingly.

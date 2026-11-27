@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type SubmitEvent } from "react";
+import { useId, useRef, useState, type SubmitEvent } from "react";
 import type { ChildDataSnapshot } from "@/shared/accounts-family/child-data";
 import { exportChildData, reviewChildData } from "./actions";
 
@@ -18,6 +18,7 @@ export function ReviewChildData({
 }: {
   children: { id: string; nickname: string }[];
 }) {
+  const selectorId = useId();
   const [childId, setChildId] = useState(
     children.length === 1 ? children[0].id : "",
   );
@@ -79,25 +80,24 @@ export function ReviewChildData({
         Confirm your password to see what information we store for a child and
         why.
       </p>
-      <label>
-        Child{" "}
-        <select
-          value={childId}
-          onChange={(event) => {
-            selection.current++;
-            setChildId(event.target.value);
-            setSnapshot(null);
-            setMessage("");
-          }}
-        >
-          <option value="">Choose a child</option>
-          {children.map(({ id, nickname }) => (
-            <option key={id} value={id}>
-              {nickname}
-            </option>
-          ))}
-        </select>
-      </label>
+      <label htmlFor={selectorId}>Child</label>{" "}
+      <select
+        id={selectorId}
+        value={childId}
+        onChange={(event) => {
+          selection.current++;
+          setChildId(event.target.value);
+          setSnapshot(null);
+          setMessage("");
+        }}
+      >
+        <option value="">Choose a child</option>
+        {children.map(({ id, nickname }) => (
+          <option key={id} value={id}>
+            {nickname}
+          </option>
+        ))}
+      </select>
       <form key={childId} onSubmit={(event) => void submit(event, "review")}>
         <p>
           <label>

@@ -1,0 +1,93 @@
+/* The UC-PAR-suggest-book pages: the book list, the child picker and the confirmation. */
+.page {
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 5rem;
+}
+.title {
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 500;
+  margin: 0.25rem 0 1.5rem;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.item,
+.child {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #c6cec2;
+  border-radius: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+.item {
+  justify-content: space-between;
+}
+.child {
+  font-weight: 600;
+}
+.author {
+  display: block;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+.action {
+  font-weight: 600;
+  color: #2f5d3a;
+}
+.child:hover,
+.child:focus-visible {
+  border-color: #2f5d3a;
+  box-shadow: 0 0 0 2px #2f5d3a;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.counter {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+.warning {
+  border-left: 4px solid #b54708;
+  padding: 0.5rem 1rem;
+  background: #fffaeb;
+  color: #3d2a05;
+}
+.error {
+  color: #b42318;
+}
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .item,
+  .child {
+    border-color: #3a4338;
+  }
+  .action {
+    color: #8fd19e;
+  }
+  .child:hover,
+  .child:focus-visible {
+    border-color: #8fd19e;
+    box-shadow: 0 0 0 2px #8fd19e;
+  }
+}

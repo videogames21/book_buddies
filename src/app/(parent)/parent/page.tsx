@@ -38,6 +38,9 @@ export default async function ParentHomePage() {
       <h1>Welcome to BookBuddies</h1>
       <PendingBatches batches={pending} />
       <p>
+        <Link href="/parent/notifications">Notifications</Link>
+      </p>
+      <p>
         <Link href={NEW_CHILD_PATH}>Add a Child</Link>
       </p>
     </main>

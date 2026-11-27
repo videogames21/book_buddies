@@ -89,7 +89,17 @@ export async function appendChildDeletedAudit(
 // event is about: IDs only, never a title, name, reason or text (§8.2.9).
 export type AuditEntry =
   | {
-      event: "catalog.book_added";
+      event: "report.parent_warned";
+      actorId: string;
+      actorRole: "admin";
+      recordId: ObjectId;
+    }
+  | {
+      event:
+        | "catalog.book_added"
+        | "catalog.book_blocked"
+        | "report.discarded"
+        | "report.closed_as_blocked";
       actorId: string;
       actorRole: "admin";
       /** The book's UUID. */
@@ -135,6 +145,18 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
   await ensureCollection(db, "auditLog", {
     bsonType: "object",
     oneOf: [
+      {
+        required: ["actorId", "actorRole", "event", "recordId", "occurredAt"],
+        additionalProperties: false,
+        properties: {
+          _id: { bsonType: "objectId" },
+          actorId: { bsonType: "objectId" },
+          actorRole: { enum: ["admin"] },
+          event: { enum: ["report.parent_warned"] },
+          recordId: { bsonType: "objectId" },
+          occurredAt: { bsonType: "date" },
+        },
+      },
       {
         required: [
           "actorId",
@@ -186,7 +208,14 @@ export async function ensureAuditCollection(db: Db): Promise<void> {
           _id: { bsonType: "objectId" },
           actorId: { bsonType: "objectId" },
           actorRole: { enum: ["admin"] },
-          event: { enum: ["catalog.book_added"] },
+          event: {
+            enum: [
+              "catalog.book_added",
+              "catalog.book_blocked",
+              "report.discarded",
+              "report.closed_as_blocked",
+            ],
+          },
           // The book's UUID string.
           recordId: { bsonType: "string" },
           occurredAt: { bsonType: "date" },

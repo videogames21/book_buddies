@@ -38,6 +38,9 @@ export default async function CatalogListPage() {
           Add Book
         </Link>
       </p>
+      <p>
+        <Link href="/admin/reports">Reported books</Link>
+      </p>
       {books.length === 0 ? (
         <p>There are no books in the catalog yet.</p>
       ) : (
@@ -50,6 +53,7 @@ export default async function CatalogListPage() {
                     {column.label}
                   </th>
                 ))}
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -58,6 +62,15 @@ export default async function CatalogListPage() {
                   {COLUMNS.map((column) => (
                     <td key={column.label}>{column.cell(book)}</td>
                   ))}
+                  <td>
+                    {book.status === "blocked" ? (
+                      book.blockReason
+                    ) : (
+                      <Link href={`/admin/reports/${book.id}?from=catalog`}>
+                        Block book
+                      </Link>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

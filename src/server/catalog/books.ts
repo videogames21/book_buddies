@@ -8,6 +8,10 @@ import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx, withTransaction } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
+import {
+  BLOCK_REASONS,
+  type BlockReason,
+} from "@/shared/catalog/block-reasons";
 import type { NewBook } from "@/shared/catalog/new-book-schema";
 import {
   BOOKS_COLLECTION,
@@ -65,6 +69,9 @@ export async function ensureBookIndexes(db: Db): Promise<void> {
       readingLevel: { bsonType: "string" },
       customTags: { bsonType: "array", items: { bsonType: "string" } },
       status: { enum: ["draft", "active", "blocked"] },
+      blockReason: { enum: [...BLOCK_REASONS] },
+      blockedBy: { bsonType: "string" },
+      blockedAt: { bsonType: "date" },
       createdAt: { bsonType: "date" },
       // lockActiveBookForWrite's counter; absent means 0 (OI-58).
       writeVersion: { bsonType: ["int", "long"] },
@@ -289,6 +296,34 @@ function duplicateMessage(book: ExistingBook): string {
 
 /** Every stored field of a book, as the admin sees it. */
 export type AdminBookRow = Omit<BookDocument, "_id"> & { id: string };
+
+export async function getBookForBlock(bookId: string, tx?: Tx) {
+  return booksCollection(getDb()).findOne(
+    { _id: bookId },
+    { projection: { title: 1, status: 1, blockReason: 1 }, session: tx },
+  );
+}
+
+export async function blockBookInTx(
+  tx: Tx,
+  bookId: string,
+  adminId: string,
+  reason: BlockReason,
+): Promise<boolean> {
+  const result = await booksCollection(getDb()).updateOne(
+    { _id: bookId, status: { $in: ["draft", "active"] } },
+    {
+      $set: {
+        status: "blocked",
+        blockReason: reason,
+        blockedBy: adminId,
+        blockedAt: now(),
+      },
+    },
+    { session: tx },
+  );
+  return result.modifiedCount === 1;
+}
 
 /** Every book with every field, blocked ones included, newest first (the catalog list, step 7). Needs an admin session (§8.1). */
 export async function listBooksForAdmin(

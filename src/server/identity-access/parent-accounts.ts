@@ -190,3 +190,17 @@ function isDuplicateEmail(err: unknown): boolean {
     "email" in ((err as { keyPattern?: object }).keyPattern ?? {})
   );
 }
+
+/** Used by notifications, which must never be sent to a removed or different role. */
+export async function parentRecipientExists(
+  tx: Tx,
+  recipientId: ObjectId,
+): Promise<boolean> {
+  const user = await getDb()
+    .collection(USERS)
+    .findOne(
+      { _id: recipientId, role: "parent" },
+      { session: tx, projection: { _id: 1 } },
+    );
+  return user !== null;
+}

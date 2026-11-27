@@ -20,6 +20,8 @@ import { ensureReadingProfileIndexes } from "@/server/recommendation/reading-pro
 import { ensureShelfIndexes } from "@/server/shelf/shelf-collections";
 import { ensureChildNoticeIndexes } from "@/server/notification/child-notices";
 
+import { ensureParentWarningIndexes } from "@/server/notification/parent-warnings";
+
 // Idempotent index setup (design/par.md, Data model): run before the first deploy
 // and by the integration-test setup. Each component creates its own indexes.
 export async function ensureIndexes(db: Db): Promise<void> {
@@ -40,5 +42,6 @@ export async function ensureIndexes(db: Db): Promise<void> {
   await ensureBookIndexes(db);
   await ensureBookReportIndexes(db);
   await ensureChildNoticeIndexes(db);
+  await ensureParentWarningIndexes(db);
   await ensureParentSuggestionIndexes(db);
 }

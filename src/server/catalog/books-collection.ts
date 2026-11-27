@@ -1,5 +1,6 @@
 import "server-only";
 import type { Collection, Db } from "mongodb";
+import type { BlockReason } from "@/shared/catalog/block-reasons";
 
 // The one place the Catalog gets its `books` collection (design/adm.md, Tests). Tests
 // replace this module to make an insert fail on purpose, since the in-memory server
@@ -27,6 +28,9 @@ export type BookDocument = {
   readingLevel?: string;
   customTags?: string[];
   status: BookStatus;
+  blockReason?: BlockReason;
+  blockedBy?: string;
+  blockedAt?: Date;
   createdAt: Date;
 };
 

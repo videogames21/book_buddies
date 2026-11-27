@@ -472,6 +472,15 @@ export async function removeFromPendingBatchInTx(
   return result.modifiedCount > 0;
 }
 
+/** Removes a blocked book from every current list on Administration’s transaction. */
+export async function removeBlockedBookFromBatchesInTx(tx: Tx, bookId: string) {
+  await batches().updateMany(
+    { status: { $in: ["pending", "released"] }, bookIds: bookId },
+    { $pull: { bookIds: bookId } },
+    { session: tx },
+  );
+}
+
 /**
  * 2a in stored state, for one child, on the quiz save's transaction before its insert
  * (design/rec.md, "Retry the same request"): every batch of the child stored `pending`

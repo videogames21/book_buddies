@@ -26,7 +26,11 @@ test.afterAll(async () => {
   await closeE2eDb();
 });
 
-async function insertChild(familyId: ObjectId, nickname = "Starfish") {
+async function insertChild(
+  familyId: ObjectId,
+  nickname = "Starfish",
+  createdAt = new Date(),
+) {
   const db = await e2eDb();
   const _id = randomUUID();
   await db
@@ -42,7 +46,7 @@ async function insertChild(familyId: ObjectId, nickname = "Starfish") {
       familyId,
       nickname,
       avatar: "1-1",
-      createdAt: new Date(),
+      createdAt,
     });
   return _id;
 }
@@ -324,7 +328,9 @@ test("1a: a parent with several children chooses by nickname and lands on that c
     parentRole: "main",
     consentConfirmed: true,
   });
-  await insertChild(familyId, "Comet");
+  // The picker lists children by creation time; two inserts in the same millisecond
+  // would tie and fall back to the random ID, so Nova is created a minute later.
+  await insertChild(familyId, "Comet", new Date(Date.now() - 60_000));
   const nova = await insertChild(familyId, "Nova");
 
   await page.goto("/parent/shelf");

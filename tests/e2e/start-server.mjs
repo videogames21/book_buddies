@@ -31,6 +31,7 @@ const server = spawn(
       AUTH_SECRET: randomBytes(32).toString("hex"),
       AUTH_TRUST_HOST: "true",
       ALLOW_ADMIN_PARENT_SIGNIN: "1", // TEMPORARY (OI-61)
+      PARENT_SUGGESTIONS_ENABLED: "1", // UC-PAR-suggest-book release gate; invented data only
       // Not the default of 30, so the child spec can tell the setting is used.
       CHILD_KEEPALIVE_SECONDS: "45",
       CHILD_DEVICE_SECRET: randomBytes(32).toString("hex"),

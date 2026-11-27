@@ -9,6 +9,7 @@ import {
   insertRating,
   insertShelfEntry,
 } from "../../../tests/fixtures/shelf";
+import { insertSuggestion } from "../../../tests/fixtures/suggestions";
 import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
 
@@ -297,6 +298,58 @@ describe("reportBook (UC-PAR-report-book)", () => {
     expect(await count("auditLog")).toBe(2);
   });
 
+  it("UC-PAR-suggest-book: a report deletes the child's pending suggestion of the book and leaves a sibling's", async () => {
+    const { main, childId, familyId } = await consentedFamily();
+    const sibling = await insertChild(familyId);
+    const bookId = await bookOnShelf(childId);
+    await insertSuggestion(childId, bookId, { note: "from a grown-up" });
+    await insertSuggestion(sibling, bookId);
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result.ok).toBe(true);
+    expect(await count("parentSuggestions", { childId })).toBe(0);
+    expect(await count("parentSuggestions", { childId: sibling })).toBe(1);
+  });
+
+  it("UC-PAR-suggest-book: a failure later in the report leaves the suggestion in place", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await bookOnShelf(childId);
+    await insertSuggestion(childId, bookId);
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "childNotices") {
+        return Promise.reject(new Error("notice store down"));
+      }
+      return original.apply(this, args);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({ ok: false, error: { code: "SAVE_FAILED" } });
+    expect(await count("parentSuggestions", { childId, bookId })).toBe(1);
+  });
+
+  it("UC-PAR-suggest-book: a book that is only suggested is still NOT_ON_SHELF_OR_BATCH and nothing is deleted", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await insertBook("active");
+    await insertSuggestion(childId, bookId);
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "NOT_ON_SHELF_OR_BATCH" },
+    });
+    expect(await count("parentSuggestions", { childId, bookId })).toBe(1);
+    await expectNothingWritten(childId, bookId);
+  });
+
   it("7c: two simultaneous reports leave exactly one report and one exclusion", async () => {
     const { main, sub, childId } = await consentedFamily();
     const bookId = await bookOnShelf(childId);
@@ -372,6 +425,39 @@ describe("reportBook (UC-PAR-report-book)", () => {
       error: { code: "ALREADY_REPORTED" },
     });
     await expectNothingWritten(childId, bookId);
+  });
+
+  it("outcome unknown: an UnknownTransactionCommitResult error is OUTCOME_UNKNOWN, not SAVE_FAILED", async () => {
+    const { main, childId } = await consentedFamily();
+    const bookId = await bookOnShelf(childId);
+    // The driver adds this label to a commit it retried until its time limit. The test
+    // raises it from inside the transaction, which the driver passes through unchanged,
+    // to check the mapping without waiting out that limit.
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with apply(this)
+    const original = Collection.prototype.insertOne;
+    vi.spyOn(Collection.prototype, "insertOne").mockImplementation(function (
+      this: Collection,
+      ...args: Parameters<Collection["insertOne"]>
+    ) {
+      if (this.collectionName === "childNotices") {
+        const err = new MongoServerError({ message: "commit outcome unknown" });
+        err.addErrorLabel("UnknownTransactionCommitResult");
+        return Promise.reject(err);
+      }
+      return original.apply(this, args);
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await reportBook(main, { childId, bookId, reason: "other" });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
+    });
+    if (!result.ok) expect(result.error.message).not.toMatch(/nothing/i);
   });
 
   it("child check: a deleted child is CHILD_NOT_FOUND, nothing is written, and the read uses the transaction", async () => {

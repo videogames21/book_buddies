@@ -1,0 +1,88 @@
+.page {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3.5rem 1rem 5rem;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.panel h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  font-weight: 500;
+  margin: 0.25rem 0;
+}
+.panel fieldset {
+  border: 0;
+  border-top: 1px solid #c6cec2;
+  margin: 1rem 0 0;
+  padding: 1rem 0 0;
+  min-width: 0;
+}
+.panel legend {
+  padding-right: 1rem;
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+}
+.comment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+.comment textarea {
+  font: inherit;
+  font-weight: 400;
+  padding: 0.6rem;
+  border: 1px solid #c1cbbd;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.hint {
+  font-size: 0.85rem;
+  color: #4b6059;
+  font-weight: 400;
+}
+.warning {
+  border-left: 3px solid #9d3129;
+  margin: 0;
+  padding: 0.25rem 0 0.25rem 1.6rem;
+}
+.error {
+  color: #9d3129;
+  margin: 0.25rem 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #c6cec2;
+}
+.actions button {
+  background: #225e54;
+  color: white;
+  border: 0;
+  border-radius: 4px;
+  padding: 0.8rem 1.6rem;
+  font-weight: 600;
+}
+.actions button.secondary {
+  background: transparent;
+  color: #225e54;
+  border: 1px solid #225e54;
+}
+.actions button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

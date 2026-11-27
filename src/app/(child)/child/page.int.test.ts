@@ -21,7 +21,14 @@ vi.mock("next/headers", () => ({
     }),
 }));
 
+// The quiz's start button reads the router; a server render has none mounted.
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const { default: ChildHomePage } = await import("./page");
+const catalog = await import("@/server/catalog/rule-candidates");
 const { signOutChild } = await import("./sign-in/actions");
 const { auth } = await import("@/server/identity-access/auth");
 const { sessionCookie } =
@@ -64,16 +71,36 @@ beforeEach(async () => {
 });
 
 describe("/child home", () => {
-  it("shows the child's nickname and avatar, My Shelf and Sign out, and nothing else", async () => {
+  it("shows the child's nickname and avatar, My Shelf, the quiz entry and Sign out, and nothing else", async () => {
     await insertSignedInChild("Otter");
     const { childId } = await signedInChild("Starfish");
     // Not the fixture's usual avatar, so the page has to read this child's.
     await children().updateOne({ _id: childId }, { $set: { avatar: "7" } });
     const html = renderToStaticMarkup(await ChildHomePage());
     const text = html.split(/<[^>]*>/).filter(Boolean);
-    expect(text).toEqual(["Starfish", "My Shelf", "Sign out"]);
+    // The quiz entry shows now that its Catalog guard exists (OI-58; design/rec.md).
+    expect(text).toEqual([
+      "Starfish",
+      "My Shelf",
+      "Get recommendations",
+      "Sign out",
+    ]);
     expect(html).toContain('href="/child/shelf"');
     expect(html).toContain("7.png");
+  });
+
+  it("leaves the quiz entry out while the quiz is unavailable", async () => {
+    const guard = vi
+      .spyOn(catalog, "getQuizCatalogGuard")
+      .mockReturnValue(undefined);
+    await signedInChild("Starfish");
+    const html = renderToStaticMarkup(await ChildHomePage());
+    expect(html.split(/<[^>]*>/).filter(Boolean)).toEqual([
+      "Starfish",
+      "My Shelf",
+      "Sign out",
+    ]);
+    guard.mockRestore();
   });
 
   it("reads the nickname and avatar of the child and nothing else", async () => {

@@ -66,6 +66,8 @@ export async function ensureBookIndexes(db: Db): Promise<void> {
       customTags: { bsonType: "array", items: { bsonType: "string" } },
       status: { enum: ["draft", "active", "blocked"] },
       createdAt: { bsonType: "date" },
+      // lockActiveBookForWrite's counter; absent means 0 (OI-58).
+      writeVersion: { bsonType: ["int", "long"] },
     },
   });
   const books = db.collection(BOOKS);
@@ -114,6 +116,31 @@ export async function findActiveBookIds(ids: string[]): Promise<string[]> {
     .find({ _id: { $in: ids }, status: "active" }, { projection: { _id: 1 } })
     .toArray();
   return books.map((book) => book._id);
+}
+
+/**
+ * The same-book conditional write the team agreed for `OI-58` (2026-11-26; design/adm.md, "Check races with the
+ * owning use cases"; design/par.md, the block race key decision). A write that puts a book
+ * in front of a child calls it inside its own transaction: it increments `writeVersion` only
+ * while the book is active, and returns whether it matched. A block or a return to draft
+ * writes the same document, so the two transactions conflict and MongoDB reruns or refuses
+ * the later one; a snapshot read of the status alone would not conflict. `false` means the
+ * book is no longer active (or never was), and the caller refuses the write.
+ */
+export async function lockActiveBookForWrite(
+  tx: Tx,
+  bookId: string,
+): Promise<boolean> {
+  const result = await getDb()
+    .collection<{ _id: string; status: BookStatus; writeVersion?: number }>(
+      BOOKS,
+    )
+    .updateOne(
+      { _id: bookId, status: "active" },
+      { $inc: { writeVersion: 1 } },
+      { session: tx },
+    );
+  return result.matchedCount === 1;
 }
 
 export type ShelfBook = {

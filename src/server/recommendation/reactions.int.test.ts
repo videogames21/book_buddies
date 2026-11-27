@@ -30,7 +30,9 @@ vi.mock("@/server/lib/config", async (importOriginal) => {
 });
 
 const {
+  deleteChildRecords,
   getRecommendationListForChild,
+  listReactionsForExport,
   listReactionsForSignals,
   recordReaction,
 } = await import("./reactions");
@@ -798,5 +800,72 @@ describe("listReactionsForSignals (UC-REC-kid-review signals)", () => {
       ),
     );
     expect(signals.map((s) => s.bookId)).not.toContain("book-other");
+  });
+});
+
+describe("deleteChildRecords and listReactionsForExport (UC-REC-kid-review deletion and export)", () => {
+  it("deleteChildRecords deletes every reaction of the child and no other child's; an aborted transaction deletes none", async () => {
+    for (const childId of ["child-1", "child-1", "child-2"]) {
+      await insertReaction({ childId, bookId: "book-1", reaction: "yes" });
+    }
+
+    await expect(
+      withTransaction(async (tx) => {
+        await deleteChildRecords(tx, "child-1");
+        throw new Error("abort");
+      }),
+    ).rejects.toThrow("abort");
+    expect(await count("recommendationReactions")).toBe(3);
+
+    await withTransaction((tx) => deleteChildRecords(tx, "child-1"));
+    expect(await count("recommendationReactions", { childId: "child-1" })).toBe(
+      0,
+    );
+    expect(await count("recommendationReactions", { childId: "child-2" })).toBe(
+      1,
+    );
+  });
+
+  it("listReactionsForExport returns the child's reactions, newest first, for the child's family and nothing for another family", async () => {
+    const mine = await family();
+    const theirs = await family();
+    await insertReaction({
+      childId: mine.child.childId,
+      bookId: "book-1",
+      reaction: "yes",
+      batchIds: [new ObjectId().toHexString()],
+      reactedAt: EARLIER,
+    });
+    await insertReaction({
+      childId: mine.child.childId,
+      bookId: "book-2",
+      reaction: "notForMe",
+      declineReason: "notInterested",
+      reactedAt: LATER,
+    });
+    await insertReaction({
+      childId: theirs.child.childId,
+      bookId: "book-3",
+      reaction: "maybeLater",
+    });
+
+    expect(
+      await withTransaction((tx) =>
+        listReactionsForExport(mine.parent.familyId, mine.child.childId, tx),
+      ),
+    ).toEqual([
+      {
+        bookId: "book-2",
+        reaction: "notForMe",
+        declineReason: "notInterested",
+        reactedAt: LATER,
+      },
+      { bookId: "book-1", reaction: "yes", reactedAt: EARLIER },
+    ]);
+    expect(
+      await withTransaction((tx) =>
+        listReactionsForExport(theirs.parent.familyId, mine.child.childId, tx),
+      ),
+    ).toEqual([]);
   });
 });

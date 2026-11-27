@@ -2,6 +2,7 @@ import "server-only";
 import { MongoError, ObjectId } from "mongodb";
 import { isExcluded } from "@/server/accounts-family/book-reports";
 import {
+  getChildForFamily,
   getFamilyIdForChild,
   lockChildForWrite,
 } from "@/server/accounts-family/child-accounts";
@@ -287,6 +288,42 @@ export async function listReactionsForSignals(
         },
       ],
       { session: tx },
+    )
+    .toArray();
+}
+
+export type ReactionForExport = Pick<
+  ReactionDocument,
+  "bookId" | "reaction" | "declineReason" | "reactedAt"
+>;
+
+/**
+ * The reactions part of the "Recommendations/reactions" row of UC-PAR-review-child-data
+ * (design/par.md), inside the caller's snapshot transaction: every reaction of the
+ * child, newest first, with its decline reason (OI-73). A child outside the family gets
+ * none. No caller until that use case is built.
+ */
+export async function listReactionsForExport(
+  familyId: string,
+  childId: string,
+  tx: Tx,
+): Promise<ReactionForExport[]> {
+  const child = await getChildForFamily(familyId, childId, tx);
+  if (!child) return [];
+  return reactions()
+    .find<ReactionForExport>(
+      { childId },
+      {
+        projection: {
+          _id: 0,
+          bookId: 1,
+          reaction: 1,
+          declineReason: 1,
+          reactedAt: 1,
+        },
+        sort: { reactedAt: -1, _id: 1 },
+        session: tx,
+      },
     )
     .toArray();
 }

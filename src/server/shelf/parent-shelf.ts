@@ -1,18 +1,8 @@
 import "server-only";
 import { getChildForFamily } from "@/server/accounts-family/child-accounts";
 import { getBooksForShelf } from "@/server/catalog/books";
-import { getDb } from "@/server/lib/db";
-import {
-  FINISH_CONFIRMATIONS,
-  RATINGS,
-  SHELF_CATEGORIES,
-  SHELF_ENTRIES,
-  type FinishConfirmationDocument,
-  type RatingDocument,
-  type RatingValue,
-  type ShelfCategory,
-  type ShelfEntryDocument,
-} from "./shelf-collections";
+import type { RatingValue, ShelfCategory } from "./shelf-collections";
+import { groupByCategory, listEntries } from "./shelf-entries";
 
 // UC-SHLF-parent-view-shelf (design/shlf.md). Read-only: nothing here writes (POST-2).
 
@@ -46,58 +36,22 @@ export async function getShelfForParent(
   const child = await getChildForFamily(familyId, childId);
   if (!child) return null;
 
-  const db = getDb();
-  const entries = await db
-    .collection<ShelfEntryDocument>(SHELF_ENTRIES)
-    .find({ childId })
-    .sort({ movedAt: -1, bookId: 1 })
-    .toArray();
-  const bookIds = entries.map((entry) => entry.bookId);
-
-  const [books, ratings, confirmations] = await Promise.all([
-    getBooksForShelf(bookIds),
-    db
-      .collection<RatingDocument>(RATINGS)
-      .find(
-        { childId, bookId: { $in: bookIds } },
-        { projection: { bookId: 1, value: 1 } },
-      )
-      .toArray(),
-    db
-      .collection<FinishConfirmationDocument>(FINISH_CONFIRMATIONS)
-      .find(
-        { childId, bookId: { $in: bookIds } },
-        { projection: { bookId: 1 } },
-      )
-      .toArray(),
-  ]);
-
+  const entries = await listEntries(childId);
+  const books = await getBooksForShelf(entries.map((entry) => entry.bookId));
   const bookById = new Map(books.map((book) => [book.id, book]));
-  const ratingByBook = new Map(ratings.map((r) => [r.bookId, r.value]));
-  const confirmedBookIds = new Set(confirmations.map((c) => c.bookId));
-
-  const grouped = new Map<ShelfCategory, ShelfBookView[]>(
-    SHELF_CATEGORIES.map((category) => [category, []]),
-  );
-  for (const entry of entries) {
-    const book = bookById.get(entry.bookId);
-    if (!book) continue;
-    const confirmed = confirmedBookIds.has(entry.bookId);
-    grouped.get(entry.category)?.push({
-      bookId: entry.bookId,
-      title: book.title,
-      author: book.author,
-      confirmed,
-      // A rating needs a confirmation: a stray rating row is never shown.
-      rating: confirmed ? (ratingByBook.get(entry.bookId) ?? null) : null,
-    });
-  }
 
   return {
     child: { nickname: child.nickname },
-    categories: SHELF_CATEGORIES.map((category) => ({
-      category,
-      entries: grouped.get(category) ?? [],
-    })),
+    categories: groupByCategory(
+      entries.flatMap(({ bookId, category, confirmed, rating }) => {
+        const book = bookById.get(bookId);
+        if (!book) return [];
+        const { title, author } = book;
+        return {
+          category,
+          view: { bookId, title, author, confirmed, rating },
+        };
+      }),
+    ),
   };
 }

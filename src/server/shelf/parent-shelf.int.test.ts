@@ -342,11 +342,20 @@ describe("getShelfForParent (UC-SHLF-parent-view-shelf)", () => {
     await insertShelfEntry(sibling, book, "finished");
     await insertFinishConfirmation(sibling, book);
     await insertRating(sibling, book, "lovedIt");
+    // Confirmed for this child and rated by the sibling only.
+    const read = await insertBook("active", "Both Read");
+    await insertShelfEntry(childId, read, "readingNow");
+    await insertFinishConfirmation(childId, read);
+    await insertRating(sibling, read, "likedIt");
 
     const view = await getShelfForParent(familyId, childId);
 
     expect(view?.categories[3]?.entries[0]).toMatchObject({
       confirmed: false,
+      rating: null,
+    });
+    expect(view?.categories[0]?.entries[0]).toMatchObject({
+      confirmed: true,
       rating: null,
     });
   });

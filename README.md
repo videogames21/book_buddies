@@ -21,17 +21,20 @@ npm run demo
 If you already have the project, run `npm ci` and `npm run demo` from its folder.
 
 Wait for **BookBuddies demo: http://localhost:3000** and open that URL on the same
-computer. The terminal prints two invented accounts:
+computer. The terminal prints these invented accounts:
 
-| Account     | Email                      | Password                  |
-| ----------- | -------------------------- | ------------------------- |
-| Main Parent | `demo-parent@example.test` | `demo-password-123`       |
-| Admin       | `demo-admin@example.test`  | `demo-admin-password-123` |
+| Account                | Sign-in                          | Password                  |
+| ---------------------- | -------------------------------- | ------------------------- |
+| Main Parent (no child) | `demo-parent@example.test`       | `demo-password-123`       |
+| Parent of Comet        | `demo-shelf-parent@example.test` | `demo-password-123`       |
+| Child (Comet)          | `demo_reader`                    | `demo-shelf-books-42`     |
+| Admin                  | `demo-admin@example.test`        | `demo-admin-password-123` |
 
 Keep the terminal running during the demo. The runner builds and starts Next.js and
 a temporary local MongoDB replica set, loads the client's seed catalog, and creates
-the Main Parent (consent already confirmed, no child yet) and the admin. The first
-run may download MongoDB's official binary, so keep an internet connection.
+two Main Parents (consent already confirmed), one with no child yet and one whose
+child has books on the shelf, and the admin. The first run may download MongoDB's
+official binary, so keep an internet connection.
 
 #### Email in the demo
 
@@ -54,6 +57,18 @@ sender `BookBuddies <onboarding@resend.dev>` delivers only to the address that o
 the Resend account. Never put a key in a tracked file.
 
 #### Walkthrough
+
+**See a child's shelf.**
+
+1. Open `/child/sign-in` and sign in as `demo_reader`. Tap **My Shelf**.
+2. The shelf shows two notices, a confirmed book in **Reading Now**, a book in
+   **Want to Read**, an empty **Maybe Later**, and two books in **Finished**, one
+   confirmed and one grayed while it awaits confirmation.
+3. Tap a book for its details and actions. Move, remove, rate and **My Dashboard**
+   open placeholder pages.
+4. Tap **OK** on a notice. It does not show again.
+5. For the parent's view, use a private window, sign in as
+   `demo-shelf-parent@example.test` and open `/parent/shelf`.
 
 **Add a child (no email needed).**
 
@@ -96,7 +111,8 @@ new password. Every session of that parent is signed out.
 **Admin catalog.** Sign in as the admin on the same sign-in page to open
 `/admin/catalog`. This shared sign-in page is temporary (`OI-61`).
 
-The parent dashboard, recommendations and shelves are not built yet.
+The parent dashboard is not built yet. Nothing in the app adds a book to a shelf yet,
+so only the demo's seeded child has books.
 
 #### Stop and restart
 

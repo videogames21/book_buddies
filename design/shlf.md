@@ -534,11 +534,11 @@ This use case reads: its rows are pages and the server function behind them (8.2
 | Page `/child` | A signed-in child | None | The child's nickname and avatar, a "My Shelf" link and "Sign out", with the privacy notice link every child page has | No session: redirect to `/child/sign-in`. A parent or admin session: `404` |
 | Page `/child/shelf` (UC-SHLF-kid-view-shelf) | A signed-in child; the child is the session's, never a parameter | None | The four categories in fixed order, entries most recently moved first. Per entry: `bookId`, `title`, `author`, `seriesName` (or none), `category`, `confirmed`, `rating` (one of four words, or none) and `actions`: `move` and `remove`, plus `rate` only when `confirmed`; an entry awaiting confirmation (3c) has `move` and `remove`, and either one cancels the parent's pending request. Plus `notices` (kind and, for a removal, the title) and a `showFindBookMessage` flag | 2a: all four categories still show, with the flag set, not an error. 2b: the `error.tsx` retry screen, no shelf content. 3a: an empty category has its heading and nothing else. 3c: a Finished entry that is not confirmed has `confirmed` false and no `rate`. 3d, 3f: a notice shows on every load until the child taps OK, then never. 3b: a blocked book is absent. 5a: `rate` is not in `actions`. No session: redirect to `/child/sign-in`. A parent or admin session: `404` |
 | `getShelfForChild(childId)` in Shelf | Only the page above | The child ID from the session | One complete view | Throws on any failed read (2b); marks nothing |
-| `dismissChildNotice(noticeId)` in `src/app/(child)/child/shelf/actions.ts` | A signed-in child; the child is the session's | `noticeId` (zod: a notice ID) | `{ ok: true }`, also when the notice was already seen | `NOT_SIGNED_IN`: the session ended, the notice stays. `INVALID_NOTICE`: not a notice ID. A notice that is not the child's changes nothing and returns `{ ok: true }`, so the response does not show whether it exists |
+| `dismissChildNotice(noticeId)` in `src/app/(child)/child/shelf/actions.ts` | A signed-in child; the child is the session's | `noticeId` (zod: a notice ID) | `{ ok: true }`, also when the notice was already seen | `NOT_SIGNED_IN`: the session ended, the notice stays. `NOT_A_CHILD`: a parent or admin session. `INVALID_NOTICE`: not a notice ID. `DISMISS_FAILED`: an unexpected failure, and the notice stays. A notice that is not the child's changes nothing and returns `{ ok: true }`, so the response does not show whether it exists |
 
 **Never in the payload:** age, grade, reading level, the real name (none is held), any count or total, any date, `childId`, the confirming parent, the parent's note, a book's tags (8.2.11, `BR-kid-no-metrics`). `showFindBookMessage` is a flag, not a count.
 
-**Links this view renders** (paths are this design's proposal; each use case's design adopts them or changes this table in its own pull request, and each page re-checks the child and the book itself): `move` to `/child/shelf/{bookId}/move` (`UC-SHLF-kid-move-book`), `remove` to `/child/shelf/{bookId}/remove` (`UC-SHLF-kid-remove-book`), `rate` to `/child/shelf/{bookId}/rate` (`UC-SHLF-kid-rate-book`), and "My Dashboard" to `/child/dashboard` (`UC-SHLF-kid-dashboard`). Until those pages are built the links lead nowhere, so the implementation may land them with those use cases.
+**Links this view renders** (paths are this design's proposal; each use case's design adopts them or changes this table in its own pull request, and each page re-checks the child and the book itself): `move` to `/child/shelf/{bookId}/move` (`UC-SHLF-kid-move-book`), `remove` to `/child/shelf/{bookId}/remove` (`UC-SHLF-kid-remove-book`), `rate` to `/child/shelf/{bookId}/rate` (`UC-SHLF-kid-rate-book`), and "My Dashboard" to `/child/dashboard` (`UC-SHLF-kid-dashboard`). Until those pages are built, the links open placeholder pages (What the build changed).
 
 ### UC-SHLF-parent-remove-book
 
@@ -931,10 +931,9 @@ Built as `UC-SHLF-parent-view-shelf` and checked against this design. Deliberate
 - **A new file**, `src/server/shelf/shelf-collections.ts`, names the three collections.
 - **Browser tests instead of component tests** for the "no request on selection" and "links out" rows, because the repository has no component-testing library and adding one needs the team's approval.
 
-**Built so far for child sign-in:** the first pull request built the child session rules, `requireChild()`, the child home, sign-out, the keep-alive, the cleanup of ended sessions and the series name in the Catalog read. The second built sign-in with its record, next midnight and time zone, its throttle and device cookie, and the consent notice version. Differences from the design are written into the sections above and listed below. Still to come:
+**Built for `UC-SHLF-kid-view-shelf` and child sign-in:** the first pull request built the child session rules, `requireChild()`, the child home, sign-out, the keep-alive, the cleanup of ended sessions and the series name in the Catalog read. The second built sign-in with its record, next midnight and time zone, its throttle and device cookie, and the consent notice version. The third built the child's shelf and its notices. Differences from the design are written into the sections above or listed below.
 
-- `/child/shelf` is a placeholder page that reads nothing about a child. The child's shelf, its notices and the placeholder pages it links to follow.
-- Deleting a child does not yet delete their sign-in records, sessions or throttle counts: that is `deleteChildSignIn`, in the `UC-PAR-delete-kid-account` build.
+The move, remove, rate and dashboard pages are placeholders for their own use cases, and nothing in the application writes a shelf entry or a `finish-declined` notice yet.
 
 ### Design changes in part 1
 
@@ -963,6 +962,18 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
 - **The consent notice has a new version** naming what sign-in collects (`BR-coppa-notice`).
 - **The end-to-end test stops short of tapping a book**, which waits for the shelf.
 - **Not checked inside the sign-in transaction:** a consent revocation that commits between `childMaySignIn` and the session being saved would leave that session. Revocation is not built; its build must end the child's sessions in a way that closes this.
+
+### Design changes in part 3
+
+- **The shared read also returns the rating**, so the rule that only a confirmed book shows one is stated once. `listEntries` and `groupByCategory` in `shelf-entries.ts` serve both views.
+- **Grouped payload,** as in the parent view: four categories, each with its entries, in place of a category on each entry. Each notice also carries its ID, which the OK button sends back.
+- **The find-a-book message also shows when every entry's book is hidden**, since the child then sees no book.
+- **`dismissChildNotice`** also answers `NOT_A_CHILD`, and `DISMISS_FAILED` for an unexpected failure. On either session code the page goes to `/child/sign-in`.
+- **A tap on OK refreshes the shelf.** `dismissChildNotice` revalidates `/child/shelf` after saving, so the browser's Back cannot show a dismissed notice (3d, 3f). A failed refresh is logged and the saved result stands.
+- **A Close button on the selected book (added in the build; not in the use case or the earlier design; confirm).** Selecting a book moves focus to its details, and Close hides them and returns focus to that book.
+- **No new `shelf/error.tsx`:** the child area's `error.tsx` already is the 2b screen.
+- **Placeholder pages** for move, remove, rate and the dashboard, so the links lead somewhere and back. They read nothing about a child and check no session; the use case that builds each page adds both.
+- **Browser tests instead of component tests**, as for the parent view.
 
 
 ## Open questions & risks

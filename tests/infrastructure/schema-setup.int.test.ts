@@ -554,6 +554,20 @@ it("creates childNotices with a childId and seenAt index, holding the book ID on
   await expect(
     notices.insertOne({ ...notice, parentId: "p" }),
   ).rejects.toThrow();
+  // A declined finish names no book; a removal must name one.
+  const { bookId: _id, ...noBook } = notice;
+  await expect(
+    notices.insertOne({ ...noBook, kind: "finish-declined" }),
+  ).resolves.toBeTruthy();
+  await expect(
+    notices.insertOne({ ...notice, kind: "finish-declined" }),
+  ).rejects.toThrow();
+  await expect(notices.insertOne({ ...noBook })).rejects.toThrow();
+  const { createdAt: _at, ...undated } = notice;
+  await expect(notices.insertOne({ ...undated })).rejects.toThrow();
+  await expect(
+    notices.insertOne({ ...noBook, kind: "invented-kind" }),
+  ).rejects.toThrow();
   await notices.deleteMany({});
 });
 

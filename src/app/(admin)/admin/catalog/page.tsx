@@ -26,13 +26,19 @@ const COLUMNS: { label: string; cell: (book: AdminBookRow) => string }[] = [
   { label: "Status", cell: (b) => b.status },
   { label: "Added", cell: (b) => b.createdAt.toISOString().slice(0, 10) },
 ];
-export default async function CatalogListPage() {
+export default async function CatalogListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ decision?: string }>;
+}) {
   const admin = await requireAdminPage();
   const books = await listBooksForAdmin(admin);
+  const { decision } = await searchParams;
 
   return (
     <main className={styles.page}>
       <h1>Catalog</h1>
+      {decision === "blocked" && <p role="status">Book blocked.</p>}
       <p>
         <Link className={styles.button} href={NEW_BOOK_PATH}>
           Add Book

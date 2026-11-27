@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { listOpenBookReports } from "@/server/accounts-family/book-reports";
+import { listOpenBookReports } from "@/server/accounts-family/admin-book-reports";
 import { loadBookBlockPreview } from "@/server/administration/book-decisions";
 import { requireAdminPage } from "../../access";
 import { DecisionForm } from "../decision-form";
 
 type Props = {
   params: Promise<{ bookId: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; decision?: string }>;
 };
 
 export default async function ReportedBookPage({
@@ -18,7 +18,8 @@ export default async function ReportedBookPage({
   await requireAdminPage();
   const { bookId } = await params;
   if (!z.uuid().safeParse(bookId).success) notFound();
-  const entry = (await searchParams).from === "catalog" ? "catalog" : "reports";
+  const { from, decision } = await searchParams;
+  const entry = from === "catalog" ? "catalog" : "reports";
   const preview = await loadBookBlockPreview(bookId);
   if (!preview) notFound();
   const reports = entry === "reports" ? await listOpenBookReports(bookId) : [];
@@ -31,6 +32,7 @@ export default async function ReportedBookPage({
         </Link>
       </p>
       <h1>{preview.title}</h1>
+      {decision === "warned" && <p role="status">Warning sent.</p>}
       <p>
         Status: {preview.status}
         {preview.reason && ` (${preview.reason})`}

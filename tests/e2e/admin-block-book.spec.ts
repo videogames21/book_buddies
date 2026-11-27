@@ -44,7 +44,8 @@ test("a reported book disappears from the child's shelf after a confirmed admin 
     const form = page.locator("form").filter({ has: block });
     await form.getByLabel("Confirm this decision").check();
     await block.click();
-    await expect(page).toHaveURL(/\/admin\/reports$/);
+    await expect(page).toHaveURL(/\/admin\/reports\?decision=blocked$/);
+    await expect(page.getByRole("status")).toHaveText("Book blocked.");
     await expect(page.getByRole("link", { name: title })).toHaveCount(0);
 
     await child.reload();

@@ -43,8 +43,10 @@ export async function saveBookDecision(
     return fail("INVALID_REASON", "Choose a valid decision and reason.");
   const result = await decideReportedBook(admin.data, bookId, parsed.data);
   if (!result.ok) return result;
-  if (parsed.data.kind === "warn") redirect(`/admin/reports/${bookId}`);
+  if (parsed.data.kind === "warn")
+    redirect(`/admin/reports/${bookId}?decision=warned`);
   const next =
     parsed.data.entry === "catalog" ? "/admin/catalog" : "/admin/reports";
-  redirect(next);
+  const status = result.data.outcome === "DISCARDED" ? "discarded" : "blocked";
+  redirect(`${next}?decision=${status}`);
 }

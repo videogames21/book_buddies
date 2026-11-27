@@ -28,7 +28,7 @@ type BookReportDocument = {
   reportedByUserId: ObjectId;
   reason: ReportReason;
   comment?: string;
-  status: "open" | "blocked" | "discarded";
+  status: "open";
   reportedAt: Date;
 };
 
@@ -251,45 +251,6 @@ export async function listExcludedBookIds(
   return exclusions.map((exclusion) => exclusion.bookId);
 }
 
-const reports = () => getDb().collection<BookReportDocument>(BOOK_REPORTS);
-
-export async function listOpenBookReports(bookId?: string) {
-  const rows = await reports()
-    .find(
-      { status: "open", ...(bookId ? { bookId } : {}) },
-      {
-        projection: {
-          bookId: 1,
-          reason: 1,
-          reportedAt: 1,
-          reportedByUserId: 1,
-        },
-      },
-    )
-    .sort({ reportedAt: -1, _id: 1 })
-    .toArray();
-  return rows.map(({ _id, bookId, reason, reportedAt, reportedByUserId }) => ({
-    id: _id.toHexString(),
-    accountRef: reportedByUserId.toHexString(),
-    bookId,
-    reason,
-    reportedAt,
-  }));
-}
-
-export async function closeBookReportsInTx(
-  tx: Tx,
-  bookId: string,
-  status: "blocked" | "discarded",
-): Promise<number> {
-  const result = await reports().updateMany(
-    { bookId, status: "open" },
-    { $set: { status } },
-    { session: tx },
-  );
-  return result.modifiedCount;
-}
-
 /**
  * UC-PAR-delete-kid-account (design/par.md, Components): the child's exclusions are
  * deleted, and each report made for the child is kept with only its book, its reason and
@@ -310,16 +271,4 @@ export async function deleteChildRecords(
       { $unset: { childId: "", comment: "" } },
       { session: tx },
     );
-}
-
-export async function discardOpenReportInTx(
-  tx: Tx,
-  bookId: string,
-  reportId: string,
-) {
-  return reports().findOneAndUpdate(
-    { _id: new ObjectId(reportId), bookId, status: "open" },
-    { $set: { status: "discarded" } },
-    { session: tx, projection: { reportedByUserId: 1 } },
-  );
 }

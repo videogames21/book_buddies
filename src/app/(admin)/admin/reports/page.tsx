@@ -4,12 +4,19 @@ import { requireAdminPage } from "../access";
 
 export const metadata = { title: "Reported books · BookBuddies" };
 
-export default async function ReportQueuePage() {
+export default async function ReportQueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ decision?: string }>;
+}) {
   await requireAdminPage();
   const queue = await loadReportedBookQueue();
+  const { decision } = await searchParams;
   return (
     <main>
       <h1>Reported books</h1>
+      {decision === "blocked" && <p role="status">Book blocked.</p>}
+      {decision === "discarded" && <p role="status">Reports discarded.</p>}
       <p>
         <Link href="/admin/catalog">Catalog</Link>
       </p>

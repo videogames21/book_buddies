@@ -4,7 +4,7 @@ import {
   closeBookReportsInTx,
   discardOpenReportInTx,
   listOpenBookReports,
-} from "@/server/accounts-family/book-reports";
+} from "@/server/accounts-family/admin-book-reports";
 import { deleteSuggestionsForBookInTx } from "@/server/accounts-family/suggestions";
 import { appendAudit } from "@/server/audit/audit-log";
 import { blockBookInTx, getBookForBlock } from "@/server/catalog/books";

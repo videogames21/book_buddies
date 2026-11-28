@@ -18,6 +18,7 @@ import { getConfig } from "@/server/lib/config";
 import { getDb, withTransaction } from "@/server/lib/db";
 import * as shelf from "@/server/shelf/recommendation-signals";
 import * as batchWrites from "./batches";
+import * as reactions from "./reactions";
 import * as readingProfiles from "./reading-profiles";
 import {
   listPendingBatchesForFamily,
@@ -272,6 +273,13 @@ it.each([
     refuse: () =>
       vi
         .spyOn(shelf, "listRecentRatingSignals")
+        .mockRejectedValueOnce(new Error("fixture read failure")),
+  },
+  {
+    source: "reactions",
+    refuse: () =>
+      vi
+        .spyOn(reactions, "listReactionsForSignals")
         .mockRejectedValueOnce(new Error("fixture read failure")),
   },
   {

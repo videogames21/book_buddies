@@ -15,6 +15,7 @@ import {
   insertRating,
   insertShelfEntry,
 } from "../../../tests/fixtures/shelf";
+import { insertReaction } from "../../../tests/fixtures/reactions";
 import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
 import { recordChildSignIn } from "@/server/identity-access/child-sign-ins";
@@ -99,8 +100,8 @@ async function mainParent() {
  * account, identity, credential and a flagged note with its flag (createChild), a
  * reading profile (saveOnboardingProfile), sessions with their end records
  * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
- * shelf records and a recommendation batch (fixtures), a report with its exclusion
- * and notice (reportBook), and a parent suggestion (createSuggestion).
+ * shelf records, a recommendation batch and a reaction (fixtures), a report with its
+ * exclusion and notice (reportBook), and a parent suggestion (createSuggestion).
  */
 async function seedChild(
   session: ParentSession,
@@ -151,7 +152,16 @@ async function seedChild(
   await insertShelfEntry(childId, BOOK_ID, "readingNow");
   await insertRating(childId, BOOK_ID, "lovedIt");
   await insertFinishConfirmation(childId, BOOK_ID);
-  await insertBatch({ childId, bookIds: [BOOK_ID] });
+  const batchId = await insertBatch({ childId, bookIds: [BOOK_ID] });
+  // A reaction with its decline reason (UC-REC-kid-review). A fixture until the
+  // child's action exists in this test's seed path.
+  await insertReaction({
+    childId,
+    bookId: BOOK_ID,
+    reaction: "notForMe",
+    declineReason: "tooHard",
+    batchIds: [batchId],
+  });
   // A report through the real write path: its exclusion, the report with a comment, the
   // child's removal notice and two audit entries (UC-PAR-report-book).
   const reportedBookId = await insertBook("active", "Reported book");
@@ -233,6 +243,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       "noteFlags",
       "readingProfiles",
       "recommendationBatches",
+      "recommendationReactions",
       "shelfEntries",
       "ratings",
       "finishConfirmations",

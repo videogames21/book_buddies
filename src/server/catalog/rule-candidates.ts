@@ -17,19 +17,30 @@ export type RuleCandidate = {
 
 type InterestBook = Pick<BookDocument, "_id" | "genres" | "subjects">;
 
-function interestTags(book: InterestBook): string[] {
+/**
+ * A history book's approved interest keys, genres and subjects kept apart: a decline
+ * reason weighs them differently (design/rec-field-values.md, ranking signals).
+ */
+export type HistoryTags = { genres: string[]; subjects: string[] };
+
+function historyTags(book: InterestBook): HistoryTags {
   const subjects = book.subjects ?? [];
-  return [
-    ...GENRES.filter((genre) => book.genres.includes(genre)),
-    ...SUBJECTS.filter((subject) => subjects.includes(subject)),
-  ];
+  return {
+    genres: GENRES.filter((genre) => book.genres.includes(genre)),
+    subjects: SUBJECTS.filter((subject) => subjects.includes(subject)),
+  };
 }
 
-/** One active-only feature read for the child's favorites, shelf and ratings. */
+/** Every interest key of a history book, genres first, for a signal that weighs them alike. */
+export function interestKeys(tags: HistoryTags | undefined): string[] {
+  return tags ? [...tags.genres, ...tags.subjects] : [];
+}
+
+/** One active-only feature read for the child's favorites, shelf, ratings and reactions. */
 export async function listRuleHistoryTags(
   bookIds: readonly string[],
   tx?: Tx,
-): Promise<Map<string, string[]>> {
+): Promise<Map<string, HistoryTags>> {
   if (bookIds.length === 0) return new Map();
   const books = await booksCollection(getDb())
     .find<InterestBook>(
@@ -37,7 +48,7 @@ export async function listRuleHistoryTags(
       { projection: { genres: 1, subjects: 1 }, session: tx },
     )
     .toArray();
-  return new Map(books.map((book) => [book._id, interestTags(book)]));
+  return new Map(books.map((book) => [book._id, historyTags(book)]));
 }
 
 type CandidateDocument = Pick<

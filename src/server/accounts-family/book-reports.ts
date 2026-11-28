@@ -73,7 +73,7 @@ const MESSAGES: Record<ReportBookErrorCode, string> = {
   SAVE_FAILED:
     "We couldn't send the report. Nothing was saved, and the book is where it was. Please try again.",
   OUTCOME_UNKNOWN:
-    "We couldn't confirm whether the report was sent. Check your child's shelf before trying again.",
+    "We couldn't confirm whether the report was sent. Check your child's shelf or their recommendations to review before trying again.",
 };
 
 /** Ends the transaction with a refusal; it is not transient, so the driver does not rerun it. */

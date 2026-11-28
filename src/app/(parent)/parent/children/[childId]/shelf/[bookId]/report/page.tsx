@@ -34,6 +34,7 @@ export default async function ReportBookPage({
           title={view.title}
           nickname={view.nickname}
           backPath={view.shelfPath}
+          entry="shelf"
         />
       )}
     </main>

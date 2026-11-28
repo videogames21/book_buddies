@@ -113,10 +113,15 @@ describe("reportFormReducer (UC-PAR-report-book)", () => {
     });
   });
 
-  it("step 8: an ok answer shows the sent screen", () => {
-    expect(reduce(onConfirm, { type: "result", answer: { ok: true } })).toEqual(
-      { screen: "sent" },
-    );
+  it("step 8 and 7d: an ok answer shows the sent screen and keeps whether a shelf entry was removed", () => {
+    for (const removedFromShelf of [true, false]) {
+      expect(
+        reduce(onConfirm, {
+          type: "result",
+          answer: { ok: true, removedFromShelf },
+        }),
+      ).toEqual({ screen: "sent", removedFromShelf });
+    }
   });
 
   it("7a: SAVE_FAILED stays on the confirmation with the error ID, and the input is kept", () => {

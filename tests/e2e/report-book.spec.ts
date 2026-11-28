@@ -159,6 +159,7 @@ test("main: from the shelf, report a book through the warning; it leaves the she
       "Shadow Lake Report E2E will no longer appear for Starfish.",
     ),
   ).toBeVisible();
+  await expect(page.getByText("It was taken off their shelf.")).toBeVisible();
   expect(await reportsFor(bookId)).toBe(1);
 
   await page.getByRole("link", { name: "Back to Starfish’s shelf" }).click();

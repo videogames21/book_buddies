@@ -25,10 +25,38 @@ function ErrorLine({ error }: { error: ShownError | null }) {
   );
 }
 
+/** Where the parent tapped "Report": the shelf, or a recommendation batch under review. */
+export type ReportEntry = "shelf" | "batch";
+
+/** The wording that names where the parent started, for each entry point. */
+const ENTRY_WORDING = {
+  shelf: {
+    back: (nickname: string) => `Back to ${nickname}’s shelf`,
+    removal: "and will be taken off their shelf",
+    checkHeading: "Check the shelf",
+    checkWhere: "your child’s shelf",
+  },
+  batch: {
+    back: (nickname: string) => `Back to ${nickname}’s recommendations`,
+    removal: "and will be taken out of this recommendation batch",
+    checkHeading: "Check the recommendations",
+    checkWhere: "your child’s recommendations to review",
+  },
+} as const;
+
+/** Step 8: what the report took the book out of (7d: a batch book was not on the shelf). */
+function removedFrom(entry: ReportEntry, removedFromShelf: boolean): string {
+  if (entry === "shelf") return "It was taken off their shelf.";
+  return removedFromShelf
+    ? "It was taken out of this recommendation batch and off their shelf."
+    : "It was taken out of this recommendation batch.";
+}
+
 /**
  * UC-PAR-report-book steps 3 to 8. The form and the confirmation are two screens in the
- * browser; nothing is sent until "Confirm" (step 6). Shared with the batch entry page,
- * which `UC-REC-parent-review` builds.
+ * browser; nothing is sent until "Confirm" (step 6). Shared by the shelf and batch entry
+ * pages; `entry` picks the wording that names where the parent started, and `backPath`
+ * is where Cancel and the result link go (3b, step 8).
  */
 export function ReportForm({
   childId,
@@ -36,13 +64,16 @@ export function ReportForm({
   title,
   nickname,
   backPath,
+  entry,
 }: {
   childId: string;
   bookId: string;
   title: string;
   nickname: string;
   backPath: string;
+  entry: ReportEntry;
 }) {
+  const wording = ENTRY_WORDING[entry];
   const [state, dispatch] = useReducer(reportFormReducer, INITIAL_REPORT_FORM);
   const inFlight = useRef(false);
   const [sending, setSending] = useState(false);
@@ -56,7 +87,9 @@ export function ReportForm({
       const result = await reportBook(input);
       dispatch({
         type: "result",
-        answer: result.ok ? { ok: true } : { ok: false, error: result.error },
+        answer: result.ok
+          ? { ok: true, removedFromShelf: result.data.removedFromShelf }
+          : { ok: false, error: result.error },
       });
     } catch {
       dispatch({
@@ -65,8 +98,7 @@ export function ReportForm({
           ok: false,
           error: {
             code: "OUTCOME_UNKNOWN",
-            message:
-              "We couldn't reach BookBuddies, so we don't know whether the report was sent. Check your child's shelf before trying again.",
+            message: `We couldn’t reach BookBuddies, so we don’t know whether the report was sent. Check ${wording.checkWhere} before trying again.`,
           },
         },
       });
@@ -81,9 +113,10 @@ export function ReportForm({
       <section className={styles.panel} aria-live="polite">
         <h1>Report sent</h1>
         <p>
-          Thank you. {title} will no longer appear for {nickname}.
+          Thank you. {title} will no longer appear for {nickname}.{" "}
+          {removedFrom(entry, state.removedFromShelf)}
         </p>
-        <Link href={backPath}>Back to {nickname}’s shelf</Link>
+        <Link href={backPath}>{wording.back(nickname)}</Link>
       </section>
     );
   }
@@ -95,11 +128,11 @@ export function ReportForm({
           {state.reason === "alreadyReported"
             ? "Already reported"
             : state.reason === "outcomeUnknown"
-              ? "Check the shelf"
+              ? wording.checkHeading
               : "The report was not sent"}
         </h1>
         <ErrorLine error={state.error} />
-        <Link href={backPath}>Back to {nickname}’s shelf</Link>
+        <Link href={backPath}>{wording.back(nickname)}</Link>
       </section>
     );
   }
@@ -111,8 +144,7 @@ export function ReportForm({
         <ul className={styles.warning}>
           <li>This report is final. It cannot be undone.</li>
           <li>
-            {title} will no longer appear for {nickname}, and will be taken off
-            their shelf.
+            {title} will no longer appear for {nickname}, {wording.removal}.
           </li>
           <li>Sending a false report may be punished.</li>
         </ul>

@@ -8,6 +8,7 @@ import { closeE2eDb, e2eDb, signInParent } from "./session-fixture";
 // ahead of the real clock the dev server uses. Its books are removed when it finishes,
 // and its titles never repeat another spec's (the reading-profile spec lists every book).
 const createdBookIds: string[] = [];
+const reportChildIds: string[] = [];
 
 test.afterAll(async () => {
   const db = await e2eDb();
@@ -17,6 +18,13 @@ test.afterAll(async () => {
   await db
     .collection("recommendationBatches")
     .deleteMany({ bookIds: { $in: createdBookIds } });
+  // A report from a batch empties the batch of that book, so its batch is found by child.
+  await db
+    .collection("recommendationBatches")
+    .deleteMany({ childId: { $in: reportChildIds } });
+  for (const name of ["bookReports", "childBookExclusions", "childNotices"]) {
+    await db.collection(name).deleteMany({ bookId: { $in: createdBookIds } });
+  }
   await closeE2eDb();
 });
 
@@ -259,6 +267,129 @@ test("two tabs: a released view lists only the books stored as sent (review of #
     bookIds: [bookIds[0]],
   });
   await other.close();
+});
+
+// UC-PAR-report-book from step 4: the batch entry page.
+
+const reportsFor = async (bookId: string) =>
+  (await e2eDb()).collection("bookReports").countDocuments({ bookId });
+
+/** From the batch page, through the form and the warning, to the step 8 result. */
+async function reportFromBatch(page: Page, title: string) {
+  await page.getByRole("link", { name: `Report ${title}` }).click();
+  await expect(
+    page.getByRole("heading", { name: "Report a book" }),
+  ).toBeVisible();
+  await page.getByRole("radio", { name: "Inappropriate content" }).check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByText(/will be taken out of this recommendation batch/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Report sent" }),
+  ).toBeVisible();
+}
+
+test("report, 7d: from the batch, report a book; the result says it left the batch, and back on the batch it is gone and the batch is still pending", async ({
+  page,
+  context,
+}) => {
+  const { childId, nickname, batchId, bookIds } = await setUp(context, [
+    "Ember Hollow Report E2E",
+    "Juniper Bell Report E2E",
+  ]);
+  reportChildIds.push(childId);
+  await page.goto(`/parent/children/${childId}/recommendations/${batchId}`);
+
+  await reportFromBatch(page, "Ember Hollow Report E2E");
+  await expect(
+    page.getByText("It was taken out of this recommendation batch."),
+  ).toBeVisible();
+  await expect(page.getByText(/off their shelf/)).toHaveCount(0);
+  expect(await reportsFor(bookIds[0] ?? "")).toBe(1);
+
+  await page
+    .getByRole("link", { name: `Back to ${nickname}’s recommendations` })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: `Recommendations for ${nickname}` }),
+  ).toBeVisible();
+  await expect(page.getByText("Juniper Bell Report E2E")).toBeVisible();
+  await expect(page.getByText("Ember Hollow Report E2E")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Remove Juniper Bell Report E2E" }),
+  ).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Confirm" })).toBeEnabled();
+  expect(await storedBatch(batchId)).toMatchObject({
+    status: "pending",
+    bookIds: [bookIds[1]],
+  });
+});
+
+test("report, 3b: Cancel returns to the batch and writes nothing", async ({
+  page,
+  context,
+}) => {
+  const { childId, batchId, bookIds } = await setUp(context, [
+    "Cinder Path Report E2E",
+  ]);
+  const batchPage = `/parent/children/${childId}/recommendations/${batchId}`;
+  await page.goto(batchPage);
+  await page
+    .getByRole("link", { name: "Report Cinder Path Report E2E" })
+    .click();
+  await page.getByRole("radio", { name: "Inappropriate content" }).check();
+
+  await page.getByRole("link", { name: "Cancel" }).click();
+
+  await expect(page).toHaveURL(batchPage);
+  await expect(page.getByText("Cinder Path Report E2E")).toBeVisible();
+  expect(await reportsFor(bookIds[0] ?? "")).toBe(0);
+  expect(await storedBatch(batchId)).toMatchObject({
+    status: "pending",
+    bookIds,
+  });
+});
+
+test("report, 7c: opening the report page again for a book already reported shows that, with no form", async ({
+  page,
+  context,
+}) => {
+  const { childId, nickname, batchId, bookIds } = await setUp(context, [
+    "Thistle Moon Report E2E",
+    "Lark Hill Report E2E",
+  ]);
+  reportChildIds.push(childId);
+  const batchPage = `/parent/children/${childId}/recommendations/${batchId}`;
+  await page.goto(batchPage);
+  await reportFromBatch(page, "Thistle Moon Report E2E");
+
+  await page.goto(`${batchPage}/${bookIds[0] ?? ""}/report`);
+
+  await expect(
+    page.getByRole("heading", { name: "Already reported" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
+  expect(await reportsFor(bookIds[0] ?? "")).toBe(1);
+  await page
+    .getByRole("link", { name: `Back to ${nickname}’s recommendations` })
+    .click();
+  await expect(page).toHaveURL(batchPage);
+});
+
+test("report, PRE-3: a book not in this pending batch gets the 404", async ({
+  page,
+  context,
+}) => {
+  const { childId, batchId } = await setUp(context, ["Quill Fen Report E2E"]);
+  const otherBook = await insertBook("Wren Moor Report E2E");
+
+  const response = await page.goto(
+    `/parent/children/${childId}/recommendations/${batchId}/${otherBook}/report`,
+  );
+
+  expect(response?.status()).toBe(404);
 });
 
 test.describe("in a New York browser", () => {

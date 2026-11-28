@@ -3,7 +3,7 @@
 **Project:** BookBuddies
 **Team:** Team 05 — BookBuddies
 **Client:** Dr. Yang Yang
-**Version:** 0.11
+**Version:** 0.12
 
 ---
 
@@ -26,6 +26,7 @@
 | 2026-10-26 | 0.9 | System Admin: the client is the admin in practice; the admin may suspend and reinstate accounts and unblock books; parent "credentials" are names, usernames and emails, never passwords. | Team 05 (cleanup with Claude) |
 | 2026-10-26 | 0.10 | Trimmed System Admin to the powers the use cases give it, and named what is a deployment setting or a parent's tool instead; added editing books, parent-account suspension and the audit log. | Team 05 (cleanup with Claude) |
 | 2026-10-29 | 0.11 | Applied the client's 2026-10-28 answers (`docs/external/client-answers-10-28-2026.md`): added Child Dashboard, Finish Confirmation, Interest Profile, Internal Child ID, Parent Dashboard, Parent Note, Usage Data, Weekly Check-in and Word List; withdrew 24-Hour Review, Pending Deletion and Reflection (children write no free text); the child's real name is no longer stored; Safety Flag applies to parent notes; Seed Catalog is the curated spreadsheet; System Admin gains the child lookup by internal ID; Decline Reason, Rating, Recap, Recommender, Parent, Shelf and the other entries updated to match. | Team 05 (with Claude) |
+| 2026-11-27 | 0.12 | Parent Note: the recommender reads only the note from profile creation for now (`OI-76`). Safety Flag and System Admin: the flag appears in the admin's flagged-content list, which is the alert, with no separate alert (team decision 2026-11-27, review of #155). | Team 05 (with Claude) |
 
 ---
 
@@ -214,7 +215,7 @@ _**Open:** what it may show, given `BR-recap-qualitative-only` (`OI-31`)._
 
 ### Parent Note
 
-An optional free-text note of at most 250 characters from a parent about their child's reading interests, to help BookBuddies recommend more relevant books. A parent may write one when creating the child's profile and after confirming a finished book. It is shown with a prompt not to include personal, identifying, sensitive or confidential information, is visible to the parent and the recommender, and is never shown to the child. An internal **Word List** checks it, and a match is flagged for human review by an authorized admin (`BR-parent-note`, `BR-note-safety-flagging`, `UC-PAR-create-kid-account`, `UC-SHLF-par-finish-book`).
+An optional free-text note of at most 250 characters from a parent about their child's reading interests, to help BookBuddies recommend more relevant books. A parent may write one when creating the child's profile and after confirming a finished book. It is shown with a prompt not to include personal, identifying, sensitive or confidential information, is visible to the parent and the recommender, and is never shown to the child. For now the recommender reads only the note written at profile creation, not one written after a book (`OI-76`). An internal **Word List** checks it, and a match is flagged for human review by an authorized admin (`BR-parent-note`, `BR-note-safety-flagging`, `UC-PAR-create-kid-account`, `UC-SHLF-par-finish-book`).
 
 _**Not to be confused with:** a **Parent Suggestion**'s personal note, which the child sees._
 
@@ -312,7 +313,7 @@ _**Open:** the 2026-09-24 wording says content is reported to "parents and autho
 
 ### Safety Flag
 
-A marker the system sets on a **Parent Note** that matches the **Word List**. It is saved in the same transaction as an in-app alert, carrying no note content, to the **System Admin**, who reviews it as a human (`BR-note-safety-flagging`, `SAF-flag-delivery`). Nothing happens automatically and nothing is sent to an outside service or party. Admins handle flags through `UC-ADM-flag-review`, the one exception to `BR-admin-limited-view` (team position 2026-10-26, client to confirm, `OI-15`). Ratings and the child's other choices are never flagged; they carry no text.
+A marker the system sets on a **Parent Note** that matches the **Word List**. It is saved in the same transaction as the note and appears, carrying no note content, in the **System Admin**'s flagged-content list, which is the admin's alert; the admin reviews it as a human (`BR-note-safety-flagging`, `SAF-flag-delivery`). Nothing happens automatically and nothing is sent to an outside service or party. Admins handle flags through `UC-ADM-flag-review`, the one exception to `BR-admin-limited-view` (team position 2026-10-26, client to confirm, `OI-15`). Ratings and the child's other choices are never flagged; they carry no text.
 
 _**Open:** client confirmation of what the admin sees (`OI-15`); a stronger detector and any reporting outside wait for testing and legal advice (`OI-18`, `OI-19`)._
 
@@ -358,7 +359,7 @@ _**Synonyms:** secondary parent (business-rules, SRS)._
 
 ### System Admin
 
-The platform-wide operator role. It manages the catalog (add, edit, block and unblock books), reviews reported books and flagged parent notes, suspends and reinstates child and parent accounts, views recommender and usage statistics and the audit log, and receives **Safety Flag** alerts. It does not have screens for the recommender mode or other system configuration, which are deployment settings (architecture §8.2.6); retention is enforced by the scheduled cleanup; data export belongs to parents (`UC-PAR-review-child-data`); an authorized admin may look up one child's **Usage Data** by **Internal Child ID** (`UC-ADM-view-usage-stats`); and admin accounts are created by hand (`UC-ADM-add-admin` is post-MVP). In practice the client is the system admin (team decision 2026-10-26). A System Admin sees parents' and Sub Parents' names, usernames and emails (never passwords) and the number of child accounts per parent, but **not** a child's details (`BR-admin-limited-view`), except in flagged-content review, where every view is recorded (`UC-ADM-flag-review`). Children are otherwise identified to admins by internal child ID only, and the system holds no child real name. Admin use cases: add, edit, block or unblock content; suspend a child or parent account, or reinstate one; view recommender and usage stats, including the child lookup; view the audit log; flag review.
+The platform-wide operator role. It manages the catalog (add, edit, block and unblock books), reviews reported books and flagged parent notes, suspends and reinstates child and parent accounts, views recommender and usage statistics and the audit log, and sees **Safety Flags** in the flagged-content list. It does not have screens for the recommender mode or other system configuration, which are deployment settings (architecture §8.2.6); retention is enforced by the scheduled cleanup; data export belongs to parents (`UC-PAR-review-child-data`); an authorized admin may look up one child's **Usage Data** by **Internal Child ID** (`UC-ADM-view-usage-stats`); and admin accounts are created by hand (`UC-ADM-add-admin` is post-MVP). In practice the client is the system admin (team decision 2026-10-26). A System Admin sees parents' and Sub Parents' names, usernames and emails (never passwords) and the number of child accounts per parent, but **not** a child's details (`BR-admin-limited-view`), except in flagged-content review, where every view is recorded (`UC-ADM-flag-review`). Children are otherwise identified to admins by internal child ID only, and the system holds no child real name. Admin use cases: add, edit, block or unblock content; suspend a child or parent account, or reinstate one; view recommender and usage stats, including the child lookup; view the audit log; flag review.
 
 _**Open:** client confirmation that flagged-content review is the only exception to the no-child-details rule (`OI-15`), and whether a separate **Catalog and Content Admin** role is needed._
 

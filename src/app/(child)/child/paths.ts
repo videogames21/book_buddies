@@ -4,3 +4,4 @@ export const CHILD_SIGN_IN_PATH = "/child/sign-in";
 export const CHILD_SHELF_PATH = "/child/shelf";
 export const CHILD_DASHBOARD_PATH = "/child/dashboard";
 export const CHILD_QUIZ_PATH = "/child/recommendations/quiz";
+export const CHILD_RECOMMENDATIONS_PATH = "/child/recommendations";

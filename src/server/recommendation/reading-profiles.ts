@@ -5,7 +5,10 @@ import {
   lockChildForWrite,
 } from "@/server/accounts-family/child-accounts";
 import { findActiveBookIds } from "@/server/catalog/books";
-import { listRuleHistoryTags } from "@/server/catalog/rule-candidates";
+import {
+  interestKeys,
+  listRuleHistoryTags,
+} from "@/server/catalog/rule-candidates";
 import type { ParentSession } from "@/server/identity-access/sessions";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { now } from "@/server/lib/clock";
@@ -132,8 +135,8 @@ export async function saveOnboardingProfile(
 }
 
 /**
- * UC-PAR-delete-kid-account: the child's reading profile. The interest profile, batches,
- * reactions and decline reasons are added here as Recommendation builds them.
+ * UC-PAR-delete-kid-account: the child's reading profile. Batches and reactions have
+ * their own deleteChildRecords in batches.ts and reactions.ts.
  */
 export async function deleteChildRecords(
   tx: Tx,
@@ -176,10 +179,12 @@ export async function getQuizOnboardingWeights(
       weights.set(key, (weights.get(key) ?? 0) + 2);
     }
   }
-  for (const keys of (
+  for (const tags of (
     await listRuleHistoryTags(profile.favoriteBookIds, tx)
   ).values()) {
-    for (const key of keys) weights.set(key, (weights.get(key) ?? 0) + 1);
+    for (const key of interestKeys(tags)) {
+      weights.set(key, (weights.get(key) ?? 0) + 1);
+    }
   }
   return weights;
 }

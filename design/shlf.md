@@ -4,17 +4,19 @@
 **Team:** Team 05
 **Area:** `UC-SHLF`
 
-> **Realizes:** `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-parent-remove-book`, `FR-SHLF-parent-remove`, `FR-PAR-review`, `FR-ACCT-credentials` (the child's sign-in half, a supporting flow with no use case, `OI-46`), `DI-usage-records` (the sign-in record)
-> **Depends on:** `UC-ADM-block-content` (extension 5b: a block removes the shelf entries), `BR-parent-account-linked`, `BR-kid-no-metrics`, `BR-kid-anonymous-profile`, `BR-parent-shelf-removal`, `FR-SHLF-categories`, `FR-SHLF-finish-confirm`, `UI-kid-no-metrics`, `USE-child-first-run`, `DI-child-credentials`, `SEC-auth`, `SEC-signin-throttling`, `SEC-role-authorization`, `USE-parent-light`; for `UC-SHLF-parent-remove-book`: `BR-parent-ultimate-say`, `ROB-no-data-loss`, `OI-25`, `OI-41`, and from [`design/par.md`](par.md) (`UC-PAR-report-book`): `removeShelfEntryInTx`, `createRemovalNoticeInTx`, `lockConsentForWrite`, `getChildForFamily` with a transaction handle, and the `shelf.parent-removed` audit shape; from [`design/par.md`](par.md) (`UC-PAR-delete-kid-account`): `lockChildForWrite`, its §8.2.8 rule and `children.writeVersion`
+> **Realizes:** `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, `UC-SHLF-kid-rate-book`, `FR-RATE-rating`, `FR-REC-post-rating`, `UC-SHLF-parent-remove-book`, `FR-SHLF-parent-remove`, `FR-PAR-review`, `FR-ACCT-credentials` (the child's sign-in half, a supporting flow with no use case, `OI-46`), `DI-usage-records` (the sign-in record)
+> **Depends on:** `BR-child-structured-responses`, `UC-ADM-block-content` (extension 5b: a block removes the shelf entries), `BR-parent-account-linked`, `BR-kid-no-metrics`, `BR-kid-anonymous-profile`, `BR-parent-shelf-removal`, `FR-SHLF-categories`, `FR-SHLF-finish-confirm`, `UI-kid-no-metrics`, `USE-child-first-run`, `DI-child-credentials`, `SEC-auth`, `SEC-signin-throttling`, `SEC-role-authorization`, `USE-parent-light`; for `UC-SHLF-parent-remove-book`: `BR-parent-ultimate-say`, `ROB-no-data-loss`, `OI-25`, `OI-41`, and from [`design/par.md`](par.md) (`UC-PAR-report-book`): `removeShelfEntryInTx`, `createRemovalNoticeInTx`, `lockConsentForWrite`, `getChildForFamily` with a transaction handle, and the `shelf.parent-removed` audit shape; from [`design/par.md`](par.md) (`UC-PAR-delete-kid-account`): `lockChildForWrite`, its §8.2.8 rule and `children.writeVersion`
 > **Related, designed separately:** `UC-SHLF-par-finish-book`, `UC-PAR-report-book`
 > **See:** [use cases, SHLF area](../docs/requirements/use-cases.md#shlf-shelf-feature-area), [specification](../docs/requirements/software-requirements-specification.md), [business rules](../docs/requirements/business-rules.md), [architecture-of-record](architectural-design.md), [PAR design](par.md)
 > **Designed against:** use cases v0.24 (updated in this PR), business rules v0.8, SRS v0.12 (updated in this PR), the PAR design, and the code on `main` and the merged `design/rec.md` as of 2026-11-18 (`requireParent()` in `sessions.ts` and `getChildForFamily` in `child-accounts.ts`, both used by the add-a-child pages). The Shelf and Catalog components have no code yet, and there is no shared parent layout guard: each parent page calls `requireParent()` itself.
 
 > **Revised for:** `UC-SHLF-kid-view-shelf` and child sign-in, 2026-11-19, against `main` at `9783e44`, which holds the merged designs of #98, #100 and #102 (designs only; no Shelf, Notification or child sign-in code exists).
 
+> **Rating design baseline:** `main` at `9183625` (#79), merged into this branch on 2026-11-26.
+
 > **Revised for:** `UC-SHLF-parent-remove-book`, 2026-11-24, against `main` at `8aadd95`. No Shelf, Notification or book-report code exists yet; `appendAudit` is in [`audit-log.ts`](../src/server/audit/audit-log.ts) from #108.
 
-**Status of this draft.** The parent's shelf view was revised from PR #42 after it was reviewed against the 2026-10-28 client answers: children no longer enter free text, so reflections, flagging of reflections and the 24-hour deletion window are gone. The child's shelf and child sign-in were added and revised through two rounds of review on PR #106. The questions test (design process step 3) was run on the first version of the child's half and still needs a re-run on the current design. Parent removal (`UC-SHLF-parent-remove-book`) was added on 2026-11-24. It covers `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, child sign-in and `UC-SHLF-parent-remove-book`; the other SHLF use cases are appended as each is designed.
+**Status of this draft.** The parent's shelf view was revised from PR #42 after it was reviewed against the 2026-10-28 client answers: children no longer enter free text, so reflections, flagging of reflections and the 24-hour deletion window are gone. The child's shelf and child sign-in were added and revised through two rounds of review on PR #106. The questions test (design process step 3) was run on the first version of the child's half and still needs a re-run on the current design. Parent removal (`UC-SHLF-parent-remove-book`) was added on 2026-11-24. It covers `UC-SHLF-parent-view-shelf`, `UC-SHLF-kid-view-shelf`, child sign-in and `UC-SHLF-parent-remove-book`; the other SHLF use cases are appended as each is designed. The child's rating flow (`UC-SHLF-kid-rate-book`, #79) was added on 2026-11-26 and revised after the reviews on PR #133; its questions test (design process Phase 4) was re-run in a fresh session on the revised design; the results are in the pull request description.
 
 ---
 
@@ -27,6 +29,8 @@ The Shelf area owns each child's shelf: the entries in four categories, the chil
 `UC-SHLF-kid-view-shelf` is the child's side of the same shelf, and it needs a signed-in child, which **no use case covers** (`OI-46`). It is designed here as two parts that share one seam, `requireChild()`. The first is the child's shelf: a read-only view of the child's own entries, book details, own rating and pending notices, with no count of any kind (`BR-kid-no-metrics`, 8.2.11). The second is **child sign-in, sign-out and the child home screen**, written as *supporting flows with no use case*, the way `design/par.md` (open pull request #98) does for parent sign-in (`OI-44`). They live in this document and not in `par.md`: a child starts no `UC-PAR-*` use case, and it keeps this pull request away from the `par.md` edits of pull requests #98, #102, #104 and #100. The pieces this document reuses from those pull requests (`createDatabaseSession`, `sign-in-throttle.ts`, `deleteChildSignIn`, `signOutParent`) are **designs, not code**, and are named as such where used.
 
 A parent removes one book from one child's shelf, and the child gets the same `book-removed` notice a report writes. The design adds no new storage. It builds the page the parent shelf view already links to ("Remove from shelf", in the table under API contract below) and one Shelf function that runs the removal, the notice and the audit entry in one transaction (§8.2.8 lists "a shelf removal and its notice"). Everything it writes comes from `UC-PAR-report-book`'s functions, so a plain removal and a report's removal cannot differ: the child sees the same notice, with no reason and no parent, and cannot tell which one happened. The rating and the finish confirmation are untouched (5c), because they live in their own collections (Key decisions below, "Ratings and finish confirmations are stored apart from the shelf entry").
+
+A child rates a book from its Finished shelf entry. The rating screen and its save action use the same eligibility check. A parent can read the result through the shelf view already delivered in #111.
 
 ## Components & classes
 
@@ -130,7 +134,7 @@ classDiagram
 - `src/server/shelf/shelf-collections.ts` (new, server-only): the names, types, validators and unique indexes of the three Shelf collections, wired into `ensureIndexes`.
 - `src/server/shelf/parent-shelf.ts` (new, server-only): `getShelfForParent` checks the child's family first, then reads the child's shelf entries, ratings and finish confirmations, and the books' catalog data, and returns one complete view or throws. It never returns part of a shelf.
 - `src/server/accounts-family/child-accounts.ts` (reused): `getChildForFamily(familyId, childId)` returns `{ _id, nickname, avatar }` for a child in that family and `null` otherwise (a malformed or unknown ID is also `null`, since the ID is matched as a string); it is the family check for this view. One function is added to the same file, `listChildrenForFamily(familyId)`, for the picker: same fields, ordered by creation date.
-- `src/server/catalog/books.ts` (the Catalog file planned in `design/rec.md`, not yet in code; this design adds one read, server-only): `getBooksForShelf` returns the title and author of the given books that are active, one query for all the IDs. Like the Catalog's other reads it leaves out blocked books, and it leaves out drafts too. No catalog document defines a book cover, so this view has none (`OI-46`).
+- `src/server/catalog/books.ts` (the Catalog file, on `main`; this design adds one read, server-only): `getBooksForShelf` returns the title and author of the given books that are active, one query for all the IDs. Like the Catalog's other reads it leaves out blocked books, and it leaves out drafts too. No catalog document defines a book cover, so this view has none (`OI-46`).
 - `src/server/identity-access/sessions.ts` (reused): `requireParent()` returns an `ActionResult`: on success the user ID, family ID and `parentRole` (`main` or `sub`), on failure the code `NOT_SIGNED_IN` or `NOT_A_PARENT`. It does not redirect or throw, so each page decides what to do with the failure.
 
 Added for `UC-SHLF-parent-remove-book` (all new unless marked reused):
@@ -150,7 +154,7 @@ Added for `UC-SHLF-parent-remove-book` (all new unless marked reused):
 
   Any other error is logged through `logUnexpectedError`, and its error ID is returned. If the error that leaves `withTransaction` carries MongoDB's `UnknownTransactionCommitResult` label, the commit may have applied, and the result is `OUTCOME_UNKNOWN` (5a, save not confirmed). Every other error means the transaction did not commit, and the result is `SAVE_FAILED` (5a). The callback holds no state outside the transaction, so a rerun by `withTransaction` is harmless, as in `reportBook`.
 - **Reused, defined elsewhere:** `isOnShelf` and `removeShelfEntryInTx` (`src/server/shelf/shelf-entries.ts`), `createRemovalNoticeInTx` (`src/server/notification/child-notices.ts`), `lockConsentForWrite` (`src/server/accounts-family/families.ts`), `getChildForFamily` with its transaction handle, and the `shelf.parent-removed` validator branch, all from [`design/par.md`](par.md) (`UC-PAR-report-book`); `getBooksForShelf` and `requireParent()` from this document. None of these exist in code yet except `requireParent()`, `getChildForFamily` (without the transaction handle) and `appendAudit`. Whichever of `UC-PAR-report-book` and this use case is implemented first creates them, and the other reuses them unchanged.
-- **Required on `main`, not built here:** `lockChildForWrite` in `src/server/accounts-family/child-accounts.ts` ([`design/par.md`](par.md), `UC-PAR-delete-kid-account`). `UC-PAR-report-book` or `UC-PAR-delete-kid-account` builds it, whichever merges first.
+- **Reused from `main`, not built here:** `lockChildForWrite` in `src/server/accounts-family/child-accounts.ts` ([`design/par.md`](par.md), `UC-PAR-delete-kid-account`).
 
 ### UC-SHLF-kid-move-book components
 
@@ -159,7 +163,7 @@ Added for `UC-SHLF-parent-remove-book` (all new unless marked reused):
 | `src/app/(child)/child/shelf/[bookId]/move/page.tsx`, `actions.ts`, `move-form.tsx`, `schema.ts` | Replace the placeholder with four labeled choices. Recheck the child session on submit, validate the category, and use a second form for explicit retraction. Cancel is a link to the shelf. |
 | `src/server/shelf/move-book.ts`, `shelf-entries.ts`, `shelf-collections.ts` | Update the acting child's existing entry. Derive waiting from Finished plus the absence of a confirmation. Store the source category for an unconfirmed finish. |
 | `src/server/catalog/books.ts` | Reuse `getBooksForShelf` for the page and allow the active-ID read to take an optional transaction. |
-| Existing shelf views | Show the new category after the save and derive the existing parent finish prompt. The Rate action follows #133 and `OI-75`. |
+| Existing shelf views | Encode the book ID with `encodeURIComponent` when building the Move link. Show the new category after the save and derive the existing parent finish prompt. The Rate action follows #133 and `OI-75`. |
 
 ### Child's shelf (`UC-SHLF-kid-view-shelf`)
 
@@ -286,8 +290,98 @@ classDiagram
 - `src/server/accounts-family/child-accounts.ts` (reused): `childMaySignIn(childId)` is the one place that decides whether a child account may sign in. Today it checks that the child exists and that the family's consent is confirmed and not revoked (`isConsentConfirmed`). Suspension arrives here later (`UC-ADM-suspend-account`, and the children of a suspended parent, `OI-47`).
 - `src/server/identity-access/sessions.ts` (reused): `createDatabaseSession(userId, tx?)` from the #98 design gains an optional `endsAt` argument, because a child's session ends at the next midnight and not after a fixed lifetime (Key decisions). The session document's own `expires` is the #98 lifetime for both roles, never `endsAt`. A parent's call passes none and is unchanged, so the parent session rules of the #98 design, including its sliding expiry, are untouched.
 
+### Rate a finished book (`UC-SHLF-kid-rate-book`)
+
+```mermaid
+classDiagram
+    direction LR
+    class RatePage {
+        <<server component>>
+    }
+    class RateForm {
+        <<client component>>
+    }
+    class rateActions {
+        +saveRating(input) ActionResult
+    }
+    class ratings {
+        <<src/server/shelf>>
+        +getRatableBook(childSession, bookId) RatableBook or null
+        +recordRating(childSession, input) RatingResult
+    }
+    class sessions {
+        +requireChild() ChildSession
+    }
+    class childAccounts {
+        <<from design/par.md and design/rec.md>>
+        +lockChildForWrite(tx, childId) boolean
+        +getFamilyIdForChild(childId, tx) familyId or null
+    }
+    class families {
+        <<from design/par.md>>
+        +lockConsentForWrite(tx, familyId) boolean
+    }
+    class catalogBooks {
+        +getBooksForShelf(ids) books
+    }
+    RatePage --> sessions
+    RatePage --> ratings
+    RatePage --> RateForm
+    RateForm --> rateActions
+    rateActions --> sessions
+    rateActions --> ratings
+    ratings --> childAccounts
+    ratings --> families
+    ratings --> catalogBooks
+```
+
+Each file is new unless marked reused.
+
+- `src/app/(child)/child/shelf/[bookId]/rate/page.tsx` (replaces the placeholder `main` has at this path, which only shows "Rate a book"): a server component, marked dynamic. It calls `requireChild()`: `NOT_SIGNED_IN` redirects to `/child/sign-in`, and `NOT_A_CHILD` (a parent or admin session) is `notFound()`. It then calls `getRatableBook`; `null` is `notFound()`, the same `404` for a book that is not on the child's shelf, not in Finished, not confirmed, unknown or malformed, so the page does not show which (1a, 1b). Otherwise it renders `RateForm` with the title, the child's current rating if any, and the nickname from `getChildDisplay`.
+- `.../rate/rate-form.tsx` (new, client component): the four choices as large buttons, each with its glossary label as its accessible name and a placeholder icon (see Open questions), and a "Done" link back to the shelf. Nothing is sent until a choice is tapped, so closing writes nothing (2a). All buttons are disabled while a save is pending, and the chosen button stays selected when the save fails (5a). On success it shows the saved choice and the thank-you, with no score, count or text field (`BR-kid-no-metrics`, §8.2.11).
+- `.../rate/actions.ts` and `schema.ts` (new): `saveRating({ bookId, rating })`, a verb-first server action (§8.2.3). Order: `requireChild()`, the zod schema (§8.2.5), then `recordRating`. The schema is built from `RATING_VALUES` in `shelf-collections.ts`: `bookId` a non-empty string of at most 100 characters, `rating` one of `lovedIt`, `likedIt`, `okay`, `notForMe`. A missing, empty or oversized `bookId` gets `NOT_RATABLE`, the same as an unknown book, and an unknown key in the request (such as a `childId`) is stripped, since the child always comes from the session. The child comes from the session, never the request.
+- `src/server/shelf/ratings.ts` (new, server-only): the only code that writes `ratings`.
+  - `getRatableBook(childSession, bookId)`: reads the child's entry for the book, requires category Finished and a finish confirmation record, reads the title through `getBooksForShelf([bookId])` (active books only), and the child's current rating. It returns `{ bookId, title, rating | null }` or `null`. The shelf and confirmation checks are the same ones `recordRating` repeats inside its transaction (4, 5), and so is the active-book check (5b). A Finished, confirmed book that is not active in the Catalog (a draft, or a blocked book whose entry was not deleted) is a `404` on the page and `NOT_RATABLE` from `recordRating`, so the page and the save give the same answer.
+  - `recordRating(childSession, input)`: one `withTransaction`, in this order: (1) `lockChildForWrite(tx, childId)` (`CHILD_NOT_FOUND` when it matches nothing); (2) `getFamilyIdForChild(childId, tx)` on the same `tx` (`null` is `CHILD_NOT_FOUND`); (3) `lockConsentForWrite(tx, familyId)` (`CONSENT_NOT_CONFIRMED`); (4) a conditional write on the child's entry for the book: `updateOne({ childId, bookId, category: "finished" }, { $inc: { writeVersion: 1 } })`, and no match is `NOT_RATABLE` (1a); (5) the finish confirmation exists, read on `tx`, else `NOT_RATABLE` (1b); (5b) the book is active in the Catalog, read through `findActiveBookIds([bookId])`, else `NOT_RATABLE`; (6) an upsert on the unique (`childId`, `bookId`) key of `ratings` that sets `value` and `ratedAt` (`now()`, §8.2.2) together, so a new choice replaces the old one (3a). `NOT_RATABLE` is thrown as a sentinel inside the callback and mapped after it, so nothing is written. Returns `ok` with the saved `rating`. Any other error is logged through `logUnexpectedError` and its error ID is returned. If the error that leaves `withTransaction` carries MongoDB's `UnknownTransactionCommitResult` label, the commit may have applied, and the result is `OUTCOME_UNKNOWN`; every other error means nothing committed, and the result is `SAVE_FAILED` (5a). The callback holds no state outside the transaction, so a rerun by `withTransaction` is harmless.
+- `src/server/shelf/shelf-collections.ts` (reused, one change): adds the optional `writeVersion` (`bsonType: "int"`: `$inc` of 1 on an absent field creates an int32) to the `shelfEntries` validator and document type (Data model). `ensureCollection` applies a changed validator to an existing collection with `collMod`, so there is no migration. `bookId` is a string, as in all three Shelf collections. Shelf's `deleteChildRecords` already deletes `ratings` (`design/par.md`), so it does not change. `RATING_VALUES` and the `ratings` collection are reused as they are.
+- `src/server/shelf/child-shelf.ts` (changed, one line, and its test): `getShelfForChild` currently builds `actions` as `["move", "remove", "rate"]` for every confirmed entry, whatever its category (on `main`, asserted by the `reread` fixture in `child-shelf.int.test.ts`). It now adds `rate` only when the entry is confirmed **and** in Finished, so the Rate link that `shelf-browser.tsx` already renders is never shown for a book the rating page would refuse (Key decisions, `OI-75`). The test's `reread` entry (confirmed, Want to Read) now expects `["move", "remove"]`, and a confirmed Finished entry expects all three.
+- `src/server/accounts-family/child-accounts.ts` (reused): `getChildDisplay` (the nickname for the thank-you), `lockChildForWrite` ([`design/par.md`](par.md), `UC-PAR-delete-kid-account`) and `getFamilyIdForChild` ([`design/rec.md`](rec.md), `recordReaction`). `src/server/accounts-family/families.ts` (reused): `lockConsentForWrite`. `src/server/identity-access/sessions.ts` (reused): `requireChild()`. `lockChildForWrite`, `getFamilyIdForChild`, `lockConsentForWrite` and `requireChild()` are on `main` (#124, #129, #134) and are reused unchanged.
+- **Not built here:** the follow-up of step 6. This build saves the rating and shows the thank-you; it calls no Recommendation function (Key decisions, "Step 6 is deferred").
 
 ## Sequence
+
+### UC-SHLF-kid-rate-book
+
+```mermaid
+sequenceDiagram
+    actor Child
+    participant Page as Rating page and action
+    participant Shelf as Shelf (ratings.ts)
+    participant AF as Accounts & Family
+    participant CAT as Catalog
+    participant DB as Database
+    Child->>Page: Open the rating page for a Finished book (1)
+    Page->>Shelf: getRatableBook(child session, bookId)
+    Shelf->>DB: Entry, finish confirmation, current rating
+    Shelf->>CAT: getBooksForShelf([bookId]) for the title (active books only)
+    alt not Finished, not confirmed, not active, unknown (1a, 1b)
+        Shelf-->>Page: null
+        Page-->>Child: 404, no reason shown
+    end
+    Shelf-->>Page: Title and current rating (2)
+    Page-->>Child: Four labeled choices with icons (2)
+    Child->>Page: Select one (3)
+    Page->>Page: Validate the value against the scale (4, 4a)
+    Page->>Shelf: recordRating(child session, bookId, value)
+    Shelf->>AF: lockChildForWrite, getFamilyIdForChild, lockConsentForWrite
+    Shelf->>DB: Conditional write on the Finished entry (1a), confirmation check (1b)
+    Shelf->>CAT: findActiveBookIds([bookId]) (a draft or blocked book is NOT_RATABLE)
+    Shelf->>DB: Upsert the rating with ratedAt (5, 3a)
+    Shelf-->>Page: ok with the saved rating, or an error code (5a)
+    Page-->>Child: Saved choice and a short thank-you (5, 6)
+```
+
+Step 6's follow-up books are not in this diagram: this build shows the thank-you only (Key decisions).
 
 ### UC-SHLF-parent-view-shelf: view a child's shelf and ratings
 
@@ -380,7 +474,7 @@ sequenceDiagram
         PG-->>UI: The notice with an OK button, on every load until it is tapped (3d, 3f)
     end
     C->>UI: Tap a book (step 4)
-    UI-->>C: Details, own rating if any, move, remove, and rate only for a confirmed Finished entry (step 5, 5a; OI-75)
+    UI-->>C: Details, own rating if any, move, remove, and rate only for a confirmed Finished entry (step 5, 5a)
     opt the child taps OK on a notice (3d, 3f)
         UI->>ACT2: dismissChildNotice(noticeId)
         ACT2->>IA: requireChild()
@@ -558,6 +652,14 @@ Fields never in the response: the child's real name (the system holds none), age
 
 These paths are this design's proposal. Each of those use cases' designs either builds its page at the path or changes this table in the same pull request, and each page re-checks the family and role itself (`SEC-role-authorization`).
 
+### `UC-SHLF-kid-rate-book`
+
+| Endpoint or job | Caller (who may) | Request | Success | Errors, by extension |
+|---|---|---|---|---|
+| Page `/child/shelf/{bookId}/rate` | A signed-in child; the child is the session's, never a parameter | `bookId` in the path | The book's title, the child's current rating if any, and the four labeled controls. Leaving the page writes nothing (2a) | No session: redirect to `/child/sign-in`. A parent or admin session: `404`. 1a, 1b: a book that is not on the shelf, not in Finished, not confirmed or not active gets the same `404`, as does an unknown or malformed ID |
+| Server action `saveRating` (UC-SHLF-kid-rate-book steps 3–5, 3a, 4a, 5a) in `src/app/(child)/child/shelf/[bookId]/rate/actions.ts` | A signed-in child; the child comes from the session, never the request | `bookId`, `rating` (`lovedIt`, `likedIt`, `okay`, `notForMe`) | `ok` with the saved `rating` (steps 5, 3a). The page shows it and the thank-you; no follow-up books in this build | `NOT_SIGNED_IN`, `NOT_A_CHILD`: the session ended or is not a child's; the child is sent to sign-in and nothing is saved. 4a: `INVALID_RATING` for a value off the scale or an absent value; nothing is written and the earlier rating stays. 1a, 1b: `NOT_RATABLE` when the book is not in Finished or not confirmed now, including one moved or removed between opening the page and saving; the child sees "This book can't be rated right now." with a link to the shelf. `CHILD_NOT_FOUND` when the child was deleted while the write ran. `CONSENT_NOT_CONFIRMED` when consent was revoked; the child sees "Something went wrong. Please ask a grown-up." and nothing is saved. 5a: `SAVE_FAILED` with an error ID; no rating is written, the choice stays selected and the child can tap it again. `OUTCOME_UNKNOWN` with an error ID when the commit's result is unknown: the rating may have been saved, and the child is told to look at the book again or try again. Saving again is harmless, since it replaces the same value |
+| `getRatableBook(childSession, bookId)` and `recordRating(childSession, input)` in Shelf | Only the page and the action above | The child session; the child ID is never a parameter | The title and current rating, or the saved rating | As the rows above: `null` for an ineligible book, and the codes above for the write. A rating is never returned for another child |
+
 ### `UC-SHLF-kid-view-shelf`
 
 This use case reads: its rows are pages and the server function behind them (8.2.3). The only write is a notice's `seenAt`, set by `dismissChildNotice` when the child taps OK (POST-2), which is the one server action below.
@@ -586,8 +688,8 @@ No response says which parent removed a book or why. The child's notice holds th
 
 | Entry point | Request and response |
 | --- | --- |
-| `GET /child/shelf/[bookId]/move` | Child session, confirmed family consent, active Catalog book and own shelf entry. Show the title and current category with all four choices. An unavailable book or missing entry shows a way back to the shelf. |
-| `moveBook(childSession, input)` | The action calls `requireChild()` before parsing. Strict input is `bookId` (UUID), `category` (one of `SHELF_CATEGORIES`) and optional `retractConfirmed` (boolean). Returns `ActionResult`: `moved` or `unchanged` with derived awaiting state, or `retraction-required`. The shelf displays fixed status messages. |
+| `GET /child/shelf/[bookId]/move` | Child session, confirmed family consent, active Catalog book and own shelf entry. Encode the book ID as one path segment in shelf links, then decode and validate it on the page. Show the title and current category with all four choices. A missing entry or unavailable book, including a blocked book whose entry remains, shows the same unavailable message and **Back to shelf** link. |
+| `moveBook(childSession, input)` | The action calls `requireChild()` before parsing. Strict input is `bookId` (the exact Catalog ID, a string of 1–100 characters as in #147), `category` (one of `SHELF_CATEGORIES`) and optional `retractConfirmed` (boolean). Returns `ActionResult`: `moved` or `unchanged` with derived awaiting state, or `retraction-required`. The shelf displays fixed status messages. |
 
 | Refusal | Outcome |
 | --- | --- |
@@ -610,7 +712,6 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 | Server action `signInChild` | Anyone | Username, password | `ok`; the session cookie is set; the page redirects to `/child` | `USERNAME_REQUIRED`, `PASSWORD_REQUIRED`; `INVALID_CREDENTIALS` (the same for an unknown username and a wrong password); `TOO_MANY_ATTEMPTS` (a short wait, no number of seconds shown, never a lock); `ACCOUNT_UNAVAILABLE` (ask a grown-up; only after a correct password); `SIGN_IN_FAILED` (an unexpected failure, including missing configuration, and the child can try again) |
 | Server action `signOutChild` | A signed-in child | None | `ok`; the caller's session document is deleted and the cookie cleared; the page then goes to `/child/sign-in` | `NOT_SIGNED_IN`: no session or an ended one, and the page goes to `/child/sign-in` too. `NOT_A_CHILD`: a parent or admin session, which is not ended. `SIGN_OUT_FAILED`: an unexpected failure, and the child can try again |
 | Server action `keepChildSessionAlive` | A signed-in child; every open child page but sign-in | `{ active }` (zod: a boolean and nothing else) | `{ ok: true }`; the caller's session is marked as seen, and as used when `active` | `NOT_SIGNED_IN` (no session or an ended one) and `NOT_A_CHILD` (a parent or admin session): the page goes to `/child/sign-in`. `INVALID_INPUT`: no activity is counted. `KEEP_ALIVE_FAILED`: an unexpected failure. After those two, or no answer, the page stays and reports the activity with the next one |
-
 
 ## Key decisions
 
@@ -636,13 +737,31 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 
 **This view links out and never writes.** "Confirm finished", "Edit note", "Remove from shelf" and "Report" are links to pages that the other SHLF and PAR use cases implement, at the paths in the table under API contract. Rejected: doing any of them from this page, which would make a read-only view write and break POST-2; and rejected: leaving the targets for later, because the use cases say a parent starts remove and report from this view, so the view has to offer them.
 
+### UC-SHLF-kid-rate-book
+
+**A rating is one transaction that starts with the child lock, then the consent lock, then a write to the entry.** The first rating is an inserting upsert for a child, so §8.2.8 requires `lockChildForWrite(tx, childId)` first, stopping with `CHILD_NOT_FOUND`. It serializes with the deletion of the child (`UC-PAR-delete-kid-account`): a deletion that commits first leaves no rating written, and a rating that commits first is deleted with the rest of the child's records. `lockConsentForWrite` follows, as in `recordReaction` and `removeBookForParent`, because a child session may survive a revoked consent until cleanup, and without it a rating could commit after the revocation. Rejected: a read-only check of the child or consent, which a transaction's snapshot would not see change.
+
+**Eligibility is a conditional write on the Finished entry, not a lock.** MongoDB has no row lock. A write conflict arises only from writing the document, and a rating writes only `ratings`. So the transaction does `$inc` on a new optional `writeVersion` of the child's entry, matching only `category: "finished"`. A concurrent move (which writes the entry's category), a removal by the child or parent, or a block (which deletes the entries) conflicts with it, and `withTransaction` reruns the loser, which rechecks eligibility and now matches nothing. Rejected: "accept the race" (recheck in the snapshot and let a late rating through), because the use case's 1a and 1b say a book that is not in Finished gets no rating, and weakening that is a use case change, not a design choice. Rejected: an update that sets the entry's existing values back, because MongoDB does not treat an update that changes nothing as a write, so it would not conflict. The one field added to `shelfEntries` is recorded under Data model. The finish confirmation is read on the same transaction; a later design that lets a parent withdraw a confirmation must write the entry's `writeVersion` too if the two are to conflict (Open questions).
+
+**The rating is stored once per child and book, with the value and `ratedAt` set together.** An upsert on the existing unique (`childId`, `bookId`) key replaces an earlier choice (3a) and the earlier value is not kept; two submissions leave one complete row. Rejected: insert then update, which can leave a row with a value and no timestamp. The rating stays in its own collection when the entry is removed, as the decision "Ratings and finish confirmations are stored apart from the shelf entry" says.
+
+**Step 6 is deferred; this build saves the rating and shows the thank-you.** Step 6 needs a Recommendation function and a place to store the follow-up books, and neither is designed: `OI-2` leaves open how a rating feeds the rules, `design/rec.md` says follow-ups "are not batches here" while step 6 hands them to `UC-REC-kid-review`, which needs them stored, and `OI-32` leaves open whether they skip the parent's review. This is a recorded departure from the use case, the same as the 6b path (a short thank-you with no books). `/implement` builds no Recommendation call, no follow-up list and no 6/6a tests; it builds the 6b thank-you for every rating. When `OI-2` and `OI-32` are answered, a later design adds the Recommendation call after the commit, a read of consent confirmed at that moment (so a revocation between commit and handoff shows the thank-you and uses no child data), and the storage of the follow-up books. Rejected: naming a Recommendation function here, which would be a guess `/implement` could not check.
+
+**The thank-you is the same for all four ratings.** It reads "Thanks, [nickname]!" and nothing about the choice, since step 6's "Since you [loved or saved] [book]" has no wording for "It was okay" or "Not for me" (`OI-74`). It uses the nickname only (§8.2.11).
+
+**Only a confirmed book in Finished can be rated, and the page and the save agree on that.** `UC-SHLF-kid-rate-book` PRE-2 and its trigger say Finished, including a confirmed book moved back into Finished to re-read, and `UC-SHLF-kid-move-book` 6a offers the rating when a confirmed book is moved into Finished. `UC-SHLF-kid-view-shelf` step 5 and `UC-SHLF-par-finish-book` POST-2 are looser, saying "rate" for any confirmed book. The design follows the use case it realizes. `main` does not yet: `getShelfForChild` in `child-shelf.ts` offers `rate` for a confirmed entry in any category, and `child-shelf.int.test.ts` asserts it (the `reread` fixture), so a confirmed book re-read in Reading Now shows a Rate link that ends in a `404`. This build changes that one line and its test (Components), so a confirmed book outside Finished shows no Rate action. The wider reading is `OI-75`, with the proposed edit to those two passages; if the client chooses it, the Finished condition comes out of the shelf's `actions`, `getRatableBook` and `recordRating` together. Rejected: dropping the Finished condition, which would change this use case's precondition without the client's answer.
+
+**The save checks that the book is active, as the page does.** `recordRating` reads `findActiveBookIds([bookId])` in the transaction and returns `NOT_RATABLE` for a draft or blocked book, so a child cannot save a rating for a book whose page is a `404`. It takes no `lockActiveBookForWrite`: that lock serializes writes that put a book in front of a child (`OI-58`, `Team_Decisions.md`), and a rating shows nothing new, so a rating that races a block or a return to draft is harmless, and a block keeps ratings anyway (`UC-ADM-block-content`). A read that sees the book active just before a block can still store one rating; it is never shown for a blocked book. Rejected: the lock, whose write cost on popular books the team accepted for suggestions, quiz batches and shelf adds, not for ratings.
+
+**Every refusal of the page is the same `404`.** A book that is not on the shelf, not Finished, not confirmed, unknown or malformed, and a parent or admin session, all get the shared `not-found.tsx`, so the page does not show whether a book exists or why it is not ratable (1b: "shows no reason or status").
+
 ### The child's shelf
 
 **The child ID comes from the session, never from the request.** `getShelfForChild` takes the ID `requireChild()` returned, so there is no parameter a child could change to read another child's shelf. Rejected: `/child/{childId}/shelf`, which would create exactly that parameter.
 
 **A notice is marked seen when the child taps OK on it, and not when the shelf loads** (developer, 2026-11-20, reviewer item 10 of #106). Loading the shelf marks nothing, so a prefetch, an aborted navigation or a failed read (2b) cannot use up a notice the child never saw. The notice shows on every load until the child taps OK, then never again. `dismissChildNotice` is a conditional update scoped to the child's own notice and is idempotent, so two tabs or a double tap are harmless: both tabs show the notice until one is tapped, and the other's tap changes nothing. Rejected: marking on read, which is the reviewer's objection; and showing the notice once per load, which loses it on a crash. Accepted: a child who never taps sees the notice on every visit, and two tabs open at once both show it. A tap after the child's session has ended is refused and the notice stays for the next sign-in.
 
-**The server lists each entry's actions.** `rate` is in `actions` only when the entry is confirmed and in Finished (`UC-SHLF-kid-rate-book` PRE-2/PRE-3 and `OI-75`), because 5a says the action is not offered. The action pages check the state themselves (their own use cases). Rejected: the client deriving it from `confirmed` and `category`, which would put a rule in two places.
+**The server lists each entry's actions.** `rate` is in `actions` only when the entry is in Finished and confirmed (#79 PRE-2 and PRE-3), because 5a says the action is not offered. The action pages check the state themselves (their own use cases). Rejected: the client deriving it from `confirmed` and `category`, which would put a rule in two places.
 
 **An entry awaiting confirmation can still be moved or removed by the child, and doing so cancels the parent's request** (developer, 2026-11-19). The child's `actions` list `move` and `remove` for every entry. `UC-SHLF-kid-move-book` and `UC-SHLF-kid-remove-book` clear the awaiting state. `UC-SHLF-par-finish-book` must make its save conditional on the entry still being in Finished and awaiting, and when it is not, even after the parent tapped "Confirm finished" or "Not finished yet", show the parent a message that the child moved or removed the book, which cancelled the request (`UC-SHLF-par-finish-book` 1a is edited to say so). This view only lists the actions; the rest belongs to those designs. Rejected: withholding `move` and `remove` on an awaiting entry, which would stop a child retracting a completion (`UC-SHLF-kid-move-book` 3c).
 
@@ -739,13 +858,11 @@ Rejected: cutting a visit off at midnight, which the developer ruled out; a mini
 
 **`requireChild()` makes no second check of the child's account.** Deleting the child (`UC-PAR-delete-kid-account`), revoking consent and a suspension end their sessions (§8.1), so the session is the check, as for parents, plus the expiry check above. `childMaySignIn` runs only at sign-in.
 
-
-
 ## Data model
 
 The shelf use cases share these three collections. Children and books belong to Accounts & Family and the Catalog.
 
-**Move-book data model.** Add optional `shelfEntries.previousCategory`, limited to `readingNow`, `wantToRead` and `maybeLater`. The field is internal and set on an unconfirmed move into Finished. A legacy unconfirmed Finished entry still awaits confirmation if the field is absent. Apply the additive validator before deploying the writer. The existing `childId_bookId_unique` index stays in use.
+**Move-book data model.** Add optional `shelfEntries.previousCategory`, limited to `readingNow`, `wantToRead` and `maybeLater`. Set it on an unconfirmed move into Finished. `UC-SHLF-par-finish-book` 4b reads it when a parent chooses **Not finished yet**, restores the source category, and clears it. A legacy pending finish with no source still awaits confirmation and uses the 4b fallback to Reading Now if declined (team proposal). Apply the additive validator before deploying the writer. The existing `childId_bookId_unique` index stays in use.
 
 ```mermaid
 erDiagram
@@ -773,6 +890,10 @@ erDiagram
 ```
 
 The collections are named `shelfEntries`, `ratings` and `finishConfirmations`. Each has a unique index on (`childId`, `bookId`), because a child has one entry, one rating and one confirmation per book. Rating values follow the four-option scale in the glossary (`OI-17`, resolved), and a rating exists only for a confirmed finish (`UC-SHLF-par-finish-book` POST-2). "Awaiting confirmation" is derived: a Finished entry with no confirmation record. "Confirmed" is a confirmation record for the child and book, whatever the entry's category. This view shows a rating only for an entry on the shelf whose book has a confirmation record, so a stray rating row is never shown. The parent's finish note is written and read by `UC-SHLF-par-finish-book` and is not part of this view. `childId` is the opaque ID, never a name (`KD-pii-segregation`). The indexes go in `src/server/setup/ensure-indexes.ts` from the [PAR design](par.md). The exact fields of `SHELF_ENTRY` that `UC-SHLF-par-finish-book` and `UC-SHLF-kid-move-book` also need (for example the category a book came from) are theirs to add when they are designed.
+
+### Additions for the child's rating (`UC-SHLF-kid-rate-book`)
+
+One field is added, and `ratings` is unchanged: it already holds `value` and `ratedAt`. `shelfEntries` gains an optional integer `writeVersion`, added to the collection validator and to `SHELF_ENTRY`'s type. It is absent until a rating first increments it, it carries no meaning to a reader, and no view shows it. It exists so a rating's eligibility check writes the entry and so conflicts with a move or a removal (Key decisions). `writeVersion` holds no personal data. No rating field says whether it followed a weekly check-in (`OI-30`); that field is left out until `OI-30` is settled, and attribution is never inferred from timing.
 
 ### Additions for the child's shelf and child sign-in
 
@@ -819,7 +940,6 @@ The consent notice names the sign-in times, the activity times and the cookie, e
 
 `UC-SHLF-parent-remove-book` adds no collection or field: `SHELF_ENTRY` and `CHILD_NOTICE` (`book-removed`) are defined above in this Data model, the `shelf.parent-removed` audit shape and `children.writeVersion` in [`design/par.md`](par.md)'s Data model. Every `childId` in this document is the child's internal UUID, stored as a string.
 
-
 ## Reuse & cross-cutting
 
 For `UC-ADM-block-content`, Shelf provides a count of entries for a book and `removeEntriesForBook(bookId, tx)`. The latter removes entries across children in the admin's transaction. Ratings and finish records are retained. See [the block design](adm.md#blocking-and-report-decisions).
@@ -846,6 +966,16 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - **Passwords:** `passwords.ts` `verifyPassword`, reused unchanged, and `child-credentials.ts`.
 - **Not used:** the Child Identity Store (nothing here reads age, grade or reading level) and Safety Flagging.
 
+### Rating (`UC-SHLF-kid-rate-book`)
+
+- **Sessions:** `requireChild()` in the page and the action (8.1; middleware is never the check). The child ID is the session's.
+- **Error handling:** codes as in the API contract (8.2.1); a refusal of the page is the shared `404`, and the retry path keeps the choice on screen.
+- **Validation:** the zod schema is built from `RATING_VALUES`, and the server re-checks the value, the book and the eligibility (8.2.5).
+- **Time:** `ratedAt` from `now()` (8.2.2).
+- **Persistence:** one transaction with the child lock, the consent lock and a conditional write (8.2.8).
+- **Logging:** an unexpected error is logged through `logUnexpectedError` with an error ID; no nickname, rating or session ID is logged (8.2.7).
+- **Child-facing views:** the child sees their own choice and the thank-you with the nickname, with no score, count, streak or comparison (8.2.11, `BR-kid-no-metrics`).
+- **Child data inventory:** the README's table gains a `ratings` row in this pull request (`COPPA-readme-in-sync`): the child's UUID, the book ID, one of four rating values and the rating time; read by Shelf only, shown to the child and the linked parent; kept when a shelf entry is removed and deleted with the child's records.
 
 ## Tests
 
@@ -878,6 +1008,28 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | UC-SHLF-parent-view-shelf fresh read | integration | After a block or a parent removal, the next load omits the book (no cached shelf) |
 | UC-SHLF-parent-view-shelf 1a, no children | integration | A Main Parent with no children is redirected to the add-a-child page; a Sub Parent sees the explanation message |
 
+### UC-SHLF-kid-rate-book
+
+| Use case, flow | Level | Asserts |
+|---|---|---|
+| UC-SHLF-kid-rate-book main, POST-1/2 | integration and browser | Each of the four labeled options saves. A reload shows the saved choice, the linked parent sees it on the shelf view, and another child cannot read or change it. A fixed clock gives the stored `ratedAt` |
+| UC-SHLF-kid-rate-book main, no metrics | integration | The page and the action's response hold no score, count or total, and the thank-you holds the nickname and nothing else about the child |
+| UC-SHLF-kid-rate-book 1a | integration and browser | The page and the action refuse a book that is not in Finished, an unknown book and a malformed ID with the same `404` or `NOT_RATABLE`; no rating is written |
+| UC-SHLF-kid-rate-book, draft or blocked book | integration | A Finished, confirmed book set back to draft, or blocked with its entry left in place by a fixture, is a `404` on the page and `NOT_RATABLE` from the action; no rating is written and the entry's `writeVersion` is unchanged. A confirmed book in Reading Now, Want to Read or Maybe Later is refused the same way (`OI-75`) |
+| UC-SHLF-kid-view-shelf, Rate action (`OI-75`) | integration | In `child-shelf.int.test.ts`, a confirmed entry in Want to Read has `actions` `["move", "remove"]` and a confirmed entry in Finished has `["move", "remove", "rate"]`; an unconfirmed entry never has `rate`. Replaces the `reread` assertion that offers `rate` outside Finished |
+| UC-SHLF-kid-rate-book 1b | integration and browser | A Finished book with no finish confirmation is refused the same way and shows no reason or status |
+| UC-SHLF-kid-rate-book 1a, race | integration | A move out of Finished, a removal, or a block between opening the page and saving: `recordRating` conflicts with the entry write, reruns, and returns `NOT_RATABLE` with no rating written |
+| UC-SHLF-kid-rate-book 2a | browser | Closing without choosing writes nothing: an unrated book stays unrated and a rated book keeps its choice |
+| UC-SHLF-kid-rate-book 3a | integration | A new choice replaces the earlier one, and the earlier value is not kept. Repeated and concurrent submissions leave one row with a complete `value` and `ratedAt` |
+| UC-SHLF-kid-rate-book 4a | integration | A value off the scale, an absent value and a non-string value return `INVALID_RATING` and leave the previous state intact |
+| UC-SHLF-kid-rate-book 5a | integration and browser | When the rating write fails (the test makes `ratings` throw), the result is `SAVE_FAILED` with an error ID, nothing is written (including the entry's `writeVersion`), the choice stays selected and a retry succeeds |
+| UC-SHLF-kid-rate-book 5a, unknown commit | integration | An error labelled `UnknownTransactionCommitResult` returns `OUTCOME_UNKNOWN`; saving again leaves one row |
+| UC-SHLF-kid-rate-book 6b | browser | Every rating, including `okay` and `notForMe`, shows the same thank-you with no books, and a reload shows the saved rating |
+| UC-SHLF-kid-rate-book, who may call | integration | A signed-out caller gets `NOT_SIGNED_IN`; a parent session and an admin session get `NOT_A_CHILD` and nothing is written; the page returns `404` for both. A child who passes another child's book ID or another child's ID gets `NOT_RATABLE` or the same `404`, and no rating of any other child is returned |
+| UC-SHLF-kid-rate-book, child lock | integration | Child deletion first: no rating is written and the result is `CHILD_NOT_FOUND`. A rating first: the child's deletion removes it (`deleteChildRecords`) |
+| UC-SHLF-kid-rate-book, consent lock | integration | With consent revoked, a still-valid child session gets `CONSENT_NOT_CONFIRMED`, nothing is written, and the entry's `writeVersion` is unchanged. With consent revoked after a save, the rating is handled by deletion only |
+| UC-SHLF-kid-rate-book, payload | integration | The page's payload is the title, the current rating or none, and the nickname; it holds no `childId`, no parent ID and no timestamp |
+
 ### UC-SHLF-kid-view-shelf
 
 | Use case, flow | Level | Asserts |
@@ -898,7 +1050,7 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | UC-SHLF-kid-view-shelf 3e | component | "My Dashboard" links to `/child/dashboard` |
 | UC-SHLF-kid-view-shelf 3f | integration | A pending removal notice shows until the child taps OK, with the book's title when the Catalog returns it and without it when not; the book is not on the shelf |
 | UC-SHLF-kid-view-shelf 5, selection | component | Selecting a book makes no request and changes no URL |
-| UC-SHLF-kid-view-shelf 5a | integration | A confirmed entry keeps its icon in every category but has `rate` only in Finished (`OI-75`); an unconfirmed entry has neither |
+| UC-SHLF-kid-view-shelf 5a | integration | A confirmed entry keeps its icon in every category and offers `rate` only in Finished. An unconfirmed entry has neither |
 | UC-SHLF-kid-view-shelf POST-2 | integration | Viewing changes no entry, rating or confirmation; only notices change, and only to seen, and only by `dismissChildNotice` |
 | UC-SHLF-kid-view-shelf fresh read | integration | After a parent removal, the next load omits the book; nothing is cached |
 | UC-SHLF-kid-view-shelf authorization | integration | No session redirects to `/child/sign-in`; a parent session and an admin session get `404`; no request can name another child |
@@ -937,9 +1089,9 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 
 | Flow | Test |
 | --- | --- |
-| Steps 1–5, 2a, 4a | Browser and integration. Four labeled choices, moving within the child's shelf and updated ordering. Removed entries, inactive books, foreign entries and invalid categories refuse without changing shelf data. |
+| Steps 1–5, 2a, 4a | Browser and integration. Four labeled choices and updated ordering. A non-UUID ID requiring URL encoding can move. An empty or overlong ID, foreign entry or invalid category writes nothing. A blocked book still on the shelf and a missing entry show the same **Back to shelf** outcome. |
 | 3a, 3b | Browser and integration. Same-category submits and Cancel leave the timestamp, source category, confirmation, rating, notices and lock versions untouched. Double submit does not overwrite the original source category. |
-| 3c, step 6 | Browser and integration. Finished records the source and shows waiting. Retract asks for explicit confirmation, then clears the source on success and withdraws the prompt on parent reload. |
+| 3c, step 6 | Browser and integration. Finished records the source for `UC-SHLF-par-finish-book` 4b and shows waiting. Retract asks for explicit confirmation, then clears the source on success and withdraws the prompt on parent reload. |
 | 3d, 6a | Integration. A move preserves the confirmation and rating in every category. The Rate action only appears on a confirmed Finished entry (`OI-75`). |
 | 5a | Integration. A known failure leaves the original entry and ordering. A labelled unknown commit returns `OUTCOME_UNKNOWN` without automatic retry: a committed same-target retry is a no-op, while an aborted retry saves once. |
 | Session, consent and deletion races | Integration. A child missing at the shared lock returns `CHILD_NOT_FOUND`; missing or revoked consent returns `CONSENT_NOT_CONFIRMED` and rolls back lock writes. Deletion-first refuses, move-first is subsequently deleted, and consent revocation serializes on the Consent Record. |
@@ -985,7 +1137,6 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | Child deletion | integration | Deleting the child (`UC-PAR-delete-kid-account`) removes the child's throttle state, sign-in records and sessions |
 | Sign-in, end to end | e2e | A parent creates a child, the child signs in at `/child/sign-in`, opens My Shelf, taps a book and signs out; the cookie is httpOnly, Secure and SameSite=Lax |
 
-
 ## Changes to the architecture-of-record
 
 - §5.2 Catalog: names the shelf read (`getBooksForShelf`) beside the two reads from `design/rec.md`, which share `src/server/catalog/books.ts`. Edited in `architectural-design.md` in this pull request.
@@ -998,8 +1149,9 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 - §5.2 Notification: the child's reads, `peekUnseenChildNotices` and `markNoticeSeen`.
 - §5.2 Identity & Access: names the child sign-in record and the child's sign-in attempts. Revision history: a v0.16 row.
 
-
 **For `UC-SHLF-parent-remove-book`:** None. §8.2.8 already lists "a shelf removal and its notice (`UC-SHLF-parent-remove-book`)" as one transaction, and §8.2.9 already lists parent shelf removals. The `lockChildForWrite` rule is already in §8.2.8, from [`design/par.md`](par.md) (`UC-PAR-delete-kid-account`).
+
+**For `UC-SHLF-kid-rate-book`:** None. §8.2.8's `lockChildForWrite` rule already covers the rating's inserting write, and `lockConsentForWrite` is the pattern `design/par.md` and `design/rec.md` fix. The README's child data inventory gains a `ratings` row (see Reuse & cross-cutting).
 
 ## What the build changed
 
@@ -1059,6 +1211,14 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
 
 ## Open questions & risks
 
+- **#79 follow-up books (`OI-2`, `OI-32`).** Step 6 is deferred in this build (Key decisions). It needs three answers: how a rating feeds the rules (`OI-2`), whether the follow-ups skip the parent's review (`OI-32`), and where the follow-up books are stored so the child can react to them in `UC-REC-kid-review` (`design/rec.md` says they are not batches). A later design adds the Recommendation call, the consent read after commit and the storage. A thank-you alone does not verify the follow-up flow, so the 6 and 6a tests wait for that design.
+- **#79 wording after a low rating (team, `OI-74`).** Step 6 says "Since you [loved or saved] [book]", which does not fit "It was okay" or "Not for me". The team proposes the follow-up only after "Loved it" and "Liked it" once step 6 is built, and the plain thank-you after the other two. Proposed edit to step 6, for the use-case owner.
+- **#79 weekly check-in attribution (`OI-30`).** The use case's Assumptions line says each rating records whether it followed a weekly check-in. No field holds it: attribution needs a trusted link from the parent check-in through the finish confirmation, whose source and lifetime stay open with the notification flow. The field is left out until `OI-30` is settled, and attribution is never inferred from timing or a browser flag.
+- **#79 way into the page (team).** The child's shelf page is on `main` (#75) and its entries already show Rate for every confirmed book, linking to a placeholder page at `/child/shelf/{bookId}/rate`. This build replaces the placeholder with the rating page and limits Rate to a confirmed entry in Finished (Components, Key decisions), so the link leads to the page for exactly the entries it accepts. The browser tests can reach the page from the shelf.
+- **#79 rating a confirmed book outside Finished (`OI-75`).** `UC-SHLF-kid-view-shelf` step 5 and `UC-SHLF-par-finish-book` POST-2 let a child rate any confirmed book, while `UC-SHLF-kid-rate-book` requires Finished. The team proposes Finished only, with a child who re-reads a confirmed book moving it back to Finished (the use case's own trigger), and the edit to step 5 and POST-2 to say so. If the client wants rating in any category, PRE-2, `getRatableBook`, `recordRating` (the entry match no longer names `category`) and the `actions` rule change together.
+- **#79 icons (team).** The four choices have glossary labels but no icons are specified; the build uses placeholder emoji, and the real icons wait for the client.
+- **#79 withdrawing a confirmation (team).** If a later design lets a parent withdraw a finish confirmation, its write should also increment the entry's `writeVersion`, so a rating racing the withdrawal conflicts. Until then the confirmation is read on the rating's transaction.
+
 - **No dashboard to tap "View Shelf" from yet (team).** The use case triggers from a child's dashboard, which no design or code provides. Until it exists, the entry is the `/parent/shelf` picker. Confirm which design owns the dashboard and its link.
 - **Link targets in other designs (team).** The paths for "Confirm finished", "Edit note", "Remove from shelf" and "Report" are proposed here. `UC-PAR-report-book` and `UC-SHLF-parent-remove-book` have adopted theirs. When the design of `UC-SHLF-par-finish-book` is written it adopts its path or changes this table in the same pull request. The controls are rendered now, and until those pages are built they lead to a 404.
 - **Book covers (client, `OI-65`).** The use case says each entry shows its cover, but no document gives a book a cover: the Catalog's book has only a title, an author and a status, and the admin form collects none. This view shows title and author, as the recommendation picker does. If the client wants covers, the Catalog, the add-content form and this view change together.
@@ -1068,7 +1228,6 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
 - **Parent dashboards and the no-metrics rule (client, `OI-31`).** This view shows no counts or totals. If the client wants totals, `BR-kid-no-metrics` and the use case assumption change together.
 - **Accepted risk: shelf size.** Loading the whole shelf at once assumes a shelf stays small. The seed catalog is 134 books (`SI-book-dataset`) and a shelf holds only what a child added; if the catalog or shelves grow far past that, revisit the single load.
 - **Suspended or deleted children.** The data model has no suspended state yet; a deleted child is simply not found (`404`). Suspending a child or a parent is administration (`UC-ADM-suspend-account`, `UC-ADM-suspend-parent-account`, `UC-ADM-reinstate-account`) and is outside the scope of this design: it builds no suspended state, status field or admin action. Revisit when `UC-PAR-delete-kid-account` is designed.
-
 
 **For `UC-SHLF-kid-view-shelf` and child sign-in** (decisions the developer gave on 2026-11-19 are recorded as such; each open item also has a row in `OPEN-ISSUES.md`):
 

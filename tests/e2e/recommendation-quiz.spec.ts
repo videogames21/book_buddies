@@ -55,6 +55,15 @@ test("with the Catalog guard wired, a signed-in child takes the quiz and a batch
   });
 
   try {
+    const books = db.collection<{ _id: string; writeVersion?: number }>(
+      "books",
+    );
+    const versionsBefore = new Map(
+      (await books.find({}, { projection: { writeVersion: 1 } }).toArray()).map(
+        ({ _id, writeVersion }) => [_id, writeVersion ?? 0],
+      ),
+    );
+
     await page.goto("/child");
     await page.getByRole("button", { name: "Get recommendations" }).click();
     await expect(page).toHaveURL(/\/child\/recommendations\/quiz$/);
@@ -66,12 +75,16 @@ test("with the Catalog guard wired, a signed-in child takes the quiz and a batch
     const batch = await db
       .collection<{ bookIds: string[] }>("recommendationBatches")
       .findOne({ childId, status: "pending" });
-    expect(batch?.bookIds).toContain(bookId);
-    // The guard wrote the book in the save transaction.
-    const book = await db
-      .collection<{ _id: string; writeVersion?: number }>("books")
-      .findOne({ _id: bookId });
-    expect(book?.writeVersion).toBe(1);
+    const selectedIds = batch?.bookIds ?? [];
+    expect(selectedIds.length).toBeGreaterThan(0);
+    // Other tests seed eligible books too. The guard must write every pick.
+    const selectedBooks = await books
+      .find({ _id: { $in: selectedIds } }, { projection: { writeVersion: 1 } })
+      .toArray();
+    expect(selectedBooks).toHaveLength(selectedIds.length);
+    for (const { _id, writeVersion } of selectedBooks) {
+      expect(writeVersion).toBe((versionsBefore.get(_id) ?? 0) + 1);
+    }
   } finally {
     await db.collection<{ _id: string }>("books").deleteOne({ _id: bookId });
     await db.collection("recommendationBatches").deleteMany({ childId });

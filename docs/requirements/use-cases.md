@@ -1420,7 +1420,7 @@ The dashboard carries book data, the child's nickname and avatar, and nothing el
 - 3d. The book's finish is confirmed. The child may move it freely to Reading Now, Want to Read, Maybe Later or Finished with no warning; the confirmed-finished icon stays wherever it sits on the shelf, and is the proof that a parent confirmed the finish. The icon shows only while the book is on the shelf; removing the book hides it, and adding the book back brings it back (`UC-SHLF-kid-remove-book`).
 - 4a. The chosen category is not one of the four, for example from a tampered request. The system rejects the request and makes no change.
 - 5a. Saving fails. The system shows an error and keeps the book in its previous category; the child's choice is shown as not saved (`ROB-no-data-loss`).
-- 6a. The Parent has already confirmed this book's finish, for example when the child is re-reading it. The system does not ask for confirmation again. When the confirmed book is moved into Finished, the system offers `UC-SHLF-kid-rate-book` (`OI-75`, proposed in #133). The book is not grayed out. Moving a confirmed book within the shelf never removes the confirmation or its icon.
+- 6a. The Parent has already confirmed this book's finish, for example when the child is re-reading it. The system does not ask for confirmation again. *Team proposal pending `OI-75`: offer `UC-SHLF-kid-rate-book` only when the confirmed book is moved into Finished.* The book is not grayed out. Moving a confirmed book within the shelf never removes the confirmation or its icon.
 
 **Priority:** High — moving books is how the child's shelf reflects their reading.\
 **Frequency of Use:** A few times per week per active child.\

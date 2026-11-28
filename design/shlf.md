@@ -1127,6 +1127,15 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
 - **Placeholder pages** for move, remove, rate and the dashboard, so the links lead somewhere and back. They read nothing about a child and check no session; the use case that builds each page adds both.
 - **Browser tests instead of component tests**, as for the parent view.
 
+### Design changes for the rating (`UC-SHLF-kid-rate-book`)
+
+- **Messages the API contract left open** (team wording, confirm): `CHILD_NOT_FOUND` gets the same "Something went wrong. Please ask a grown-up." as `CONSENT_NOT_CONFIRMED`; `SAVE_FAILED` is "That didn’t save. Tap your choice again."; `OUTCOME_UNKNOWN` is "We couldn’t check that it saved. Look at the book on your shelf, or tap your choice again."; `INVALID_RATING` is "Choose one of the four." On `NOT_RATABLE`, `CHILD_NOT_FOUND` or `CONSENT_NOT_CONFIRMED` the form hides the choices and shows only the message and the link back to the shelf, since tapping again cannot help.
+- **A save refreshes the shelf.** `saveRating` revalidates `/child/shelf` after a successful save, as `dismissChildNotice` does, so going back shows the new rating. A failed refresh is logged and the saved rating stands.
+- **The browser test of the shelf changed too.** `tests/e2e/child-shelf.spec.ts` expected Rate on a confirmed book in Reading Now and followed it to the placeholder; it now expects Move and Remove only, and the way into the rating page is tested in `tests/e2e/kid-rate-book.spec.ts`.
+- **`findActiveBookIds` reads outside the transaction's snapshot**, since it takes no transaction handle, so the active-book check reads committed state. Passing the transaction would not make the check stronger: a read never conflicts in MongoDB, so only `lockActiveBookForWrite` could catch a block that commits mid-transaction, and the design rejects that lock for ratings (Key decisions). A block's deletion of the shelf entry still conflicts through the entry write, and the read outside is fresher than the snapshot, which is fixed at the child lock. What is left is the race the design already accepts: a block committed after this read can let one rating through, never shown for a blocked book.
+- **The race tests** move, remove or block the entry from outside the rating's transaction after it starts and before it writes the entry, and check that the transaction ran twice. A deletion racing the rating is tested only as "deletion first" and "rating first", because a write from outside on a document the open transaction has already written waits for that transaction.
+- **The parent's view of the rating** is tested at integration level only (`getShelfForParent` after `recordRating`); the browser test stops at the child's shelf.
+
 
 ## Open questions & risks
 

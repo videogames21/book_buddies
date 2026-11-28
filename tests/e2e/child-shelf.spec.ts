@@ -49,7 +49,7 @@ test("shows the four categories in order, and a tapped book's details without a 
   page,
   context,
 }) => {
-  const { childId, confirmed } = await childWithBooks(context);
+  const { childId } = await childWithBooks(context);
   await shelve(childId, await addBook("Star Map"), "readingNow");
   await openShelf(page);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
@@ -77,11 +77,8 @@ test("shows the four categories in order, and a tapped book's details without a 
   await expect(panel(page)).toContainText("Series: Night Tales");
   await expect(panel(page)).toContainText("My rating: Loved it");
   await expect(panel(page)).not.toContainText("650L");
-  await expect(panel(page).getByRole("link")).toHaveText([
-    "Move",
-    "Remove",
-    "Rate",
-  ]);
+  // Confirmed but in Reading Now: no Rate (UC-SHLF-kid-rate-book PRE-2, OI-75).
+  await expect(panel(page).getByRole("link")).toHaveText(["Move", "Remove"]);
   expect(page.url()).toBe(url);
   expect(requests).toEqual([]);
 
@@ -99,15 +96,7 @@ test("shows the four categories in order, and a tapped book's details without a 
   await book(page, "River Song").click();
   await expect(panel(page).getByRole("link")).toHaveText(["Move", "Remove"]);
   await expect(panel(page)).not.toContainText("Series");
-
-  await book(page, "Moon Garden").click();
-  await panel(page).getByRole("link", { name: "Rate" }).click();
-  await expect(page).toHaveURL(new RegExp(`/child/shelf/${confirmed}/rate$`));
-  await expect(
-    page.getByRole("heading", { name: "Rate a book" }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Back to My Shelf" }).click();
-  await expect(page).toHaveURL(/\/child\/shelf$/);
+  // The way into the rating page is tested in kid-rate-book.spec.ts.
 });
 
 test("the move, remove and dashboard placeholders lead back to the shelf", async ({

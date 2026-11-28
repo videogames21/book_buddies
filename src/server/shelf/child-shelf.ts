@@ -69,8 +69,12 @@ export async function getShelfForChild(
       ...(book.seriesName && { seriesName: book.seriesName }),
       confirmed,
       rating,
-      // An entry awaiting confirmation can still be moved or removed (3c).
-      actions: confirmed ? ["move", "remove", "rate"] : ["move", "remove"],
+      // An entry awaiting confirmation can still be moved or removed (3c). Only a
+      // confirmed book in Finished can be rated (UC-SHLF-kid-rate-book PRE-2, OI-75).
+      actions:
+        confirmed && category === "finished"
+          ? ["move", "remove", "rate"]
+          : ["move", "remove"],
     };
     return { category, view };
   });

@@ -116,20 +116,40 @@ describe("getShelfForChild", () => {
     });
   });
 
-  it("5a and 3c: rate is offered on a confirmed book in any category only, and a stray rating is hidden", async () => {
+  it("5a and 3c: rate is offered on a confirmed book in Finished only, and a stray rating is hidden", async () => {
     const reread = await insertBook("active", "Reread");
     const waiting = await insertBook("active", "Waiting");
-    await insertShelfEntry(CHILD, reread, "wantToRead");
+    const done = await insertBook("active", "Done");
+    await insertShelfEntry(CHILD, reread, "wantToRead", on(3));
     await insertFinishConfirmation(CHILD, reread);
-    await insertShelfEntry(CHILD, waiting, "finished");
+    await insertShelfEntry(CHILD, waiting, "finished", on(2));
     await insertRating(CHILD, waiting, "okay");
+    await insertShelfEntry(CHILD, done, "finished", on(1));
+    await insertFinishConfirmation(CHILD, done);
     // Another child's confirmation or rating of the same book counts for nothing here.
     await insertFinishConfirmation(OTHER, waiting);
     await insertRating(OTHER, reread, "lovedIt");
 
+    // A confirmed book outside Finished is not ratable (UC-SHLF-kid-rate-book PRE-2, OI-75).
     expect(await allEntries()).toMatchObject([
-      { confirmed: true, rating: null, actions: ["move", "remove", "rate"] },
-      { confirmed: false, rating: null, actions: ["move", "remove"] },
+      {
+        title: "Reread",
+        confirmed: true,
+        rating: null,
+        actions: ["move", "remove"],
+      },
+      {
+        title: "Waiting",
+        confirmed: false,
+        rating: null,
+        actions: ["move", "remove"],
+      },
+      {
+        title: "Done",
+        confirmed: true,
+        rating: null,
+        actions: ["move", "remove", "rate"],
+      },
     ]);
   });
 

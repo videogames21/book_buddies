@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ReviewBook } from "@/server/catalog/books";
@@ -23,8 +24,8 @@ const tagsOf = (book: ReviewBook) =>
  * meanwhile, the page reloads the batch and keeps its controls disabled until the
  * reloaded batch arrives (review of #137). The books shown are always the reloaded
  * view's, less those this tab has just removed, so a released view lists what was sent.
- * The Report control waits for the batch report page (UC-PAR-report-book), so no link
- * leads to a 404.
+ * Report opens the batch entry page of UC-PAR-report-book; while an action runs or the
+ * batch reloads it is disabled like the buttons.
  */
 export function BatchReview({ view }: BatchReviewProps) {
   const router = useRouter();
@@ -116,27 +117,40 @@ export function BatchReview({ view }: BatchReviewProps) {
                 <p className={styles.tags}>{tagsOf(book)}</p>
               </div>
               {!released && (
-                <button
-                  type="button"
-                  disabled={disabled}
-                  aria-label={`Remove ${book.title}`}
-                  onClick={() => {
-                    void run(
-                      () =>
-                        removeBookFromBatch({
-                          childId,
-                          batchId,
-                          bookId: book.id,
-                        }),
-                      () => {
-                        setRemovedHere((left) => new Set(left).add(book.id));
-                        router.refresh();
-                      },
-                    );
-                  }}
-                >
-                  Remove
-                </button>
+                <div className={styles.controls}>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    aria-label={`Remove ${book.title}`}
+                    onClick={() => {
+                      void run(
+                        () =>
+                          removeBookFromBatch({
+                            childId,
+                            batchId,
+                            bookId: book.id,
+                          }),
+                        () => {
+                          setRemovedHere((left) => new Set(left).add(book.id));
+                          router.refresh();
+                        },
+                      );
+                    }}
+                  >
+                    Remove
+                  </button>
+                  <Link
+                    href={`/parent/children/${childId}/recommendations/${batchId}/${book.id}/report`}
+                    className={styles.report}
+                    aria-label={`Report ${book.title}`}
+                    aria-disabled={disabled}
+                    onClick={(event) => {
+                      if (disabled) event.preventDefault();
+                    }}
+                  >
+                    Report
+                  </Link>
+                </div>
               )}
             </li>
           ))}

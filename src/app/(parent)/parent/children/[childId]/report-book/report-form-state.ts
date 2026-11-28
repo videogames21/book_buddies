@@ -2,7 +2,7 @@ import {
   firstErrorCode,
   REPORT_BOOK_INPUT_MESSAGES,
   reportFormSchema,
-} from "../../../report-book/schema";
+} from "./schema";
 
 // The report form's screens and what moves between them (UC-PAR-report-book steps 3 to
 // 8, 3a, 5a, 7a, 7c), kept pure so it is tested without a browser. No transition here
@@ -17,14 +17,15 @@ export type ShownError = { message: string; errorId?: string };
 export type ReportFormState =
   | { screen: "form"; draft: ReportDraft; error: ShownError | null }
   | { screen: "confirm"; draft: ReportDraft; error: ShownError | null }
-  | { screen: "sent" }
+  /** Step 8. `removedFromShelf` is false when the book was only in a pending batch (7d). */
+  | { screen: "sent"; removedFromShelf: boolean }
   /** The report cannot go on from here; the message says why, with a way back. */
   | { screen: "stopped"; reason: StopReason; error: ShownError };
 
 export type StopReason = "alreadyReported" | "outcomeUnknown" | "refused";
 
 export type ActionAnswer =
-  | { ok: true }
+  | { ok: true; removedFromShelf: boolean }
   | { ok: false; error: { code: string; message: string; errorId?: string } };
 
 export type ReportFormEvent =
@@ -56,7 +57,9 @@ function afterAnswer(
   draft: ReportDraft,
   answer: ActionAnswer,
 ): ReportFormState {
-  if (answer.ok) return { screen: "sent" }; // step 8
+  if (answer.ok) {
+    return { screen: "sent", removedFromShelf: answer.removedFromShelf }; // step 8
+  }
   const { code } = answer.error;
   // 7a: the save failed and nothing was kept, so the parent may confirm again.
   if (code === "SAVE_FAILED") {
@@ -72,7 +75,7 @@ function afterAnswer(
       error: shown(answer.error),
     };
   }
-  // The report may have been saved; the parent checks the shelf before trying again.
+  // The report may have been saved; the parent checks before trying again.
   if (code === "OUTCOME_UNKNOWN") {
     return {
       screen: "stopped",

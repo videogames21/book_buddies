@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ReportForm } from "./report-form";
+import { ReportForm } from "../../../report-book/report-form";
 import { reportPageView } from "./view";
-import styles from "./report.module.css";
+import styles from "../../../report-book/report.module.css";
 
 // UC-PAR-report-book from the shelf (UC-SHLF-parent-view-shelf's "Report" link). Read on
 // every load, so a report another parent just sent shows as 7c.
@@ -34,6 +34,7 @@ export default async function ReportBookPage({
           title={view.title}
           nickname={view.nickname}
           backPath={view.shelfPath}
+          entry="shelf"
         />
       )}
     </main>

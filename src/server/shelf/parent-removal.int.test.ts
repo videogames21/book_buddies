@@ -387,7 +387,10 @@ describe("removeBookForParent (UC-SHLF-parent-remove-book)", () => {
 
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "OUTCOME_UNKNOWN", errorId: expect.any(String) as unknown },
+      error: {
+        code: "OUTCOME_UNKNOWN",
+        errorId: expect.any(String) as unknown,
+      },
     });
     expect(JSON.stringify(result)).not.toContain("commit outcome unknown");
     expect(logged).toHaveBeenCalledTimes(1);

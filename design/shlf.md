@@ -785,7 +785,7 @@ Errors use the §8.2.1 shape. Messages are short and written for a child, and sa
 | Move out of pending Finished (3c) | Require explicit retraction, then change the category and clear `previousCategory`. The parent's prompt disappears on the next read. The parent finish action must re-check that the entry is still awaiting confirmation. |
 | Move a confirmed book (3d, 6a) | Clear `previousCategory`; keep the confirmation, icon and stored rating in all categories. Offer **Rate** in Finished only, following the proposal in #133 (`OI-75`). |
 
-Check family consent before reading shelf data. In `withTransaction`, read the active book, the acting child's entry and its confirmation. Return no-ops and retraction prompts before taking write locks. For a save, take `lockChildForWrite`, resolve the family in the transaction and take `lockConsentForWrite`. Update by entry ID, child ID, book ID and observed category using `now()`. Retries re-read state, and a refusal aborts the transaction.
+Check family consent before reading shelf data. In `withTransaction`, read the active book, the acting child's entry and its confirmation. Return no-ops and retraction prompts before taking write locks. For a save, take `lockChildForWrite`, resolve the family in the transaction and take `lockConsentForWrite`. Update by entry ID, child ID, book ID and observed category using `now()`, and increment that entry's `writeVersion` by 1 in the same update. This makes a move conflict with a rating that checked the Finished entry, so the transaction retry re-checks the new category and refuses the rating. Same-category no-ops and retraction prompts do not increment it. Retries re-read state, and a refusal aborts the transaction.
 
 OI-58 requires a Catalog write lock for writes that put a new book in front of a child; moving an existing shelf entry does not, so this design takes none. The transaction freshly reads active status and conditionally updates the same shelf entry that `UC-ADM-block-content` deletes in its transaction. Those writes conflict, and the callback retry re-reads active status: block-first returns `BOOK_NOT_FOUND`, while a move committed first is removed by the later block. If the book returns to draft after the active read, the next shelf read hides it. The pending finish prompt is derived on read, and ordinary moves create no parent notice.
 
@@ -893,7 +893,7 @@ The collections are named `shelfEntries`, `ratings` and `finishConfirmations`. E
 
 ### Additions for the child's rating (`UC-SHLF-kid-rate-book`)
 
-One field is added, and `ratings` is unchanged: it already holds `value` and `ratedAt`. `shelfEntries` gains an optional integer `writeVersion`, added to the collection validator and to `SHELF_ENTRY`'s type. It is absent until a rating first increments it, it carries no meaning to a reader, and no view shows it. It exists so a rating's eligibility check writes the entry and so conflicts with a move or a removal (Key decisions). `writeVersion` holds no personal data. No rating field says whether it followed a weekly check-in (`OI-30`); that field is left out until `OI-30` is settled, and attribution is never inferred from timing.
+One field is added, and `ratings` is unchanged: it already holds `value` and `ratedAt`. `shelfEntries` gains an optional integer `writeVersion`, added to the collection validator and to `SHELF_ENTRY`'s type. It is absent until a rating or move first increments it, it carries no meaning to a reader, and no view shows it. A real move increments it once in the category update, while a same-category no-op leaves it unchanged, so a rating or a move conflicts with any later write to that entry (Key decisions). `writeVersion` holds no personal data. No rating field says whether it followed a weekly check-in (`OI-30`); that field is left out until `OI-30` is settled, and attribution is never inferred from timing.
 
 ### Additions for the child's shelf and child sign-in
 
@@ -1090,12 +1090,13 @@ Not used: Notification, the Child Identity Store, Safety Flagging, and the audit
 | Flow | Test |
 | --- | --- |
 | Steps 1–5, 2a, 4a | Browser and integration. Four labeled choices and updated ordering. A non-UUID ID requiring URL encoding can move. An empty or overlong ID, foreign entry or invalid category writes nothing. A blocked book still on the shelf and a missing entry show the same **Back to shelf** outcome. |
-| 3a, 3b | Browser and integration. Same-category submits and Cancel leave the timestamp, source category, confirmation, rating, notices and lock versions untouched. Double submit does not overwrite the original source category. |
+| 3a, 3b | Browser and integration. Same-category submits and Cancel leave the timestamp, source category, confirmation, rating, notices, entry `writeVersion` and lock versions untouched. Double submit does not overwrite the original source category. |
 | 3c, step 6 | Browser and integration. Finished records the source for `UC-SHLF-par-finish-book` 4b and shows waiting. Retract asks for explicit confirmation, then clears the source on success and withdraws the prompt on parent reload. |
 | 3d, 6a | Integration. A move preserves the confirmation and rating in every category. The Rate action only appears on a confirmed Finished entry (`OI-75`). |
 | 5a | Integration. A known failure leaves the original entry and ordering. A labelled unknown commit returns `OUTCOME_UNKNOWN` without automatic retry: a committed same-target retry is a no-op, while an aborted retry saves once. |
 | Session, consent and deletion races | Integration. A child missing at the shared lock returns `CHILD_NOT_FOUND`; missing or revoked consent returns `CONSENT_NOT_CONFIRMED` and rolls back lock writes. Deletion-first refuses, move-first is subsequently deleted, and consent revocation serializes on the Consent Record. |
 | Parent-removal and block races | Integration. Exercise both orders and assert the removal and block outcomes above, including one normal removal notice, no recreated entry or prompt, and `BOOK_NOT_FOUND` after a block-first retry. |
+| Successful moves and rating race | Integration. Each real move increments `writeVersion` exactly once. A rating that has checked Finished conflicts with a move out of Finished; after the transaction retry it returns `NOT_RATABLE` and writes no rating. |
 
 ### Supporting flows (`OI-46`): child sign-in and sign-out
 

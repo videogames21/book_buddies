@@ -33,6 +33,12 @@ export type ShelfEntryDocument = {
   bookId: string;
   category: ShelfCategory;
   movedAt: Date;
+  /**
+   * Absent until a rating first increments it. It carries no meaning to a reader: a rating
+   * writes it so the rating conflicts with a move or removal of the same entry
+   * (UC-SHLF-kid-rate-book; design/shlf.md, Key decisions).
+   */
+  writeVersion?: number;
 };
 
 export type RatingDocument = {
@@ -65,6 +71,8 @@ export async function ensureShelfIndexes(db: Db): Promise<void> {
       bookId: { bsonType: "string", minLength: 1 },
       category: { enum: [...SHELF_CATEGORIES] },
       movedAt: { bsonType: "date" },
+      // $inc of 1 on an absent field creates an int32.
+      writeVersion: { bsonType: "int" },
     },
   });
   await ensureCollection(db, RATINGS, {

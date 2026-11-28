@@ -47,7 +47,7 @@ The full rules are in `design/architectural-design.md` §8; cite the subsection 
 - **Auth (`KD-auth-sessions`):** Auth.js with *database* sessions, not JWT, so suspension revokes sessions immediately.
 - **Errors (8.2.1):** every action returns `{ ok: true, data }` or `{ ok: false, error: { code, message } }` through one shared helper. Responses never include exception messages or stack traces.
 - **Time (8.2.2, `KD-time-rules-on-read`):** store times in UTC, use `now()` from the settable clock module, and check deadlines on read. Cron only purges what has already expired.
-- **API (8.2.3):** pages change data through verb-first server actions (session check, then zod validation, then the owning component). `/api/` route handlers exist only for Auth.js and the cron cleanup.
+- **API (8.2.3):** pages change data through verb-first server actions (session check, then zod validation, then the owning component). `/api/` route handlers exist only for Auth.js, the cron cleanup and the health check.
 - **Code (8.2.4):** TypeScript strict mode with no `any` in domain code. Only a component's own data-access functions under `src/server/<component>/` touch its collections. Mark server modules `server-only`.
 - **Validation (8.2.5):** server-side zod is the check that counts.
 - **Logging (8.2.7):** never log passwords, session IDs, emails, usernames, child details, reflection text, report comments or flagged passages.

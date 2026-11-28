@@ -21,6 +21,8 @@ function isTimeZone(name: string): boolean {
 
 const configSchema = z.object({
   AUTH_SECRET: z.string().min(1),
+  // Set by Vercel to the deployed commit; the health check reports it.
+  VERCEL_GIT_COMMIT_SHA: optionalString(z.string()),
   PRIVACY_NOTICE_URL: optionalString(z.url()),
   MONGODB_URI: z.string().min(1),
   MONGODB_DB: blankAsUnset(z.string().min(1).default("bookbuddies")),
@@ -84,7 +86,9 @@ export function getConfig(): Config {
       const names = parsed.error.issues
         .map((issue) => issue.path.join("."))
         .join(", ");
-      throw new Error(`Invalid environment: ${names}`);
+      const err = new Error(`Invalid environment: ${names}`);
+      err.name = "ConfigError";
+      throw err;
     }
     cached = parsed.data;
   }

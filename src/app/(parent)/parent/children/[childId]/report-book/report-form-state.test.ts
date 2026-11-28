@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { REPORT_COMMENT_MAX_LENGTH } from "@/shared/accounts-family/book-report";
-import { REPORT_BOOK_INPUT_MESSAGES } from "../../../report-book/schema";
+import { REPORT_BOOK_INPUT_MESSAGES } from "./schema";
 import {
   confirmedInput,
   INITIAL_REPORT_FORM,

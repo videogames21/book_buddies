@@ -2,7 +2,7 @@ import {
   firstErrorCode,
   REPORT_BOOK_INPUT_MESSAGES,
   reportFormSchema,
-} from "../../../report-book/schema";
+} from "./schema";
 
 // The report form's screens and what moves between them (UC-PAR-report-book steps 3 to
 // 8, 3a, 5a, 7a, 7c), kept pure so it is tested without a browser. No transition here

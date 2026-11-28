@@ -6,7 +6,7 @@ import {
   REPORT_REASON_LABELS,
   REPORT_REASONS,
 } from "@/shared/accounts-family/book-report";
-import { reportBook } from "../../../report-book/actions";
+import { reportBook } from "./actions";
 import {
   confirmedInput,
   INITIAL_REPORT_FORM,

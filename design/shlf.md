@@ -1128,6 +1128,18 @@ One part of the Tests table is not covered: that the keep-alive stops when the p
 - **Browser tests instead of component tests**, as for the parent view.
 
 
+### Built for `UC-SHLF-parent-remove-book`
+
+Built as designed: `removeBookForParent` in `src/server/shelf/parent-removal.ts` runs the six steps in one transaction, and the page follows `UC-PAR-report-book`'s `view.ts` and state-module pattern. Every shared function was reused unchanged. Differences, and how the test list was met:
+
+- **The success result is `{ ok: true, data: null }`**, the shared helper's shape (§8.2.1), where the API contract says `{ ok: true }`. It still carries nothing else.
+- **`INVALID_INPUT` wins over `NOT_CONFIRMED`.** A request with a malformed ID and no confirmation gets `INVALID_INPUT`. `NOT_CONFIRMED` is returned only when the confirmation is the one thing wrong.
+- **A request that fails in the browser is shown as `OUTCOME_UNKNOWN`**, as on the report form: the request may have reached the server, so the page does not say nothing was saved.
+- **The parent-vs-child race uses a fixture for the child.** `UC-SHLF-kid-remove-book` is not built, so the child's removal is a fixture that deletes the entry in its own transaction and writes nothing else, as that flow will. When the child wins, the fixture's transaction is held open while the parent's removal starts, then committed. When the parent wins, a test hook starts the fixture right after the parent's audit append, before its commit. The same hook starts `reportBook` or the revocation fixture for the parent-and-report and removal-first rows. When `UC-SHLF-kid-remove-book` is built, its design replaces the fixture with the real removal in this test.
+- **5a, response lost:** the test wraps `ClientSession.commitTransaction` so the real commit applies and then throws an error labelled `UnknownTransactionCommitResult` with code 50 (`MaxTimeMSExpired`). That is how the driver surfaces an unknown commit once its retry limit runs out. Without code 50, `withTransaction` keeps retrying the commit for 120 seconds.
+- **5b dismisses through `markNoticeSeen`**, the write behind `dismissChildNotice`. The action's own rows are in its tests.
+- **The Logging row is an integration test**, not a unit test, because it drives a refused and a failed removal against the database.
+
 ## Open questions & risks
 
 - **#79 follow-up books (`OI-2`, `OI-32`).** Step 6 is deferred in this build (Key decisions). It needs three answers: how a rating feeds the rules (`OI-2`), whether the follow-ups skip the parent's review (`OI-32`), and where the follow-up books are stored so the child can react to them in `UC-REC-kid-review` (`design/rec.md` says they are not batches). A later design adds the Recommendation call, the consent read after commit and the storage. A thank-you alone does not verify the follow-up flow, so the 6 and 6a tests wait for that design.

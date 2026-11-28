@@ -15,6 +15,7 @@ import {
   insertRating,
   insertShelfEntry,
 } from "../../../tests/fixtures/shelf";
+import { insertReaction } from "../../../tests/fixtures/reactions";
 import { insertParent } from "../../../tests/fixtures/users";
 import { resetDatabase } from "../../../tests/integration/db";
 import { recordChildSignIn } from "@/server/identity-access/child-sign-ins";
@@ -32,6 +33,12 @@ vi.mock("@/server/safety-flagging/screen-note", async (importOriginal) => {
     >();
   return { ...actual, screenNote: vi.fn(actual.screenNote) };
 });
+// Parent suggestions are behind a release gate (README) that is off by default; the
+// seed turns it on so the suggestion goes through its real write path.
+vi.mock("@/server/lib/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/lib/config")>();
+  return { ...actual, areParentSuggestionsEnabled: () => true };
+});
 // The transaction helper, wrapped so a test can make MongoDB report an unknown commit
 // result (5b). It runs the real helper unless a test says otherwise.
 vi.mock("@/server/lib/db", async (importOriginal) => {
@@ -44,6 +51,7 @@ const { screenNote } = await import("@/server/safety-flagging/screen-note");
 const { createChild } = await import("./child-accounts");
 const { deleteChild } = await import("./child-deletion");
 const { reportBook } = await import("./book-reports");
+const { createSuggestion } = await import("./suggestions");
 const { getOnboardingStep } = await import("./families");
 const { saveOnboardingProfile } =
   await import("@/server/recommendation/reading-profiles");
@@ -92,8 +100,8 @@ async function mainParent() {
  * account, identity, credential and a flagged note with its flag (createChild), a
  * reading profile (saveOnboardingProfile), sessions with their end records
  * (createDatabaseSession), a throttle row under the child's key (claimSignInAttempt),
- * shelf records and a recommendation batch (fixtures), and a report with its exclusion
- * and notice (reportBook).
+ * shelf records, a recommendation batch and a reaction (fixtures), a report with its
+ * exclusion and notice (reportBook), and a parent suggestion (createSuggestion).
  */
 async function seedChild(
   session: ParentSession,
@@ -144,7 +152,16 @@ async function seedChild(
   await insertShelfEntry(childId, BOOK_ID, "readingNow");
   await insertRating(childId, BOOK_ID, "lovedIt");
   await insertFinishConfirmation(childId, BOOK_ID);
-  await insertBatch({ childId, bookIds: [BOOK_ID] });
+  const batchId = await insertBatch({ childId, bookIds: [BOOK_ID] });
+  // A reaction with its decline reason (UC-REC-kid-review). A fixture until the
+  // child's action exists in this test's seed path.
+  await insertReaction({
+    childId,
+    bookId: BOOK_ID,
+    reaction: "notForMe",
+    declineReason: "tooHard",
+    batchIds: [batchId],
+  });
   // A report through the real write path: its exclusion, the report with a comment, the
   // child's removal notice and two audit entries (UC-PAR-report-book).
   const reportedBookId = await insertBook("active", "Reported book");
@@ -156,6 +173,13 @@ async function seedChild(
     comment: "Invented comment about this book.",
   });
   if (!reported.ok) throw new Error(`seed failed: ${reported.error.code}`);
+  const suggested = await createSuggestion(session, {
+    childId,
+    bookId: await insertBook("active", "Suggested book"),
+    note: "Invented note for this child.",
+    suggestAnyway: false,
+  });
+  if (!suggested.ok) throw new Error(`seed failed: ${suggested.error.code}`);
   return {
     childId,
     userId,
@@ -219,6 +243,7 @@ describe("deleteChild (UC-PAR-delete-kid-account)", () => {
       "noteFlags",
       "readingProfiles",
       "recommendationBatches",
+      "recommendationReactions",
       "shelfEntries",
       "ratings",
       "finishConfirmations",

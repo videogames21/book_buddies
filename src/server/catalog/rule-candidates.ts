@@ -2,6 +2,7 @@ import "server-only";
 import { getDb, type Tx } from "@/server/lib/db";
 import { GENRES, LENGTHS, MOODS, SUBJECTS } from "@/shared/catalog/tags";
 import type { QuizAnswers } from "@/shared/recommendation/quiz";
+import { lockActiveBookForWrite } from "./books";
 import { booksCollection, type BookDocument } from "./books-collection";
 
 export type RuleCandidate = {
@@ -16,19 +17,30 @@ export type RuleCandidate = {
 
 type InterestBook = Pick<BookDocument, "_id" | "genres" | "subjects">;
 
-function interestTags(book: InterestBook): string[] {
+/**
+ * A history book's approved interest keys, genres and subjects kept apart: a decline
+ * reason weighs them differently (design/rec-field-values.md, ranking signals).
+ */
+export type HistoryTags = { genres: string[]; subjects: string[] };
+
+function historyTags(book: InterestBook): HistoryTags {
   const subjects = book.subjects ?? [];
-  return [
-    ...GENRES.filter((genre) => book.genres.includes(genre)),
-    ...SUBJECTS.filter((subject) => subjects.includes(subject)),
-  ];
+  return {
+    genres: GENRES.filter((genre) => book.genres.includes(genre)),
+    subjects: SUBJECTS.filter((subject) => subjects.includes(subject)),
+  };
 }
 
-/** One active-only feature read for the child's favorites, shelf and ratings. */
+/** Every interest key of a history book, genres first, for a signal that weighs them alike. */
+export function interestKeys(tags: HistoryTags | undefined): string[] {
+  return tags ? [...tags.genres, ...tags.subjects] : [];
+}
+
+/** One active-only feature read for the child's favorites, shelf, ratings and reactions. */
 export async function listRuleHistoryTags(
   bookIds: readonly string[],
   tx?: Tx,
-): Promise<Map<string, string[]>> {
+): Promise<Map<string, HistoryTags>> {
   if (bookIds.length === 0) return new Map();
   const books = await booksCollection(getDb())
     .find<InterestBook>(
@@ -36,7 +48,7 @@ export async function listRuleHistoryTags(
       { projection: { genres: 1, subjects: 1 }, session: tx },
     )
     .toArray();
-  return new Map(books.map((book) => [book._id, interestTags(book)]));
+  return new Map(books.map((book) => [book._id, historyTags(book)]));
 }
 
 type CandidateDocument = Pick<
@@ -124,7 +136,22 @@ export type QuizCatalogGuard = (
   bookIds: readonly string[],
 ) => Promise<boolean>;
 
-/** OI-58 supplies the same-book write before the production quiz can open. */
+/**
+ * The quiz's part of the same-book conditional write the team agreed for `OI-58`
+ * (2026-11-26; design/adm.md, "Check races with the owning use cases"). Inside the save
+ * transaction it writes each ranked book while it is still active, so a block or a
+ * return to draft of any of them conflicts with the batch insert and MongoDB lets only
+ * one commit. `false` means a book is no longer active, and the quiz saves nothing.
+ * One at a time: a transaction's operations run in order on its session.
+ */
+export const lockActiveBooksForQuiz: QuizCatalogGuard = async (tx, bookIds) => {
+  for (const bookId of bookIds) {
+    if (!(await lockActiveBookForWrite(tx, bookId))) return false;
+  }
+  return true;
+};
+
+/** The guard the production quiz saves with; with it present the quiz entry opens. */
 export function getQuizCatalogGuard(): QuizCatalogGuard | undefined {
-  return undefined;
+  return lockActiveBooksForQuiz;
 }

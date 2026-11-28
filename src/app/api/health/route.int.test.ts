@@ -1,4 +1,4 @@
-import { Db } from "mongodb";
+import { Db, MongoOperationTimeoutError } from "mongodb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
 
@@ -66,6 +66,22 @@ describe("GET /api/health", () => {
     expect(await response.text()).not.toContain("AUTH_SECRET");
     expect(log()).toMatchObject([
       { where: "health", errorName: "ConfigError" },
+    ]);
+  });
+
+  it("gives the ping a deadline and names the driver's timeout error", async () => {
+    const command = vi
+      .spyOn(Db.prototype, "command")
+      .mockRejectedValue(new MongoOperationTimeoutError("db.example.test"));
+    const log = captureLog();
+
+    const response = await GET();
+
+    expect(command).toHaveBeenCalledWith({ ping: 1 }, { timeoutMS: 2_500 });
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain("example.test");
+    expect(log()).toMatchObject([
+      { where: "health", errorName: "MongoOperationTimeoutError" },
     ]);
   });
 

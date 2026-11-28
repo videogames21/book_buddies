@@ -13,6 +13,7 @@ const LOGGED_ERROR_NAMES = [
   "MongoOperationTimeoutError",
   "MongoServerError",
   "MongoServerSelectionError",
+  "MongoTopologyClosedError",
   "TypeError",
 ];
 

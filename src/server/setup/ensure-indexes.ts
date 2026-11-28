@@ -3,6 +3,7 @@ import type { Db } from "mongodb";
 import { ensureBookReportIndexes } from "@/server/accounts-family/book-report-schema";
 import { ensureAccountsFamilyIndexes } from "@/server/accounts-family/child-accounts";
 import { ensureConsentRecordIndexes } from "@/server/accounts-family/consent-record-schema";
+import { ensureParentSuggestionIndexes } from "@/server/accounts-family/suggestion-schema";
 import { ensureChildIdentityIndexes } from "@/server/child-identity/child-identity";
 import { ensureIdentityAccessIndexes } from "@/server/identity-access/indexes";
 import { ensurePasswordResetIndexes } from "@/server/identity-access/password-reset-schema";
@@ -15,6 +16,7 @@ import { ensureNoteFlagIndexes } from "@/server/safety-flagging/note-flags";
 import { ensureAuditCollection } from "@/server/audit/audit-log";
 import { ensureBookIndexes } from "@/server/catalog/books";
 import { ensureRecommendationBatchIndexes } from "@/server/recommendation/batch-schema";
+import { ensureRecommendationReactionIndexes } from "@/server/recommendation/recommendation-reaction-schema";
 import { ensureReadingProfileIndexes } from "@/server/recommendation/reading-profiles";
 import { ensureShelfIndexes } from "@/server/shelf/shelf-collections";
 import { ensureChildNoticeIndexes } from "@/server/notification/child-notices";
@@ -35,8 +37,10 @@ export async function ensureIndexes(db: Db): Promise<void> {
   await ensureAuditCollection(db);
   await ensureReadingProfileIndexes(db);
   await ensureRecommendationBatchIndexes(db);
+  await ensureRecommendationReactionIndexes(db);
   await ensureShelfIndexes(db);
   await ensureBookIndexes(db);
   await ensureBookReportIndexes(db);
   await ensureChildNoticeIndexes(db);
+  await ensureParentSuggestionIndexes(db);
 }

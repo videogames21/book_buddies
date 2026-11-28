@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../../../tests/integration/db";
-import { getDb, withTransaction } from "./db";
+import { getDb, getMongoClient, withTransaction } from "./db";
 
 describe("withTransaction", () => {
   beforeEach(async () => {
@@ -27,6 +27,39 @@ describe("withTransaction", () => {
     });
     expect(result).toBe("done");
     expect(await things.countDocuments()).toBe(2);
+  });
+});
+
+describe("getMongoClient", () => {
+  /** Closes the shared client and forgets it, so the next call makes a new one. */
+  async function dropClient() {
+    await getMongoClient().close();
+    delete (globalThis as { bookBuddiesMongoClient?: unknown })
+      .bookBuddiesMongoClient;
+  }
+
+  it("replaces a client whose first connection failed", async () => {
+    await dropClient();
+    // Nothing listens on port 1.
+    vi.stubEnv(
+      "MONGODB_URI",
+      "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=100",
+    );
+    // The config is cached once read, so load the module again.
+    vi.resetModules();
+    const db = await import("./db");
+    try {
+      const failed = db.getMongoClient();
+
+      await expect(db.getDb().command({ ping: 1 })).rejects.toMatchObject({
+        name: "MongoServerSelectionError",
+      });
+
+      expect(db.getMongoClient()).not.toBe(failed);
+    } finally {
+      vi.unstubAllEnvs();
+      await dropClient();
+    }
   });
 });
 

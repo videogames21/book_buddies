@@ -1,5 +1,6 @@
-// Local demo harness, outside the application. Seeds one invented Main Parent, who
-// signs in through the real /sign-in page. Takes only its mail settings from .env or
+// Local demo harness, outside the application. Seeds two invented Main Parents, who
+// sign in through the real /sign-in page: one with no child yet, and one whose child
+// has books on the shelf. Takes only its mail settings from .env or
 // .env.local; never their database or other settings.
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, scrypt } from "node:crypto";
@@ -10,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, parseEnv, promisify } from "node:util";
 import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { seedDemoShelf } from "./demo-shelf.mjs";
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("The demo harness is for local development only.");
@@ -54,6 +56,9 @@ const nextBin = fileURLToPath(
 // Invented, and only valid in this run's temporary database.
 const DEMO_EMAIL = "demo-parent@example.test";
 const DEMO_PASSWORD = "demo-password-123";
+const DEMO_SHELF_EMAIL = "demo-shelf-parent@example.test";
+// The invented child `demo_reader` (demo-shelf.mjs).
+const DEMO_CHILD_PASSWORD = "demo-shelf-books-42";
 const DEMO_ADMIN_EMAIL = "demo-admin@example.test";
 const DEMO_ADMIN_PASSWORD = "demo-admin-password-123";
 
@@ -148,6 +153,8 @@ try {
       process.env.CHILD_SESSION_TIME_ZONE ?? "America/Chicago",
     // TEMPORARY (OI-61): lets the demo admin sign in on the parent page.
     ALLOW_ADMIN_PARENT_SIGNIN: "1",
+    // UC-PAR-suggest-book release gate: on only because the demo holds invented data.
+    PARENT_SUGGESTIONS_ENABLED: "1",
   };
   console.log("Building the demo application...");
   app = spawn(process.execPath, [nextBin, "build"], {
@@ -185,16 +192,38 @@ try {
 
   client = new MongoClient(uri);
   const db = client.db("bookbuddies_demo");
-  const userId = new ObjectId();
-  const familyId = new ObjectId();
-  await db.collection("users").insertOne({
-    _id: userId,
-    familyId,
-    role: "parent",
-    parentRole: "main",
-    name: "Demo Parent",
-    email: DEMO_EMAIL,
-    passwordHash: await hashDemoPassword(DEMO_PASSWORD),
+  /** A Main Parent whose consent is already confirmed. */
+  async function addDemoParent(name, email) {
+    const userId = new ObjectId();
+    const familyId = new ObjectId();
+    await db.collection("users").insertOne({
+      _id: userId,
+      familyId,
+      role: "parent",
+      parentRole: "main",
+      name,
+      email,
+      passwordHash: await hashDemoPassword(DEMO_PASSWORD),
+    });
+    const acknowledgedAt = new Date();
+    await db.collection("consentRecords").insertOne({
+      familyId,
+      parentUserId: userId,
+      noticeVersion: "demo",
+      method: "email-plus",
+      acknowledgedAt,
+      confirmBy: new Date(acknowledgedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
+      confirmationTokenHash: createHash("sha256")
+        .update(randomBytes(32))
+        .digest("hex"),
+      confirmedAt: acknowledgedAt,
+    });
+    return { parentId: userId, familyId };
+  }
+  await addDemoParent("Demo Parent", DEMO_EMAIL);
+  await seedDemoShelf(db, {
+    ...(await addDemoParent("Demo Shelf Parent", DEMO_SHELF_EMAIL)),
+    passwordHash: await hashDemoPassword(DEMO_CHILD_PASSWORD),
   });
   await db.collection("users").insertOne({
     _id: new ObjectId(),
@@ -202,19 +231,6 @@ try {
     name: "Demo Admin",
     email: DEMO_ADMIN_EMAIL,
     passwordHash: await hashDemoPassword(DEMO_ADMIN_PASSWORD),
-  });
-  const acknowledgedAt = new Date();
-  await db.collection("consentRecords").insertOne({
-    familyId,
-    parentUserId: userId,
-    noticeVersion: "demo",
-    method: "email-plus",
-    acknowledgedAt,
-    confirmBy: new Date(acknowledgedAt.getTime() + 14 * 24 * 60 * 60 * 1000),
-    confirmationTokenHash: createHash("sha256")
-      .update(randomBytes(32))
-      .digest("hex"),
-    confirmedAt: acknowledgedAt,
   });
 
   app = spawn(
@@ -264,6 +280,12 @@ Sign in with the invented parent:
 And the invented admin (same page, opens /admin/catalog):
   Email:    ${DEMO_ADMIN_EMAIL}
   Password: ${DEMO_ADMIN_PASSWORD}
+To see a child's filled shelf, sign in at ${appOrigin}/child/sign-in:
+  Username: demo_reader
+  Password: ${DEMO_CHILD_PASSWORD}
+That child's parent sees it at ${appOrigin}/parent/shelf:
+  Email:    ${DEMO_SHELF_EMAIL}
+  Password: ${DEMO_PASSWORD}
 ${mailNote}
 Press Ctrl+C to stop. Restart npm run demo for a fresh family.
 `,

@@ -12,7 +12,12 @@ const PLACEHOLDER_NOTICE_VERSION = "2026-11-23-placeholder";
 // cookie (design/shlf.md; COPPA-direct-notice, COPPA-notice-versioning). Every Consent
 // Record so far is invented test data, so no family consents again for it (OI-70).
 const SIGN_IN_NOTICE_VERSION = "2026-11-26-placeholder";
-export const CONSENT_NOTICE_VERSION = SIGN_IN_NOTICE_VERSION;
+// Adds parent suggestions to what is collected (UC-PAR-suggest-book; COPPA-direct-notice,
+// COPPA-notice-versioning), after child sign-in. Every Consent Record so far is invented
+// test data, so no family consents again for this change (design/par.md, the notice key
+// decision; OI-70).
+const SUGGESTIONS_NOTICE_VERSION = "2026-11-26-suggestions-placeholder";
+export const CONSENT_NOTICE_VERSION = SUGGESTIONS_NOTICE_VERSION;
 
 export type ConsentNoticeSection = { heading: string; paragraphs: string[] };
 
@@ -78,10 +83,23 @@ function signInNotice(confirmationDays: number): ConsentNoticeSection[] {
   );
 }
 
+const SUGGESTIONS_ITEM =
+  'Books you suggest to your child, with a short note if you write one. Your child sees the book and your note, labelled "From your grown-up". The note is not checked or read by BookBuddies staff.';
+
+/** The sign-in notice with parent suggestions added to what is collected. */
+function suggestionsNotice(confirmationDays: number): ConsentNoticeSection[] {
+  return signInNotice(confirmationDays).map((section) =>
+    section.heading === "What we collect about your child, and why"
+      ? { ...section, paragraphs: [...section.paragraphs, SUGGESTIONS_ITEM] }
+      : section,
+  );
+}
+
 // Retain published templates so a resend can restate the original acknowledgment.
 const noticeTemplates = {
   [PLACEHOLDER_NOTICE_VERSION]: placeholderNotice,
   [SIGN_IN_NOTICE_VERSION]: signInNotice,
+  [SUGGESTIONS_NOTICE_VERSION]: suggestionsNotice,
 } satisfies Record<string, (days: number) => ConsentNoticeSection[]>;
 
 export function consentNotice(

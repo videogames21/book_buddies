@@ -1,5 +1,5 @@
 import "server-only";
-import type { Db, ObjectId } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { now } from "@/server/lib/clock";
 import { ensureCollection } from "@/server/lib/collections";
 import { getDb, type Tx } from "@/server/lib/db";
@@ -11,36 +11,48 @@ import { getDb, type Tx } from "@/server/lib/db";
 
 export const CHILD_NOTICES = "childNotices";
 
-/** The kinds written so far; `finish-declined` joins with UC-SHLF-par-finish-book. */
-export const CHILD_NOTICE_KINDS = ["book-removed"] as const;
+/** `finish-declined` is written by UC-SHLF-par-finish-book, which is not built yet. */
+export const CHILD_NOTICE_KINDS = ["book-removed", "finish-declined"] as const;
 
 export async function ensureChildNoticeIndexes(db: Db): Promise<void> {
   await ensureCollection(db, CHILD_NOTICES, {
     bsonType: "object",
-    required: ["_id", "childId", "kind", "bookId", "createdAt"],
+    required: ["_id", "childId", "kind", "createdAt"],
     additionalProperties: false,
     properties: {
       _id: { bsonType: "objectId" },
       childId: { bsonType: "string", minLength: 1 },
       kind: { enum: [...CHILD_NOTICE_KINDS] },
-      // The catalog's book IDs are UUID strings. bookId is required only because
-      // book-removed is the only kind so far; finish-declined (no book) will need a
-      // per-kind rule.
+      // The catalog's book IDs are UUID strings.
       bookId: { bsonType: "string", minLength: 1 },
       createdAt: { bsonType: "date" },
       seenAt: { bsonType: "date" },
     },
+    // A removal names its book; a declined finish names none (fixed wording).
+    oneOf: [
+      {
+        properties: { kind: { enum: ["book-removed"] } },
+        required: ["bookId"],
+      },
+      {
+        properties: { kind: { enum: ["finish-declined"] } },
+        not: { required: ["bookId"] },
+      },
+    ],
   });
   await db
     .collection(CHILD_NOTICES)
     .createIndex({ childId: 1, seenAt: 1 }, { name: "childId_seenAt" });
 }
 
+export type ChildNoticeKind = (typeof CHILD_NOTICE_KINDS)[number];
+
 type ChildNoticeDocument = {
   _id: ObjectId;
   childId: string;
-  kind: (typeof CHILD_NOTICE_KINDS)[number];
-  bookId: string;
+  kind: ChildNoticeKind;
+  /** For `book-removed` only. */
+  bookId?: string;
   createdAt: Date;
   seenAt?: Date;
 };
@@ -71,4 +83,41 @@ export async function createRemovalNoticeInTx(
       { childId, kind: "book-removed", bookId, createdAt: now() },
       { session: tx },
     );
+}
+
+/** The child's notices they have not tapped OK on, oldest first. Reading marks nothing. */
+export async function peekUnseenChildNotices(
+  childId: string,
+): Promise<{ id: string; kind: ChildNoticeKind; bookId?: string }[]> {
+  const notices = await getDb()
+    .collection<ChildNoticeDocument>(CHILD_NOTICES)
+    .find(
+      { childId, seenAt: { $exists: false } },
+      { projection: { kind: 1, bookId: 1 } },
+    )
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray();
+  return notices.map(({ _id, kind, bookId }) => ({
+    id: _id.toHexString(),
+    kind,
+    ...(bookId && { bookId }),
+  }));
+}
+
+/**
+ * The child tapped OK. One conditional update on that child's own unseen notice, so a
+ * second tap, another tab or another child's notice ID changes nothing. Returns whether
+ * this call marked it. `noticeId` must be a 24-character hexadecimal ID.
+ */
+export async function markNoticeSeen(
+  childId: string,
+  noticeId: string,
+): Promise<boolean> {
+  const { modifiedCount } = await getDb()
+    .collection<ChildNoticeDocument>(CHILD_NOTICES)
+    .updateOne(
+      { _id: new ObjectId(noticeId), childId, seenAt: { $exists: false } },
+      { $set: { seenAt: now() } },
+    );
+  return modifiedCount === 1;
 }

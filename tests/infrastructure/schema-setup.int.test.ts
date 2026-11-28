@@ -554,7 +554,90 @@ it("creates childNotices with a childId and seenAt index, holding the book ID on
   await expect(
     notices.insertOne({ ...notice, parentId: "p" }),
   ).rejects.toThrow();
+  // A declined finish names no book; a removal must name one.
+  const { bookId: _id, ...noBook } = notice;
+  await expect(
+    notices.insertOne({ ...noBook, kind: "finish-declined" }),
+  ).resolves.toBeTruthy();
+  await expect(
+    notices.insertOne({ ...notice, kind: "finish-declined" }),
+  ).rejects.toThrow();
+  await expect(notices.insertOne({ ...noBook })).rejects.toThrow();
+  const { createdAt: _at, ...undated } = notice;
+  await expect(notices.insertOne({ ...undated })).rejects.toThrow();
+  await expect(
+    notices.insertOne({ ...noBook, kind: "invented-kind" }),
+  ).rejects.toThrow();
   await notices.deleteMany({});
+});
+
+it("creates parentSuggestions with a unique childId and bookId index and a validator (UC-PAR-suggest-book)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const suggestions = getDb().collection("parentSuggestions");
+  expect(
+    (await suggestions.indexes()).find(
+      (i) => i.name === "childId_bookId_unique",
+    ),
+  ).toMatchObject({ key: { childId: 1, bookId: 1 }, unique: true });
+
+  const suggestion = {
+    childId: "child-1",
+    bookId: "book-1",
+    note: "x".repeat(250),
+    suggestedAt: new Date(),
+  };
+  await expect(suggestions.insertOne({ ...suggestion })).resolves.toBeTruthy();
+  // One pending suggestion per child and book (4a).
+  await expect(suggestions.insertOne({ ...suggestion })).rejects.toThrow();
+  const { note: _n, ...noNote } = suggestion;
+  await expect(
+    suggestions.insertOne({ ...noNote, bookId: "book-2" }),
+  ).resolves.toBeTruthy();
+  // No parent, status, deadline, empty or over-long note (design/par.md, Data model).
+  for (const extra of [
+    { parentId: new ObjectId() },
+    { status: "pending" },
+    { expiresAt: new Date() },
+    { note: "" },
+    { note: "x".repeat(251) },
+  ]) {
+    await expect(
+      suggestions.insertOne({ ...suggestion, bookId: "book-3", ...extra }),
+    ).rejects.toThrow();
+  }
+  await suggestions.deleteMany({});
+});
+
+it("lets books carry the OI-58 write-lock counter only as an integer", async () => {
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const books = getDb().collection<{ _id: string } & Record<string, unknown>>(
+    "books",
+  );
+  const book = (id: string, writeVersion: unknown) => ({
+    _id: id,
+    title: "Lock",
+    author: "A. Writer",
+    matchKey: `lock${id}`,
+    year: 2001,
+    genres: ["fantasy"],
+    moods: ["calm"],
+    format: "picture book",
+    length: "quick read",
+    ageMin: 6,
+    ageMax: 8,
+    readingChallenge: "reading independently",
+    status: "active",
+    createdAt: new Date(),
+    writeVersion,
+  });
+  await expect(books.insertOne(book("lock-1", 1))).resolves.toBeTruthy();
+  await expect(books.insertOne(book("lock-2", "1"))).rejects.toThrow();
+  await books.deleteMany({});
 });
 
 it("accepts the book report and parent shelf removal audit shapes, and refuses an extra field", async () => {
@@ -770,4 +853,61 @@ it("creates recommendationBatches with its validator and three indexes (UC-REC-p
     batches.insertOne(batch({ childId: "c4", answers: { mood: "calm" } })),
   ).rejects.toThrow();
   await batches.deleteMany({});
+});
+
+it("creates recommendationReactions with its two indexes and a validator (UC-REC-kid-review)", async () => {
+  const { ObjectId } = await import("mongodb");
+  const { getDb } = await import("@/server/lib/db");
+  const { ensureIndexes } = await import("@/server/setup/ensure-indexes");
+  await ensureIndexes(getDb());
+  const reactions = getDb().collection("recommendationReactions");
+  const indexes = await reactions.indexes();
+  expect(indexes.find((i) => i.name === "childId_reactedAt")).toMatchObject({
+    key: { childId: 1, reactedAt: 1 },
+  });
+  expect(indexes.find((i) => i.name === "childId_batchIds")).toMatchObject({
+    key: { childId: 1, batchIds: 1 },
+  });
+  // No unique index: the child lock serializes reactions (design/rec.md).
+  expect(indexes.filter((i) => i.unique)).toEqual([]);
+
+  const reaction = {
+    childId: "child-1",
+    bookId: "book-1",
+    reaction: "notForMe",
+    declineReason: "tooHard",
+    batchIds: [new ObjectId()],
+    reactedAt: new Date(),
+  };
+  await expect(reactions.insertOne({ ...reaction })).resolves.toBeTruthy();
+  // A second reaction to the same book is allowed: a dated history (Key decisions).
+  await expect(reactions.insertOne({ ...reaction })).resolves.toBeTruthy();
+  const { declineReason: _r, ...noReason } = reaction;
+  await expect(
+    reactions.insertOne({ ...noReason, reaction: "yes", batchIds: [] }),
+  ).resolves.toBeTruthy();
+  for (const bad of [
+    { reaction: "love" },
+    { declineReason: "boring" },
+    { batchIds: ["not-an-object-id"] },
+    { title: "copied book data" },
+    { nickname: "Starfish" },
+  ]) {
+    await expect(
+      reactions.insertOne({ ...reaction, ...bad }),
+    ).rejects.toThrow();
+  }
+  for (const field of [
+    "childId",
+    "bookId",
+    "reaction",
+    "batchIds",
+    "reactedAt",
+  ]) {
+    const missing = Object.fromEntries(
+      Object.entries(reaction).filter(([key]) => key !== field),
+    );
+    await expect(reactions.insertOne(missing)).rejects.toThrow();
+  }
+  await reactions.deleteMany({});
 });

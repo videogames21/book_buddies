@@ -1,5 +1,5 @@
 import "server-only";
-import { MongoServerError, ObjectId } from "mongodb";
+import { MongoError, MongoServerError, ObjectId } from "mongodb";
 import { appendAudit } from "@/server/audit/audit-log";
 import { findActiveBookIds } from "@/server/catalog/books";
 import type { ParentSession } from "@/server/identity-access/sessions";
@@ -14,6 +14,7 @@ import type { ReportReason } from "@/shared/accounts-family/book-report";
 import { BOOK_REPORTS, CHILD_BOOK_EXCLUSIONS } from "./book-report-schema";
 import { getChildForFamily, lockChildForWrite } from "./child-accounts";
 import { lockConsentForWrite } from "./families";
+import { removeSuggestionInTx } from "./suggestions";
 
 // Accounts & Family's Book Reports and Per-Child Exclusions (UC-PAR-report-book;
 // design/par.md). Nothing here deletes an exclusion or changes a report's status (POST-7):
@@ -53,9 +54,13 @@ export type ReportBookErrorCode =
   | "CONSENT_NOT_CONFIRMED"
   | "NOT_ON_SHELF_OR_BATCH"
   | "ALREADY_REPORTED"
-  | "SAVE_FAILED";
+  | "SAVE_FAILED"
+  | "OUTCOME_UNKNOWN";
 
-type RefusalCode = Exclude<ReportBookErrorCode, "SAVE_FAILED">;
+type RefusalCode = Exclude<
+  ReportBookErrorCode,
+  "SAVE_FAILED" | "OUTCOME_UNKNOWN"
+>;
 
 const MESSAGES: Record<ReportBookErrorCode, string> = {
   BOOK_NOT_FOUND: "We couldn't find this book. Nothing was reported.",
@@ -67,6 +72,8 @@ const MESSAGES: Record<ReportBookErrorCode, string> = {
   ALREADY_REPORTED: "This book has already been reported for this child.",
   SAVE_FAILED:
     "We couldn't send the report. Nothing was saved, and the book is where it was. Please try again.",
+  OUTCOME_UNKNOWN:
+    "We couldn't confirm whether the report was sent. Check your child's shelf before trying again.",
 };
 
 /** Ends the transaction with a refusal; it is not transient, so the driver does not rerun it. */
@@ -86,6 +93,19 @@ function isAlreadyReported(err: unknown): boolean {
   const keys = Object.keys((err.keyPattern ?? {}) as Record<string, unknown>);
   return (
     keys.length === 2 && keys.includes("childId") && keys.includes("bookId")
+  );
+}
+
+/**
+ * The commit's outcome is unknown: the driver retried the commit until its time limit and
+ * still could not learn whether it applied, so the report may have been saved. This is
+ * not 7a, whose message says nothing was saved. Trying again is safe: if the first
+ * attempt committed, the exclusions' unique index makes the retry `ALREADY_REPORTED`.
+ */
+function isOutcomeUnknown(err: unknown): boolean {
+  return (
+    err instanceof MongoError &&
+    err.hasErrorLabel("UnknownTransactionCommitResult")
   );
 }
 
@@ -142,6 +162,9 @@ export async function reportBook(
         },
         { session: tx },
       );
+      // UC-PAR-suggest-book: a reported book's pending suggestion goes with the report.
+      // It does not count toward PRE-3 below.
+      await removeSuggestionInTx(tx, childId, bookId);
 
       const removedEntryId = await removeShelfEntryInTx(tx, childId, bookId);
       const removedFromBatch = await removeFromPendingBatchInTx(
@@ -182,6 +205,13 @@ export async function reportBook(
     if (isAlreadyReported(err)) {
       return fail("ALREADY_REPORTED", MESSAGES.ALREADY_REPORTED);
     }
+    if (isOutcomeUnknown(err)) {
+      return fail(
+        "OUTCOME_UNKNOWN",
+        MESSAGES.OUTCOME_UNKNOWN,
+        logUnexpectedError("reportBook", err),
+      );
+    }
     return fail(
       "SAVE_FAILED",
       MESSAGES.SAVE_FAILED,
@@ -190,14 +220,18 @@ export async function reportBook(
   }
 }
 
-/** PRE-4 for the report page. Callers check the child's family first. */
+/**
+ * PRE-4 for the report page. Callers check the child's family first. With `tx` the read
+ * joins that transaction's snapshot (UC-PAR-suggest-book 1b).
+ */
 export async function isExcluded(
   childId: string,
   bookId: string,
+  tx?: Tx,
 ): Promise<boolean> {
   const exclusion = await getDb()
     .collection<ExclusionDocument>(CHILD_BOOK_EXCLUSIONS)
-    .findOne({ childId, bookId }, { projection: { _id: 1 } });
+    .findOne({ childId, bookId }, { projection: { _id: 1 }, session: tx });
   return exclusion !== null;
 }
 

@@ -9,6 +9,7 @@ import { withTransaction, type Tx } from "@/server/lib/db";
 import { logUnexpectedError } from "@/server/lib/log";
 import { deleteChildRecords as deleteChildNotices } from "@/server/notification/child-notices";
 import { deleteChildRecords as deleteBatches } from "@/server/recommendation/batches";
+import { deleteChildRecords as deleteReactions } from "@/server/recommendation/reactions";
 import { deleteChildRecords as deleteReadingProfile } from "@/server/recommendation/reading-profiles";
 import { deleteChildRecords as deleteNoteFlags } from "@/server/safety-flagging/note-flags";
 import { deleteChildRecords as deleteShelfRecords } from "@/server/shelf/shelf-collections";
@@ -16,6 +17,7 @@ import { childAccountExists, deleteChildForFamily } from "./child-accounts";
 import { markChildRemoved } from "./families";
 import { deleteChildRecords as deleteBookReports } from "./book-reports";
 import { deleteChildRecords as deleteParentNotes } from "./parent-notes";
+import { deleteChildRecords as deleteSuggestions } from "./suggestions";
 
 // UC-PAR-delete-kid-account step 5: one transaction deletes the child account and every
 // record any component holds for the child (architecture §8.2.8, FR-DATA-removal). Each
@@ -32,10 +34,12 @@ const DELETE_CHILD_RECORDS: readonly ((
   deleteChildSignIn, // Identity & Access: credential, sessions and their end records, throttle rows (POST-1)
   deleteChildIdentity, // Child Identity Store
   deleteParentNotes, // Accounts & Family
+  deleteSuggestions, // Accounts & Family: parent suggestions (UC-PAR-suggest-book)
   deleteBookReports, // Accounts & Family: exclusions; reports kept without child or comment
   deleteNoteFlags, // Safety Flagging, a flag of any status (5a)
   deleteReadingProfile, // Recommendation
   deleteBatches, // Recommendation: batches of any status
+  deleteReactions, // Recommendation: reactions and decline reasons (UC-REC-kid-review)
   deleteShelfRecords, // Shelf
   deleteChildNotices, // Notification
 ];

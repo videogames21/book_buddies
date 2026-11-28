@@ -3,7 +3,7 @@
 **Project:** Book Buddies\
 **Team:** Team 5\
 **Client:** Yang Yang, Research Scientist IBR/Knight D Research\
-**Version:** 0.25
+**Version:** 0.27
 
 ---
 
@@ -46,6 +46,7 @@ _Within one use case, `PRE-1`, `POST-1`, and the step numbers are local and may 
 | _[2026-11-25]_ | 0.23    | From the review of #120 (`UC-PAR-suggest-book`): step 1 says "Suggest", since the child is chosen in 1a; 4a no longer says what the check covers until other use cases are built (that is in `design/par.md`); `UC-PAR-review-child-data` step 5 lists parent suggestions and their notes, and `UC-PAR-delete-child-data` POST-1 deletes them, matching the `BR-kid-data-stored` row; 5a says a report or a block of the book also removes the suggestion | _Cabdifataax Maxamuud_, _Claude_ |
 | _[2026-11-25]_ | 0.24    | `UC-SHLF-parent-remove-book`, from its design (`design/shlf.md`): the open issues cite `OI-71` (notice wording) and `OI-72` (recommended again), and a new one notes that "Removed by" is shown to no parent; from the review of #121, 5a now separates a failed save (the Parent is told nothing was saved) from one the system cannot confirm (the removal may have been saved, so the Parent checks the shelf before retrying), and new extension 5d refuses the removal, changing nothing, when the family's consent is not confirmed or has been revoked | _McKenzie Mitchell-Richardson_, _Claude_ |
 | _[2026-11-25]_ | 0.25    | `UC-REC-kid-review`, from its design (`design/rec.md`): step 2 shows each book's title and author, with a cover once covers exist (`OI-65`); 4a covers "Yes" and "Maybe later" for a book already on the shelf, which is neither added again nor moved, and the reaction is still recorded; 7a separates a save that saved nothing from one the system cannot confirm (check the shelf or try again; a retry finds the book already answered); the open issues cite `OI-73` (whether the parent sees decline reasons outside review and export) and `OI-2` (a declined book can be recommended again). | _McKenzie Mitchell-Richardson_, _Claude_ |
+| _[2026-11-27]_ | 0.27    | `UC-SHLF-par-finish-book`, from its design (`design/shlf.md`): the flag record is the admin's alert, as `design/par.md` decided for `UC-PAR-create-kid-account`, so the Secondary Actors, step 8, POST-5, POST-6, 8a, 8b and the Associated Information no longer speak of a separate alert, and 8b has nothing to retry; 3a shows the book as it now is, since a "not finished yet" leaves no record of who decided; 8a says what the parent sees when the save's outcome is unknown. Numbered v0.27 because open #150 claims v0.26; whichever merges later renumbers on rebase. | _Ethan Paredez_, _Claude_ |
 
 ---
 
@@ -1572,7 +1573,7 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 **Created By:** _Claude_\
 **Date Created:** _2026-10-29_\
 **Primary Actor:** A Parent (Main or Sub Parent)\
-**Secondary Actors:** A Child (can rate the book once the finish is confirmed); the System Admin (receives an alert if the parent's note is flagged, and reads it only in `UC-ADM-flag-review`)\
+**Secondary Actors:** A Child (can rate the book once the finish is confirmed); the System Admin (sees a flagged note in the flag review list, and reads it only in `UC-ADM-flag-review`)\
 **Trigger:** Either (a) the child moves a book to Finished in `UC-SHLF-kid-move-book` and the Parent taps the in-app prompt or the weekly check-in notification that asks them to confirm; (b) the Parent taps "Confirm finished" on a Finished book in `UC-SHLF-parent-view-shelf`; or (c) the Parent taps "Edit note" on a book whose finish is already confirmed.\
 **Description:** A parent confirms whether their child really finished a book the child moved to Finished. If the parent confirms, the child can rate the book (`UC-SHLF-kid-rate-book`) and the book is marked with a confirmed-finished icon for good. The child is told to have a parent confirm, and until then the book is grayed out on the Finished shelf without the icon. If the parent says "not finished yet," the book goes back to the shelf category it came from and the child is told. The child can also retract an unconfirmed completion themselves (`UC-SHLF-kid-move-book`). After confirming, the parent may add a short note, which the recommender can use, and may edit it at any time. The note is screened by the internal word list, and a match is flagged for the admin (`UC-ADM-flag-review`). This corresponds to `FEAT-shelf` and `FEAT-ratings`, and is a team decision of 2026-10-29.
 
@@ -1588,8 +1589,8 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 - POST-2. If confirmed: the child can rate the book (`UC-SHLF-kid-rate-book`).
 - POST-3. If the Parent said "not finished yet": the book is back in the category it was in before the child moved it, its finish is no longer awaiting, and the child has a pending notice that shows the next time they open their shelf.
 - POST-4. If the Parent entered or edited a note, it is saved for this child and this book and is available to the recommender. It is never shown to the child.
-- POST-5. If the note matched the internal word list, it is marked flagged and an in-app alert has been issued to the system admin. The alert carries no note content. No automatic action is taken and nothing is sent to an outside service (`BR-note-safety-flagging`).
-- POST-6. The confirmation (or move back), the note, the flag and the alert were saved together.
+- POST-5. If the note matched the internal word list, it is marked flagged, and the flag appears in the system admin's flag review list (`UC-ADM-flag-review`), which is the admin's alert, as for the note of `UC-PAR-create-kid-account` (team decision, `design/par.md`). The flag carries no note content. No automatic action is taken and nothing is sent to an outside service (`BR-note-safety-flagging`).
+- POST-6. The confirmation (or move back and the child's notice), the note and the flag were saved together.
 
 **Main Success Scenario:**
 
@@ -1600,7 +1601,7 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 5. The system shows an optional note box with the prompt: "Share anything that may help BookBuddies better understand your child's reading interests and provide more relevant recommendations. Please do not include personal, identifying, sensitive, or confidential information, such as full names, school names, addresses, or contact information." The limit is 250 characters.
 6. The Parent writes a note or skips it, and taps "Save."
 7. The system checks the note, if any, against the internal word list.
-8. The system saves the confirmation, the note, any flag and any admin alert in one save, marks the book with the confirmed-finished icon, and makes the rating step available to the child.
+8. The system saves the confirmation, the note and any flag in one save, marks the book with the confirmed-finished icon, and makes the rating step available to the child. A flag appears in the admin's flag review list.
 9. The system confirms to the Parent. Use case ends.
 
 **Extensions:**
@@ -1608,15 +1609,15 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 - 1a. The book is no longer in Finished when the Parent acts, for example because the child moved it back, or the book was removed or blocked. The system clears the awaiting state, tells the Parent, and makes no other change. This includes a child retracting an unconfirmed completion (`UC-SHLF-kid-move-book` 3c). If the Parent had already tapped "Confirm finished" or "Not finished yet" and saved when the child moved or removed the book, the system shows a message that the child moved or removed the book, which cancelled the request, and saves nothing.
 - 2a. The Parent does not open the prompt. The book stays in Finished and awaiting confirmation, the child cannot rate it, and the prompt stays until the Parent acts. It does not expire.
 - 2b. The request is for a child not linked to the Parent. The system denies it and shows nothing (`SEC-role-authorization`).
-- 3a. The other parent decided first. The system shows the recorded outcome and makes no change.
+- 3a. The other parent decided first. The system says another parent already decided, shows the book as it now is (confirmed, or back in its earlier category), and makes no change. A "not finished yet" is not recorded apart from the move, so the system does not say which parent decided or what.
 - 4a. The Parent leaves without deciding. No change; the book stays awaiting confirmation.
 - 4b. The Parent taps "Not finished yet." The system moves the book back to the category it was in before the child moved it, clears the awaiting state, and offers no note box or rating step. In the same save, the system creates a notice for the child, shown the next time they open their shelf: "Whoops! Looks like you didn't finish your book. It went back to where it was." If the earlier category is no longer known, the book goes to Reading Now (team proposal). Use case ends.
 - 4c. The Parent chose trigger (c) to edit a note. The system shows the book's current note (empty if none); the Parent changes, adds or clears it and taps "Save"; the system continues at step 7. The confirmation and icon are unchanged. The Parent can do this at any time.
 - 6a. The Parent skips the note. The system saves the confirmation with no note.
 - 6b. The note is longer than 250 characters. The system shows an inline error, disables Save and keeps the text.
 - 7a. The word-list check cannot run. The system saves the note unflagged and records that the check did not run, so an admin can re-run it. It does not discard the note or block the confirmation. *Team proposal; confirm with the client.*
-- 8a. Saving fails. The system shows an error and keeps the text on screen. Nothing is saved, so no alert is issued and the child still cannot rate the book (`ROB-no-data-loss`).
-- 8b. The alert cannot reach the admin at once. The flag stays pending and the system retries delivery. An alert is never only a log entry (`SAF-flag-delivery`).
+- 8a. Saving fails. The system shows an error and keeps the text on screen. Nothing is saved, so no flag is stored and the child still cannot rate the book (`ROB-no-data-loss`). If the system cannot tell whether the save went through, it says so and shows the book as it now is, rather than saying nothing was saved.
+- 8b. The admin is not signed in. The flag is saved with the note and stays in the admin's flag review list until they next sign in; there is nothing to deliver or retry. A flag is never only a log entry (`SAF-flag-delivery`).
 - 8c. The Parent edits a note that is already flagged and open in `UC-ADM-flag-review`. The system saves the new text and re-screens it, and keeps the original flagged text for the admin's review. An edit does not close the flag.
 
 **Priority:** Medium — it gates the rating step, and the rating is an input to the recommender. It does not block the core recommendation loop.\
@@ -1634,10 +1635,10 @@ Only the shelf entry is deleted, in one save. The rating is not touched, so a fa
 | Confirmed by            | reference to the parent account    | system-set                                                                                        | Parent-visible; not shown to the child                                                                                                         | —                  |
 | Confirmed at            | timestamp                          | system-set                                                                                        | Parent-visible                                                                                                                                 | —                  |
 | Finish note             | string                             | optional; at most 250 characters; shown with the privacy prompt in step 5; editable at any time  | Parent-visible; used by the recommender; never shown to the child; the system admin sees it only if flagged, in `UC-ADM-flag-review` (`OI-15`) | —                  |
-| Note flag               | enum: none, flagged, check not run | system-set by the internal word list (`BR-note-safety-flagging`)                                  | Admin-visible only through `UC-ADM-flag-review`                                                                                                | —                  |
+| Note flag               | enum: none, flagged, check not run | system-set by the internal word list (`BR-note-safety-flagging`)                                  | Admin-visible only through `UC-ADM-flag-review`, whose list is the admin's alert                                                               | —                  |
 | Note saved at           | timestamp                          | system-set on each save                                                                           | Parent-visible                                                                                                                                 | —                  |
 
-The confirmation, note, flag and alert are one save (architecture §8.2.8). Only the first decision on a book counts.
+The confirmation, note and flag are one save (architecture §8.2.8). Only the first decision on a book counts.
 
 **Related Use Cases:** `UC-SHLF-kid-move-book` (sets the finish to awaiting and records the previous category); `UC-SHLF-kid-rate-book` (available after this use case); `UC-SHLF-parent-view-shelf` (also invokes this use case); `UC-SHLF-kid-view-shelf` (shows the icon); `UC-ADM-flag-review` (reviews a flagged note); `UC-REC-recommend-quiz-rules` (uses the note); `UC-PAR-create-kid-account` (the other place a parent note is entered)\
 **Assumptions:** A Sub Parent may confirm and edit, like the Main Parent. Notification is in-app only (`CI-in-app-alerts`). A rating cannot exist without a confirmed finish; a rating made before this change stays valid. The weekly check-in has two forms: when no book is awaiting, it asks whether the child finished any books since last week and opens the general dashboard (`UC-PAR-view-growth-report`); when a book is awaiting, it asks the Parent to confirm and opens this use case. A confirmed book that moves back into Finished needs no new confirmation. There is no separate re-read action or status: the child moves the book freely to any part of the shelf, and the icon is the proof that a parent confirmed it. If the book is removed from the shelf, the icon is hidden but the confirmation, rating and finish note are kept; if the book is added back, the icon returns, and moving it to Finished needs no new confirmation. A catalog block deletes neither the rating nor the finish confirmation nor the finish note, because a block can be undone (`UC-ADM-unblock-content`). Only if a book is completely removed from the system are its ratings, finish confirmations and finish notes deleted.\

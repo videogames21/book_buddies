@@ -1,0 +1,14 @@
+/* The four rating choices: the shelf's large book buttons, with an icon first. */
+.choices {
+  width: 100%;
+}
+.choice {
+  justify-content: flex-start;
+}
+.choice:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.icon {
+  font-size: 1.8rem;
+}

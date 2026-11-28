@@ -6,7 +6,11 @@ import { getChildDisplay } from "@/server/accounts-family/child-accounts";
 import { requireChild } from "@/server/identity-access/sessions";
 import { isRulesQuizAvailable } from "@/server/recommendation/quiz-submission";
 import styles from "./child.module.css";
-import { CHILD_SHELF_PATH, CHILD_SIGN_IN_PATH } from "./paths";
+import {
+  CHILD_RECOMMENDATIONS_PATH,
+  CHILD_SHELF_PATH,
+  CHILD_SIGN_IN_PATH,
+} from "./paths";
 import { StartRecommendationQuizButton } from "./recommendations/quiz/start-button";
 import { SignOutButton } from "./sign-out-button";
 
@@ -28,6 +32,13 @@ export default async function ChildHomePage() {
       <h1 className={styles.nickname}>{child.nickname}</h1>
       <Link className={styles.primary} href={CHILD_SHELF_PATH} prefetch={false}>
         My Shelf
+      </Link>
+      <Link
+        className={styles.primary}
+        href={CHILD_RECOMMENDATIONS_PATH}
+        prefetch={false}
+      >
+        My recommendations
       </Link>
       {isRulesQuizAvailable() && <StartRecommendationQuizButton />}
       <SignOutButton />

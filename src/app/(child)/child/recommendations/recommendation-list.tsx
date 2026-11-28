@@ -29,7 +29,8 @@ const MAY_HAVE_SAVED =
  * a book gone from it was answered. No count or position is shown (BR-kid-no-metrics).
  * When a card leaves, keyboard focus moves to the next card's first button, or with no
  * next card to the status line when it has something to say, then to the empty
- * message, then to the card before.
+ * message, then to the card before. Opening the reasons focuses the first reason, and
+ * Back focuses that card's Not for me again.
  */
 export function RecommendationList({
   items,
@@ -40,6 +41,8 @@ export function RecommendationList({
   const inFlight = useRef(false);
   /** The card the child last answered, and its place, until focus has been placed. */
   const focusAfter = useRef<{ bookId: string; index: number } | null>(null);
+  /** The card whose reason step just opened or closed, until focus has been placed. */
+  const reasonStepToggled = useRef<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
   const emptyRef = useRef<HTMLParagraphElement>(null);
@@ -74,6 +77,28 @@ export function RecommendationList({
     else if (cards.length === 0) emptyRef.current?.focus();
     else cards[cards.length - 1]?.querySelector("button")?.focus();
   });
+
+  // The reason step swaps the card's buttons, so the focused button is gone.
+  useEffect(() => {
+    const bookId = reasonStepToggled.current;
+    if (!bookId) return;
+    reasonStepToggled.current = null;
+    const index = shown.findIndex((item) => item.bookId === bookId);
+    const card = listRef.current?.querySelectorAll("li")[index];
+    const target =
+      choosingReason === bookId
+        ? card?.querySelector("button")
+        : card?.querySelector<HTMLButtonElement>(
+            'button[data-reaction="notForMe"]',
+          );
+    target?.focus();
+  });
+
+  /** Opens or closes a card's reason step. */
+  function toggleReasonStep(bookId: string, open: boolean) {
+    reasonStepToggled.current = bookId;
+    setChoosingReason(open ? bookId : null);
+  }
 
   function setMessage(bookId: string, message: string | null) {
     setMessages((before) => {
@@ -218,7 +243,7 @@ export function RecommendationList({
                     className={list.back}
                     disabled={busy}
                     onClick={() => {
-                      setChoosingReason(null);
+                      toggleReasonStep(item.bookId, false);
                     }}
                   >
                     Back
@@ -233,12 +258,13 @@ export function RecommendationList({
                   {REACTIONS.map((reaction) => (
                     <button
                       key={reaction}
+                      data-reaction={reaction}
                       type="button"
                       className={styles.secondary}
                       disabled={busy}
                       onClick={() => {
                         if (reaction === "notForMe") {
-                          setChoosingReason(item.bookId);
+                          toggleReasonStep(item.bookId, true);
                           return;
                         }
                         void react(item.bookId, reaction);

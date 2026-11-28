@@ -115,9 +115,17 @@ test("main: the child opens My recommendations from home, answers each book, see
   await expect(answer(page, "Pebble Road", "Yes")).toBeFocused();
 
   // Step 6: the reasons and Skip on the same card; Back returns to the three answers.
+  // Focus follows: to the first reason, and back to Not for me.
   await answer(page, "Pebble Road", "Not for me").click();
+  await expect(
+    answer(page, "Pebble Road", "Not interested in topic"),
+  ).toBeFocused();
   await card(page, "Pebble Road").getByRole("button", { name: "Back" }).click();
+  await expect(answer(page, "Pebble Road", "Not for me")).toBeFocused();
   await answer(page, "Pebble Road", "Not for me").click();
+  await expect(
+    answer(page, "Pebble Road", "Not interested in topic"),
+  ).toBeFocused();
   await expect(card(page, "Pebble Road").getByRole("button")).toHaveText([
     "Not interested in topic",
     "Too easy / too short",

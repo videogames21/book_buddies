@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { RecommendationListItem } from "@/server/recommendation/reactions";
 import {
   DECLINE_REASON_LABELS,
@@ -27,6 +27,9 @@ const MAY_HAVE_SAVED =
  * per book. Nothing is sent until the child picks Yes, Maybe later, a reason or Skip.
  * After an unconfirmed outcome the page is read again and the refreshed list decides:
  * a book gone from it was answered. No count or position is shown (BR-kid-no-metrics).
+ * When a card leaves, keyboard focus moves to the next card's first button, or with no
+ * next card to the status line when it has something to say, then to the empty
+ * message, then to the card before.
  */
 export function RecommendationList({
   items,
@@ -35,6 +38,11 @@ export function RecommendationList({
 }) {
   const router = useRouter();
   const inFlight = useRef(false);
+  /** The card the child last answered, and its place, until focus has been placed. */
+  const focusAfter = useRef<{ bookId: string; index: number } | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
   const [sending, setSending] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
@@ -46,6 +54,26 @@ export function RecommendationList({
 
   const busy = sending || refreshing;
   const shown = items.filter((item) => !answered.has(item.bookId));
+
+  // Runs after every render, and acts once the answer and any refresh have settled, so
+  // the button it focuses is enabled again.
+  useEffect(() => {
+    const request = focusAfter.current;
+    if (!request || busy) return;
+    focusAfter.current = null;
+    const cards = listRef.current?.querySelectorAll("li") ?? [];
+    const stayed = shown.findIndex((item) => item.bookId === request.bookId);
+    if (stayed !== -1) {
+      // The card stayed (a failed or unconfirmed save): back to it, to try again.
+      cards[stayed]?.querySelector("button")?.focus();
+      return;
+    }
+    const next = cards[request.index]?.querySelector("button");
+    if (next) next.focus();
+    else if (status) statusRef.current?.focus();
+    else if (cards.length === 0) emptyRef.current?.focus();
+    else cards[cards.length - 1]?.querySelector("button")?.focus();
+  });
 
   function setMessage(bookId: string, message: string | null) {
     setMessages((before) => {
@@ -75,6 +103,10 @@ export function RecommendationList({
   ) {
     if (inFlight.current) return;
     inFlight.current = true;
+    focusAfter.current = {
+      bookId,
+      index: shown.findIndex((item) => item.bookId === bookId),
+    };
     setSending(true);
     setMessage(bookId, null);
     setStatus(null);
@@ -120,12 +152,14 @@ export function RecommendationList({
 
   return (
     <>
-      <p className={list.status} role="status">
+      <p className={list.status} role="status" ref={statusRef} tabIndex={-1}>
         {status}
       </p>
       {shown.length === 0 ? (
         <>
-          <p>{EMPTY}</p>
+          <p ref={emptyRef} tabIndex={-1}>
+            {EMPTY}
+          </p>
           <Link
             className={styles.primary}
             href={CHILD_QUIZ_PATH}
@@ -135,7 +169,7 @@ export function RecommendationList({
           </Link>
         </>
       ) : (
-        <ul className={list.list}>
+        <ul className={list.list} ref={listRef}>
           {shown.map((item) => (
             <li key={item.bookId} className={list.card}>
               <h2 className={list.title}>{item.title}</h2>

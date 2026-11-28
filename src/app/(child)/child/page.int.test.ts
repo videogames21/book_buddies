@@ -71,7 +71,7 @@ beforeEach(async () => {
 });
 
 describe("/child home", () => {
-  it("shows the child's nickname and avatar, My Shelf, the quiz entry and Sign out, and nothing else", async () => {
+  it("shows the child's nickname and avatar, My Shelf, My recommendations, the quiz entry and Sign out, and nothing else", async () => {
     await insertSignedInChild("Otter");
     const { childId } = await signedInChild("Starfish");
     // Not the fixture's usual avatar, so the page has to read this child's.
@@ -82,10 +82,12 @@ describe("/child home", () => {
     expect(text).toEqual([
       "Starfish",
       "My Shelf",
+      "My recommendations",
       "Get recommendations",
       "Sign out",
     ]);
     expect(html).toContain('href="/child/shelf"');
+    expect(html).toContain('href="/child/recommendations"');
     expect(html).toContain("7.png");
   });
 
@@ -98,6 +100,7 @@ describe("/child home", () => {
     expect(html.split(/<[^>]*>/).filter(Boolean)).toEqual([
       "Starfish",
       "My Shelf",
+      "My recommendations",
       "Sign out",
     ]);
     guard.mockRestore();
